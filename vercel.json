@@ -30,6 +30,24 @@
       }
     },
     {
+      "source": "/b/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/review/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
       "source": "/web/(.*)",
       "destination": {
         "service": "web"
