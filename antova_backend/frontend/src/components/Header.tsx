@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { listTenders, downloadTbeExport } from '../lib/api';
+import { TenderCommandPopover } from './TenderCommandPopover';
 import { ReviewTenderRow } from '../lib/types';
 import {
   ChevronDown,
@@ -37,7 +38,6 @@ export function Header({
   const pathname = usePathname();
   const router = useRouter();
   const [tenders, setTenders] = useState<ReviewTenderRow[]>([]);
-  const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -102,67 +102,12 @@ export function Header({
 
             <span className="text-zinc-300 dark:text-zinc-700">/</span>
 
-            {/* Tender Selector Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-50 dark:bg-[#111113] border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
-                aria-label="Select Active Tender"
-                aria-expanded={isSwitcherOpen}
-              >
-                <span className="text-zinc-500 dark:text-zinc-400 font-normal">Tender:</span>
-                <span className="text-zinc-900 dark:text-white font-mono font-medium">{activeTenderId}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-              </button>
-
-              {isSwitcherOpen && (
-                <div
-                  className="absolute left-0 top-full mt-1.5 w-84 bg-white dark:bg-[#09090B] border border-zinc-200 dark:border-zinc-800 rounded shadow-2xl py-1 z-50 text-xs"
-                  onMouseLeave={() => setIsSwitcherOpen(false)}
-                >
-                  <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold border-b border-zinc-200 dark:border-zinc-800/80 font-mono">
-                    Switch Ingested Tender
-                  </div>
-                  {displayTenders.map((t) => (
-                    <button
-                      key={t.tender_id}
-                      onClick={() => {
-                        setIsSwitcherOpen(false);
-                        router.push(`/audit/${t.tender_id}`);
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-start justify-between gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors ${
-                        t.tender_id === activeTenderId ? 'bg-zinc-100 dark:bg-zinc-900/80 text-zinc-900 dark:text-white font-medium' : 'text-zinc-700 dark:text-zinc-300'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-mono font-semibold text-xs text-zinc-900 dark:text-zinc-100">{t.tender_id}</div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[210px]" title={t.title}>
-                          {t.title}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-medium shrink-0 ${
-                          t.status === 'VERIFIED'
-                            ? 'border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30'
-                            : 'border border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
-                        }`}
-                      >
-                        {t.status}
-                      </span>
-                    </button>
-                  ))}
-                  <div className="border-t border-zinc-200 dark:border-zinc-800/80 mt-1 pt-1">
-                    <Link
-                      href="/ingest"
-                      onClick={() => setIsSwitcherOpen(false)}
-                      className="block px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    >
-                      + Ingest new tender documents
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Searchable Tender Selector Popover */}
+            <TenderCommandPopover
+              tenders={displayTenders}
+              activeTenderId={activeTenderId}
+              onSelectTender={(id) => router.push(`/audit/${id}`)}
+            />
           </div>
 
           {/* Center Navigation Pills */}
