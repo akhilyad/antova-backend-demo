@@ -13,6 +13,7 @@
 !/antova_*.js
 !/antova_*.jsx
 !/antova_requirements.txt
+!/requirements.txt
 !/test_antova*.py
 !/antova_ingest/
 !/samples/
