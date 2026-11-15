@@ -25,7 +25,6 @@ import {
   FileStack,
   Layers,
   HelpCircle,
-  LogIn,
   LogOut,
   User,
   Activity,
@@ -383,71 +382,34 @@ function AppShellContent({
                   <Settings className="w-4 h-4 shrink-0 text-zinc-500" />
                   {sidebarOpen && <span>Settings</span>}
                 </Link>
-
-                <Link
-                  href="/login"
-                  className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors ${
-                    pathname === '/login'
-                      ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
-                  }`}
-                  title="Sign in / Login"
-                >
-                  <LogIn className="w-4 h-4 shrink-0 text-zinc-500" />
-                  {sidebarOpen && <span>Sign in</span>}
-                </Link>
               </div>
             </div>
           </div>
 
           {/* Sidebar Footer */}
-          <div className="p-3 border-t border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex flex-col gap-2 text-xs">
-            {/* Direct Login Button in Bottom Left */}
-            <Link
-              href="/login"
-              className="flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg bg-[#FF5500]/10 hover:bg-[#FF5500]/15 dark:bg-[#FF5500]/15 dark:hover:bg-[#FF5500]/25 text-[#FF5500] font-medium transition-colors border border-[#FF5500]/30 group"
-              title="Sign in with Antova (21st.dev component)"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <LogIn className="w-3.5 h-3.5 shrink-0" />
-                {sidebarOpen && <span className="text-xs font-semibold truncate">Sign in</span>}
+          <div className="p-3 border-t border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0">
+                EP
               </div>
               {sidebarOpen && (
-                <span className="text-[10px] text-[#FF5500]/80 group-hover:text-[#FF5500] shrink-0 font-medium">
-                  Login &rarr;
-                </span>
-              )}
-            </Link>
-
-            {/* User Profile & Theme Toggle Row (Matches user snippet) */}
-            <div className="flex items-center justify-between gap-1 pt-0.5">
-              <Link
-                href="/login"
-                className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-85 transition-opacity group cursor-pointer"
-                title="Procurement Lead (Vogt-Grid EPC) - Click to sign in"
-              >
-                <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0 group-hover:ring-2 group-hover:ring-[#FF5500]/50 transition-all">
-                  EP
-                </div>
-                {sidebarOpen && (
-                  <div className="truncate text-[11px] text-left">
-                    <div className="font-semibold text-zinc-900 dark:text-white truncate group-hover:text-[#FF5500] transition-colors">
-                      Procurement Lead
-                    </div>
-                    <div className="text-[10px] text-zinc-400 truncate">Vogt-Grid EPC</div>
+                <div className="truncate text-[11px]">
+                  <div className="font-semibold text-zinc-900 dark:text-white truncate">
+                    Procurement Lead
                   </div>
-                )}
-              </Link>
-
-              <button
-                onClick={toggleTheme}
-                className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
-                title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                aria-label="Toggle theme"
-              >
-                {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-              </button>
+                  <div className="text-[10px] text-zinc-400 truncate">Vogt-Grid EPC</div>
+                </div>
+              )}
             </div>
+
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </aside>
 
@@ -507,16 +469,6 @@ function AppShellContent({
                 <Download className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Download</span>
               </button>
-
-              {/* Header Sign In Button */}
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[#FF5500]/30 bg-[#FF5500]/10 hover:bg-[#FF5500]/20 text-[#FF5500] transition-colors shadow-2xs"
-                title="Sign in with Antova (21st.dev component)"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign in</span>
-              </Link>
 
               {/* Verified Seal / Unlock Toggle (if on audit page) */}
               {pathname.startsWith('/audit') && onVerify && onWithdraw && (
