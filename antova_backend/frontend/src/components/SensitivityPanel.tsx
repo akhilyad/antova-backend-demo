@@ -75,9 +75,9 @@ export function SensitivityPanel({
   const handleResetFreight = () => setStagedFreight(1.0);
 
   return (
-    <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-4 text-xs shadow-sm font-sans space-y-4">
+    <div className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 text-xs shadow-2xs font-sans space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#DCE2E8] dark:border-zinc-800 gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-6 h-6 rounded-md bg-[#172536] text-white flex items-center justify-center">
             <Sliders className="w-3.5 h-3.5" />

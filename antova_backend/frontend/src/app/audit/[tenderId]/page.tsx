@@ -288,12 +288,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       }}
     >
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-16 text-zinc-400 gap-3 font-sans">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
-          <span className="text-xs uppercase tracking-wider font-mono">
-            Evaluating tender bids & Pint unit models...
-          </span>
-        </div>
+        <AuditWorkbenchSkeleton tenderId={tenderId} />
       ) : brief ? (
         <div className="space-y-4 font-sans">
           {/* Executive Tender Summary Banner */}
@@ -906,6 +901,106 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function AuditWorkbenchSkeleton({ tenderId }: { tenderId: string }) {
+  return (
+    <div className="space-y-4 font-sans animate-pulse" aria-busy="true" aria-label="Loading tender audit data">
+      {/* Executive Summary Skeleton */}
+      <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-xs font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
+              {tenderId}
+            </span>
+            <div className="h-4 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            <div className="h-4 w-24 bg-zinc-100 dark:bg-zinc-800 rounded" />
+          </div>
+          <div className="h-3 w-72 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md" />
+          <div className="h-8 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-md" />
+        </div>
+      </div>
+
+      {/* KPI Cards Skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="p-3.5 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs space-y-2"
+          >
+            <div className="h-3 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            <div className="h-6 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            <div className="h-3 w-40 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Tab bar skeleton */}
+      <div className="border-b border-[#DCE2E8] dark:border-zinc-800 flex items-center gap-2 pb-1">
+        <div className="h-8 w-36 bg-zinc-200 dark:bg-zinc-800 rounded-t" />
+        <div className="h-8 w-32 bg-zinc-100 dark:bg-zinc-800/50 rounded-t" />
+        <div className="h-8 w-32 bg-zinc-100 dark:bg-zinc-800/50 rounded-t" />
+        <div className="h-8 w-28 bg-zinc-100 dark:bg-zinc-800/50 rounded-t" />
+      </div>
+
+      {/* Main Ledger Table Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-7 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl overflow-hidden shadow-2xs">
+          <div className="px-5 py-3.5 border-b border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between bg-[#F8FAFC] dark:bg-[#111113]">
+            <div className="h-4 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
+          </div>
+          <div className="divide-y divide-[#DCE2E8] dark:divide-zinc-800">
+            {[1, 2, 3].map((row) => (
+              <div key={row} className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded bg-zinc-200 dark:bg-zinc-800 shrink-0" />
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-36 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                    <div className="h-3 w-20 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-4 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-4 w-20 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="p-4 bg-[#F8FAFC] dark:bg-[#111113] border-t border-[#DCE2E8] dark:border-zinc-800">
+            <div className="h-3 w-3/4 bg-zinc-200 dark:bg-zinc-800 rounded" />
+          </div>
+        </div>
+
+        {/* Right Inspector Skeleton */}
+        <div className="lg:col-span-5 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-4 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between pb-3 border-b border-[#DCE2E8] dark:border-zinc-800">
+            <div className="h-4 w-44 bg-zinc-200 dark:bg-zinc-800 rounded" />
+            <div className="h-4 w-20 bg-zinc-200 dark:bg-zinc-800 rounded" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((card) => (
+              <div
+                key={card}
+                className="p-3.5 rounded-lg border border-[#DCE2E8] dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/30 space-y-2"
+              >
+                <div className="flex justify-between">
+                  <div className="h-3.5 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                  <div className="h-3.5 w-16 bg-zinc-200 dark:bg-zinc-800 rounded" />
+                </div>
+                <div className="h-3 w-full bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+                <div className="h-3 w-3/4 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

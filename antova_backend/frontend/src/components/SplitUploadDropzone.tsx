@@ -42,7 +42,7 @@ export function SplitUploadDropzone() {
         setCurrentJob({
           job_id: `replay-${targetTenderId}`,
           status: i === stages.length - 1 ? 'COMPLETED' : 'PROCESSING',
-          progress: stages[i].pct,
+          progress_pct: stages[i].pct,
           stage: stages[i].msg.split(':')[0],
           tender_id: targetTenderId,
         } as any);
@@ -181,16 +181,16 @@ export function SplitUploadDropzone() {
   return (
     <div className="space-y-6 text-xs max-w-5xl mx-auto font-sans">
       {/* Quick Launch Pre-Staged Tenders Ribbon */}
-      <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] shadow-sm">
+      <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <h3 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider">
                 Instant Repository Evaluation Run
               </h3>
             </div>
-            <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-1">
+            <p className="text-[#667487] dark:text-zinc-400 text-xs mt-1">
               Execute live rule evaluation on verified benchmark packages directly in the local repo:
             </p>
           </div>
@@ -199,14 +199,14 @@ export function SplitUploadDropzone() {
             <button
               onClick={() => handleQuickLoadPreset('TENDER-2026-402')}
               disabled={isProcessing}
-              className="px-3.5 py-1.5 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-sm"
+              className="px-3.5 py-1.5 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-2xs"
             >
               Replay TENDER-2026-402
             </button>
             <button
               onClick={() => handleQuickLoadPreset('TENDER-2026-417')}
               disabled={isProcessing}
-              className="px-3.5 py-1.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-[#111113] text-zinc-900 dark:text-white font-medium rounded text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+              className="px-3.5 py-1.5 border border-[#DCE2E8] dark:border-zinc-700 bg-zinc-50 dark:bg-[#111113] text-zinc-900 dark:text-white font-medium rounded-md text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50 shadow-2xs"
             >
               Replay TENDER-2026-417
             </button>
@@ -215,9 +215,9 @@ export function SplitUploadDropzone() {
       </div>
 
       {/* Main Split Ingestion Form */}
-      <form onSubmit={handleCustomSubmit} className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-5 space-y-5 shadow-sm">
-        <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3">
-          <h2 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+      <form onSubmit={handleCustomSubmit} className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 space-y-5 shadow-2xs">
+        <div className="border-b border-[#DCE2E8] dark:border-zinc-800 pb-3">
+          <h2 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider flex items-center gap-2">
             <UploadCloud className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
             <span>Tender & Multi-Vendor Proposal Ingestion Workbench</span>
           </h2>
@@ -378,14 +378,14 @@ export function SplitUploadDropzone() {
         )}
 
         {/* Submit */}
-        <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-          <div className="text-zinc-500 text-xs">
+        <div className="pt-3 border-t border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between">
+          <div className="text-[#667487] dark:text-zinc-400 text-xs">
             Deterministic Pint unit engine + PyMuPDF coordinate indexing.
           </div>
           <button
             type="submit"
             disabled={isProcessing}
-            className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
+            className="px-4 py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-2xs"
           >
             {isProcessing ? (
               <>
@@ -404,8 +404,8 @@ export function SplitUploadDropzone() {
 
       {/* Live Pipeline Monitor Modal */}
       {isProcessing && currentJob && (
-        <div className="p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl space-y-3 shadow-md">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="p-4 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
               <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
