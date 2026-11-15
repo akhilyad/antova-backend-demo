@@ -201,6 +201,28 @@ npm run dev
 ```
 Open **`http://localhost:3000`** in your browser.
 
+### 3. Deploying to Vercel (Multi-Service & Environment Setup)
+
+#### Option A: Vercel Multi-Service Monorepo Preset (Recommended)
+1. Import the repository into Vercel with **Root Directory** set to either `.` or `antova_backend`.
+2. Vercel automatically detects the multi-service layout via `vercel.json`:
+   - `frontend` (Next.js 15) receives all main application traffic (`/(.*)`).
+   - `web` (Vite) handles internal assets and legacy review routes (`/b/(.*)`, `/review/(.*)`).
+3. Set the following Environment Variables in the Vercel Project Settings:
+   - `NEXT_PUBLIC_API_URL`: Your hosted FastAPI backend URL (e.g. `https://antova-yc-api.yourdomain.com`).
+   - `BACKEND_URL`: Internal backend URL for server-side Next.js proxying (e.g. `https://antova-yc-api.yourdomain.com`).
+   - `NEXT_PUBLIC_REVIEW_TOKEN`: `dev-review-token-antova` (or your production reviewer token).
+
+#### Option B: Standalone Next.js Project on Vercel
+1. Set Vercel Root Directory directly to `antova_backend/frontend`.
+2. Configure `NEXT_PUBLIC_API_URL` to point to your hosted backend.
+3. Next.js automatically proxies all `/api/...` calls via serverless runtime handlers (`src/app/api/[[...path]]/route.ts`), completely bypassing browser cross-origin CORS limitations.
+
+#### Built-in High-Availability & Demo-Day Safeguards
+- **Smart CORS Failover:** The API client attempts direct calls to `NEXT_PUBLIC_API_URL`; if blocked by browser CORS preflight or network restrictions, it automatically retries via the serverless internal proxy.
+- **Offline Verified Snapshot:** If the backend engine experiences a cold boot or returns HTTP 500, the audit workbench automatically recovers with the verified offline snapshot for `TENDER-2026-402`, ensuring zero blank screens and allowing complete interactive tab exploration during live presentations.
+- **React ErrorBoundary:** All workbench tabs are encapsulated in localized Error Boundaries with 1-click retry cards, ensuring isolated component issues never unmount the application shell.
+
 ---
 
 ## 6. API Contract & Endpoint Reference
