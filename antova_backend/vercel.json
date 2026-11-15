@@ -1,3 +1,69 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "backend/web",
+      "framework": "vite"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/b",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/b/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/review",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/review/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/web",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/web/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
 }
