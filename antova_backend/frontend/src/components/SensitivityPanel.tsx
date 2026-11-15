@@ -2,136 +2,305 @@
 
 import React, { useState } from 'react';
 import { RatesSettings } from '../lib/types';
-import { Sliders, RotateCcw, Activity } from 'lucide-react';
+import {
+  Sliders,
+  RotateCcw,
+  Activity,
+  Play,
+  CheckCircle2,
+  Info,
+  TrendingUp,
+  AlertCircle,
+  HelpCircle,
+} from 'lucide-react';
 
 interface SensitivityPanelProps {
   onEvaluate: (rates: RatesSettings) => void;
   isLoading?: boolean;
   onClose?: () => void;
+  currentRates?: RatesSettings;
 }
 
-export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: SensitivityPanelProps) {
-  const [copper, setCopper] = useState<number>(1.0);
-  const [labor, setLabor] = useState<number>(60);
-  const [freight, setFreight] = useState<number>(1.0);
+export function SensitivityPanel({
+  onEvaluate,
+  isLoading = false,
+  onClose,
+  currentRates,
+}: SensitivityPanelProps) {
+  // Staged values (local draft before applying)
+  const [stagedCopper, setStagedCopper] = useState<number>(currentRates?.copper_multiplier ?? 1.0);
+  const [stagedLabor, setStagedLabor] = useState<number>(currentRates?.site_labor_rate ?? 60);
+  const [stagedFreight, setStagedFreight] = useState<number>(currentRates?.freight_multiplier ?? 1.0);
 
-  const handleCopperChange = (val: number) => {
-    setCopper(val);
-    onEvaluate({ copper_multiplier: val, site_labor_rate: labor, freight_multiplier: freight });
+  // Applied values (the ones currently active in the calculation)
+  const [appliedCopper, setAppliedCopper] = useState<number>(currentRates?.copper_multiplier ?? 1.0);
+  const [appliedLabor, setAppliedLabor] = useState<number>(currentRates?.site_labor_rate ?? 60);
+  const [appliedFreight, setAppliedFreight] = useState<number>(currentRates?.freight_multiplier ?? 1.0);
+
+  // Check if staged differs from baseline (1.0, 60, 1.0)
+  const isStagedModifiedFromBaseline = stagedCopper !== 1.0 || stagedLabor !== 60 || stagedFreight !== 1.0;
+  // Check if staged differs from currently applied
+  const hasUnappliedChanges =
+    stagedCopper !== appliedCopper ||
+    stagedLabor !== appliedLabor ||
+    stagedFreight !== appliedFreight;
+
+  const handleApplyScenario = () => {
+    setAppliedCopper(stagedCopper);
+    setAppliedLabor(stagedLabor);
+    setAppliedFreight(stagedFreight);
+    onEvaluate({
+      copper_multiplier: stagedCopper,
+      site_labor_rate: stagedLabor,
+      freight_multiplier: stagedFreight,
+    });
   };
 
-  const handleLaborChange = (val: number) => {
-    setLabor(val);
-    onEvaluate({ copper_multiplier: copper, site_labor_rate: val, freight_multiplier: freight });
+  const handleResetBaseline = () => {
+    setStagedCopper(1.0);
+    setStagedLabor(60);
+    setStagedFreight(1.0);
+    setAppliedCopper(1.0);
+    setAppliedLabor(60);
+    setAppliedFreight(1.0);
+    onEvaluate({
+      copper_multiplier: 1.0,
+      site_labor_rate: 60,
+      freight_multiplier: 1.0,
+    });
   };
 
-  const handleFreightChange = (val: number) => {
-    setFreight(val);
-    onEvaluate({ copper_multiplier: copper, site_labor_rate: labor, freight_multiplier: val });
-  };
-
-  const handleReset = () => {
-    setCopper(1.0);
-    setLabor(60);
-    setFreight(1.0);
-    onEvaluate({ copper_multiplier: 1.0, site_labor_rate: 60, freight_multiplier: 1.0 });
-  };
-
-  const isModified = copper !== 1.0 || labor !== 60 || freight !== 1.0;
+  const handleResetCopper = () => setStagedCopper(1.0);
+  const handleResetLabor = () => setStagedLabor(60);
+  const handleResetFreight = () => setStagedFreight(1.0);
 
   return (
-    <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-3.5 text-xs shadow-sm font-sans">
-      <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-zinc-800 mb-3">
-        <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-200 font-semibold text-xs">
-          <Sliders className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-          <span>Commodity & Rate Sensitivity Engine</span>
-          {isLoading && (
-            <span className="text-[11px] text-cyan-600 dark:text-cyan-400 font-mono animate-pulse flex items-center gap-1">
-              <Activity className="w-3 h-3 animate-spin" />
-              <span>Recalculating...</span>
-            </span>
-          )}
+    <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-4 text-xs shadow-sm font-sans space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-md bg-[#172536] text-white flex items-center justify-center">
+            <Sliders className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+              <span>Commodity & Rate Sensitivity Scenario Engine</span>
+              {isLoading && (
+                <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono animate-pulse flex items-center gap-1 font-normal">
+                  <Activity className="w-3 h-3 animate-spin" />
+                  <span>Calculating...</span>
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Adjust macroeconomic commodity multipliers and simulate vendor ranking sensitivity before award.
+            </p>
+          </div>
         </div>
-        {isModified && (
+
+        <div className="flex items-center gap-2 shrink-0">
+          {isStagedModifiedFromBaseline && (
+            <button
+              onClick={handleResetBaseline}
+              disabled={isLoading}
+              className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2.5 py-1.5 rounded-md transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset Baseline</span>
+            </button>
+          )}
+
           <button
-            onClick={handleReset}
-            className="text-[11px] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-2 py-0.5 rounded transition-colors shadow-xs"
+            onClick={handleApplyScenario}
+            disabled={isLoading || (!hasUnappliedChanges && !isStagedModifiedFromBaseline)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md font-semibold text-xs transition-colors shadow-2xs ${
+              hasUnappliedChanges
+                ? 'bg-[#172536] text-white hover:bg-zinc-800 ring-2 ring-zinc-400 dark:bg-white dark:text-black dark:hover:bg-zinc-200'
+                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed'
+            }`}
           >
-            <RotateCcw className="w-3 h-3" />
-            <span>Reset Baseline Rates</span>
+            <Play className="w-3 h-3 fill-current" />
+            <span>Apply Scenario</span>
           </button>
-        )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Copper Slider */}
-        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
-          <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400">Copper (LME Index)</span>
-            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">{copper.toFixed(2)}x</span>
+      {/* Assumptions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        {/* 1. Copper Multiplier */}
+        <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Copper (LME Index)</span>
+              <p className="text-[10px] text-zinc-500">Impacts Cu-ETP busbars & cables</p>
+            </div>
+            {stagedCopper !== 1.0 && (
+              <button
+                onClick={handleResetCopper}
+                className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                title="Reset Copper"
+              >
+                Reset
+              </button>
+            )}
           </div>
-          <input
-            type="range"
-            min="0.5"
-            max="2.5"
-            step="0.05"
-            value={copper}
-            onChange={(e) => handleCopperChange(parseFloat(e.target.value))}
-            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
-            aria-label="Copper multiplier"
-          />
-          <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
-            <span>0.5x</span>
-            <span>1.0x (Base)</span>
-            <span>2.5x</span>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="0.5"
+              max="2.5"
+              step="0.05"
+              value={stagedCopper}
+              onChange={(e) => setStagedCopper(parseFloat(e.target.value))}
+              className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
+              aria-label="Copper multiplier slider"
+            />
+            <div className="flex items-center w-20 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
+              <input
+                type="number"
+                min="0.5"
+                max="2.5"
+                step="0.05"
+                value={stagedCopper}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (!isNaN(val)) setStagedCopper(val);
+                }}
+                className="w-full bg-transparent text-right font-mono font-bold text-zinc-900 dark:text-white text-xs focus:outline-none"
+              />
+              <span className="text-[11px] text-zinc-400 ml-0.5">x</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+            <span>0.50x</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00x (Base)</span>
+            <span>2.50x</span>
           </div>
         </div>
 
-        {/* Site Labor Slider */}
-        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
-          <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400">Site Labor Hourly Rate</span>
-            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">€{labor}/hr</span>
+        {/* 2. Site Labor Rate */}
+        <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Site Labor Hourly Rate</span>
+              <p className="text-[10px] text-zinc-500">Field cabling & installation supervision</p>
+            </div>
+            {stagedLabor !== 60 && (
+              <button
+                onClick={handleResetLabor}
+                className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                title="Reset Labor"
+              >
+                Reset
+              </button>
+            )}
           </div>
-          <input
-            type="range"
-            min="20"
-            max="200"
-            step="5"
-            value={labor}
-            onChange={(e) => handleLaborChange(parseInt(e.target.value))}
-            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
-            aria-label="Site labor rate"
-          />
-          <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
-            <span>€20/hr</span>
-            <span>€60/hr (Base)</span>
-            <span>€200/hr</span>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="20"
+              max="200"
+              step="5"
+              value={stagedLabor}
+              onChange={(e) => setStagedLabor(parseInt(e.target.value))}
+              className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
+              aria-label="Site labor rate slider"
+            />
+            <div className="flex items-center w-24 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
+              <span className="text-[11px] text-zinc-400 mr-0.5">€</span>
+              <input
+                type="number"
+                min="20"
+                max="200"
+                step="5"
+                value={stagedLabor}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (!isNaN(val)) setStagedLabor(val);
+                }}
+                className="w-full bg-transparent text-right font-mono font-bold text-zinc-900 dark:text-white text-xs focus:outline-none"
+              />
+              <span className="text-[10px] text-zinc-400 ml-0.5">/h</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+            <span>€20/h</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">€60/h (Base)</span>
+            <span>€200/h</span>
           </div>
         </div>
 
-        {/* Freight Slider */}
-        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
-          <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-600 dark:text-zinc-400">Heavy Haul & Sea Freight</span>
-            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">{freight.toFixed(2)}x</span>
+        {/* 3. Freight Multiplier */}
+        <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Heavy Haul & Sea Freight</span>
+              <p className="text-[10px] text-zinc-500">Incoterms DAP/DDP transport leveling</p>
+            </div>
+            {stagedFreight !== 1.0 && (
+              <button
+                onClick={handleResetFreight}
+                className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                title="Reset Freight"
+              >
+                Reset
+              </button>
+            )}
           </div>
-          <input
-            type="range"
-            min="0.5"
-            max="2.5"
-            step="0.05"
-            value={freight}
-            onChange={(e) => handleFreightChange(parseFloat(e.target.value))}
-            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
-            aria-label="Freight multiplier"
-          />
-          <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
-            <span>0.5x</span>
-            <span>1.0x (Base)</span>
-            <span>2.5x</span>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="0.5"
+              max="2.5"
+              step="0.05"
+              value={stagedFreight}
+              onChange={(e) => setStagedFreight(parseFloat(e.target.value))}
+              className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
+              aria-label="Freight multiplier slider"
+            />
+            <div className="flex items-center w-20 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
+              <input
+                type="number"
+                min="0.5"
+                max="2.5"
+                step="0.05"
+                value={stagedFreight}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (!isNaN(val)) setStagedFreight(val);
+                }}
+                className="w-full bg-transparent text-right font-mono font-bold text-zinc-900 dark:text-white text-xs focus:outline-none"
+              />
+              <span className="text-[11px] text-zinc-400 ml-0.5">x</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+            <span>0.50x</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00x (Base)</span>
+            <span>2.50x</span>
           </div>
         </div>
+      </div>
+
+      {/* Applied Scenario Status Bar */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-md bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 text-[11px]">
+        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+          <Info className="w-3.5 h-3.5 text-zinc-500" />
+          <span>
+            Active calculation basis: Copper <strong className="text-zinc-900 dark:text-white font-mono">{appliedCopper.toFixed(2)}x</strong> · Labor <strong className="text-zinc-900 dark:text-white font-mono">€{appliedLabor}/h</strong> · Freight <strong className="text-zinc-900 dark:text-white font-mono">{appliedFreight.toFixed(2)}x</strong>
+          </span>
+        </div>
+        {hasUnappliedChanges && (
+          <span className="text-amber-600 dark:text-amber-400 font-medium">
+            Pending changes staged — Click &ldquo;Apply Scenario&rdquo; to recalculate
+          </span>
+        )}
       </div>
     </div>
   );

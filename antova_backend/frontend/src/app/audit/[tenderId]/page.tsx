@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, use } from 'react';
-import { Header } from '../../../components/Header';
+import React, { useEffect, useState, useMemo, use, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { AppShell } from '../../../components/layout/AppShell';
 import { TrueJobCostTable } from '../../../components/TrueJobCostTable';
 import { LineItemDrilldown } from '../../../components/LineItemDrilldown';
 import { ComplianceMatrix } from '../../../components/ComplianceMatrix';
@@ -41,6 +42,8 @@ import {
   Download,
   RefreshCw,
   Database,
+  Layers,
+  TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -48,24 +51,37 @@ interface PageProps {
   params: Promise<{ tenderId: string }>;
 }
 
-export default function AuditWorkbenchPage({ params }: PageProps) {
+function AuditWorkbenchPageContent({ params }: PageProps) {
   const resolvedParams = use(params);
   const tenderId = resolvedParams.tenderId;
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Active view tab
-  const [activeTab, setActiveTab] = useState<'LEDGER' | 'COMPLIANCE' | 'RISKS' | 'SIGNOFF'>('LEDGER');
+  // Active view tab synced with URL query (?tab=ledger|compliance|risks|sensitivity|signoff|reports)
+  const rawTab = (searchParams.get('tab') || 'ledger').toUpperCase();
+  const activeTab: 'LEDGER' | 'COMPLIANCE' | 'RISKS' | 'SENSITIVITY' | 'SIGNOFF' | 'REPORTS' =
+    ['LEDGER', 'COMPLIANCE', 'RISKS', 'SENSITIVITY', 'SIGNOFF', 'REPORTS'].includes(rawTab)
+      ? (rawTab as any)
+      : 'LEDGER';
+
+  const setActiveTab = (tab: 'LEDGER' | 'COMPLIANCE' | 'RISKS' | 'SENSITIVITY' | 'SIGNOFF' | 'REPORTS') => {
+    router.push(`/audit/${tenderId}?tab=${tab.toLowerCase()}`);
+  };
 
   // Selected vendor for side-by-side inspector
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
 
-  // Collapsible sensitivity toolbar & inline unlock confirmation
-  const [showSensitivity, setShowSensitivity] = useState(false);
-  const [confirmUnlock, setConfirmUnlock] = useState(false);
+  // Rate sensitivity state
   const [hasCustomRates, setHasCustomRates] = useState(false);
+  const [currentRates, setCurrentRates] = useState<RatesSettings>({
+    copper_multiplier: 1.0,
+    site_labor_rate: 60,
+    freight_multiplier: 1.0,
+  });
 
   // Evidence modal state
   const [evidenceTarget, setEvidenceTarget] = useState<{
@@ -76,7 +92,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
     secondaryCitation?: Citation | null;
   } | null>(null);
 
-  // Override modal state
+  // Override drawer state
   const [overrideTarget, setOverrideTarget] = useState<{
     vendorId: string;
     paramId: string;
@@ -86,7 +102,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
     currentNote?: string | null;
   } | null>(null);
 
-  // Sensitivity & toast state
+  // Feedback & export loading states
   const [evaluating, setEvaluating] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [isExportingTbe, setIsExportingTbe] = useState(false);
@@ -104,7 +120,6 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
       }
     } catch (err: any) {
       console.error(`Error fetching brief for ${tenderId}:`, err);
-      // If backend returns 500 or is unreachable and tender is 402, auto-recover with verified local package
       if (tenderId === 'TENDER-2026-402' || tenderId.includes('402')) {
         try {
           const sample = loadSampleBrief();
@@ -155,11 +170,14 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
         ...brief,
         financials: res.financials,
       });
+      setCurrentRates(rates);
       setHasCustomRates(
         rates.copper_multiplier !== 1.0 ||
         rates.freight_multiplier !== 1.0 ||
         (rates.site_labor_rate !== undefined && rates.site_labor_rate !== 60)
       );
+      setActionMsg('Scenario rates recalculated across all vendor bills of quantities.');
+      setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
       console.error('Sensitivity evaluation error:', err);
       setActionMsg('Sensitivity calculation failed');
@@ -186,7 +204,6 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
 
   const handleWithdraw = async () => {
     try {
-      setConfirmUnlock(false);
       setError(null);
       setActionMsg('Unlocking audit brief...');
       await withdrawTender(tenderId);
@@ -256,57 +273,34 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
   const isVerified = brief?.status === 'VERIFIED';
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-zinc-800">
-      <Header tenderId={tenderId} status={brief?.status} />
-
-      {/* Action Notification Toast Banner */}
-      {actionMsg && (
-        <div className="bg-emerald-950/80 border-b border-emerald-900 px-4 py-2 text-xs text-emerald-300 flex items-center justify-between transition-all">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{actionMsg}</span>
-          </div>
-          <button onClick={() => setActionMsg(null)} className="text-emerald-400 hover:text-white">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-rose-950/40 border-b border-rose-900/60 px-4 py-2.5 text-xs text-rose-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchBrief}
-              className="px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-900/70 border border-rose-800 text-rose-200 text-[11px] font-medium"
-            >
-              Retry
-            </button>
-            <button onClick={() => setError(null)} className="text-rose-400 hover:text-white">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
+    <AppShell
+      activeTenderId={tenderId}
+      brief={brief}
+      onRefresh={fetchBrief}
+      isRefreshing={loading}
+      onVerify={handleVerify}
+      onWithdraw={handleWithdraw}
+      actionNotice={actionMsg}
+      errorNotice={error}
+      onClearNotice={() => {
+        setActionMsg(null);
+        setError(null);
+      }}
+    >
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-12 text-zinc-400 gap-3 font-sans">
-          <Loader2 className="w-7 h-7 animate-spin text-zinc-300" />
+        <div className="flex flex-col items-center justify-center p-16 text-zinc-400 gap-3 font-sans">
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
           <span className="text-xs uppercase tracking-wider font-mono">
             Evaluating tender bids & Pint unit models...
           </span>
         </div>
       ) : brief ? (
-        <main className="flex-1 p-4 max-w-[1720px] w-full mx-auto space-y-4">
+        <div className="space-y-4 font-sans">
           {/* Executive Tender Summary Banner */}
-          <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] flex flex-wrap items-center justify-between gap-4 shadow-sm">
+          <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex flex-wrap items-center justify-between gap-4 shadow-2xs">
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
-                <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-black border border-cyan-200 dark:border-zinc-800 px-2 py-0.5 rounded tracking-wide">
+                <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded tracking-wide">
                   {brief.tender?.id || tenderId}
                 </span>
                 <span className="text-zinc-300 dark:text-zinc-600">·</span>
@@ -317,143 +311,75 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase border ${
                     isVerified
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
                   }`}
                 >
                   {isVerified ? 'VERIFIED & SEALED' : 'DRAFT REVIEW'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-                Client: <strong className="text-zinc-900 dark:text-zinc-200">{brief.tender?.client || 'N/A'}</strong> · Material Requisition: <span className="font-mono text-zinc-800 dark:text-zinc-300">{brief.tender?.mr_doc || 'MR Spec'}</span> ({brief.tender?.pages_parsed || 0} pages parsed)
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Employer: <strong className="text-zinc-900 dark:text-zinc-200">{brief.tender?.client || 'Vogt-Grid EPC'}</strong> · Specification: <span className="font-mono text-zinc-800 dark:text-zinc-300">{brief.tender?.mr_doc || 'MR-33kV-GIS-Rev4.pdf'}</span> ({brief.tender?.pages_parsed || 26} pages parsed)
               </p>
             </div>
 
-            {/* Top-Right Governance Controls */}
+            {/* Top-Right Quick Links */}
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setShowSensitivity(!showSensitivity)}
-                className={`px-3 py-1.5 rounded text-xs font-medium border flex items-center gap-1.5 transition-colors ${
-                  showSensitivity || hasCustomRates
-                    ? 'bg-zinc-800 border-zinc-600 text-white'
-                    : 'bg-[#111113] hover:bg-zinc-800 border-zinc-800 text-zinc-300'
-                }`}
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Sensitivity Rates</span>
-                {hasCustomRates && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                )}
-                {showSensitivity ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-zinc-500" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
-                )}
-              </button>
-
               <button
                 onClick={handleExportTbeWorkbook}
                 disabled={isExportingTbe}
-                className="px-3 py-1.5 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-200 rounded text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                title="Download Technical Bid Evaluation workbook (.xlsx)"
+                className="px-3 py-1.5 bg-[#FFFFFF] dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
               >
                 {isExportingTbe ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                 )}
                 <span>Export TBE (.xlsx)</span>
               </button>
 
               <Link
-                href={`/print/${tenderId}`}
+                href={`/print?tender=${tenderId}`}
                 target="_blank"
-                className="px-3 py-1.5 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-200 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
-                title="Open printable review sheet"
+                className="px-3 py-1.5 bg-[#FFFFFF] dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
               >
-                <Printer className="w-3.5 h-3.5 text-zinc-400" />
+                <Printer className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Print Brief</span>
               </Link>
-
-              {/* Seal / Unlock Workflow Action */}
-              {isVerified ? (
-                confirmUnlock ? (
-                  <div className="flex items-center gap-1 bg-black border border-amber-900 rounded p-0.5">
-                    <span className="text-[11px] text-amber-400 px-2 font-medium">Unlock brief?</span>
-                    <button
-                      onClick={handleWithdraw}
-                      className="px-2 py-1 bg-amber-600 hover:bg-amber-500 text-black font-semibold rounded text-xs"
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      onClick={() => setConfirmUnlock(false)}
-                      className="px-2 py-1 text-zinc-400 hover:text-white text-xs"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmUnlock(true)}
-                    className="px-3.5 py-1.5 bg-black hover:bg-zinc-900 border border-zinc-800 text-amber-400 hover:text-amber-300 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>Unlock Brief</span>
-                  </button>
-                )
-              ) : (
-                <button
-                  onClick={handleVerify}
-                  className="px-4 py-1.5 bg-white hover:bg-zinc-200 text-black font-semibold rounded text-xs flex items-center gap-1.5 shadow-sm transition-colors"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Verify & Seal Award</span>
-                </button>
-              )}
             </div>
           </div>
 
-          {/* Collapsible Sensitivity Rate Toolbar */}
-          {showSensitivity && (
-            <SensitivityPanel
-              onEvaluate={handleSensitivityEvaluate}
-              isLoading={evaluating}
-              onClose={() => setShowSensitivity(false)}
-            />
-          )}
-
-          {/* Key Executive KPI Cards */}
+          {/* Key Executive KPI Metrics Strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
-              <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
+            <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
                 Bidders Evaluated
               </span>
-              <div className="text-lg font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
+              <div className="text-xl font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                 {safeVendors.length} Proposals
               </div>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 block font-sans">
-                {safeDocuments.length} total source PDFs indexed
+              <span className="text-[11px] text-zinc-500 mt-0.5 block">
+                {safeDocuments.length} source PDF documents indexed
               </span>
             </div>
 
-            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
-              <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
-                Clause Coverage
+            <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+                Technical Clause Coverage
               </span>
-              <div className="text-lg font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
+              <div className="text-xl font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                 {safeParameters.length} Clauses
               </div>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block font-sans">
-                100% deterministic Pint evaluation
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block font-medium">
+                Pint 0.26.2 unit dimensional engine
               </span>
             </div>
 
-            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
-              <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
+            <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
                 Recommended Bidder (L1)
               </span>
-              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 truncate">
+              <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 truncate">
                 {recommendedVendor?.name || 'Awaiting Award'}
               </div>
               <span className="text-[11px] text-zinc-700 dark:text-zinc-300 font-mono mt-0.5 block">
@@ -461,90 +387,115 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
               </span>
             </div>
 
-            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
-              <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
+            <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
                 Open Items / Clarifications
               </span>
               <div
-                className={`text-lg font-bold font-mono mt-0.5 ${
+                className={`text-xl font-bold font-mono mt-0.5 ${
                   safeOpenItems.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               >
                 {safeOpenItems.length} Open Gaps
               </div>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 block font-sans">
-                {safeOpenItems.length === 0 ? 'Ready for sign-off' : 'Action needed before sealing'}
+              <span className="text-[11px] text-zinc-500 mt-0.5 block">
+                {safeOpenItems.length === 0 ? 'Ready for verified seal' : 'Clarifications required'}
               </span>
             </div>
           </div>
 
-          {/* Workbench Tab Navigation */}
-          <div className="border-b border-zinc-800 flex items-center justify-between text-xs">
+          {/* Workbench Evaluation Tabs */}
+          <div className="border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs overflow-x-auto">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setActiveTab('LEDGER')}
-                className={`px-4 py-2.5 font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'LEDGER'
-                    ? 'border-white text-white bg-zinc-900/40'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 <span>True Job Cost Ledger</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-black border border-zinc-800 text-zinc-400">
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
                   {safeFinancials.length}
                 </span>
               </button>
 
               <button
                 onClick={() => setActiveTab('COMPLIANCE')}
-                className={`px-4 py-2.5 font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'COMPLIANCE'
-                    ? 'border-white text-white bg-zinc-900/40'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
                 <span>Compliance Matrix</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-black border border-zinc-800 text-zinc-400">
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
                   {safeParameters.length}
                 </span>
               </button>
 
               <button
                 onClick={() => setActiveTab('RISKS')}
-                className={`px-4 py-2.5 font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'RISKS'
-                    ? 'border-white text-white bg-zinc-900/40'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Commercial & Logistics Risks</span>
+                <span>Commercial Risks</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('SENSITIVITY')}
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'SENSITIVITY'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }`}
+              >
+                <span>Rate Sensitivity</span>
+                {hasCustomRates && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                )}
               </button>
 
               <button
                 onClick={() => setActiveTab('SIGNOFF')}
-                className={`px-4 py-2.5 font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'SIGNOFF'
-                    ? 'border-white text-white bg-zinc-900/40'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Clarifications & Sign-Off</span>
+                <span>Sign-Off & Clarifications</span>
                 {safeOpenItems.length > 0 && (
-                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-amber-950 border border-amber-900 text-amber-400">
+                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400">
                     {safeOpenItems.length}
                   </span>
                 )}
               </button>
+
+              <button
+                onClick={() => setActiveTab('REPORTS')}
+                className={`px-3.5 py-2 font-medium border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'REPORTS'
+                    ? 'border-[#172536] dark:border-white text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }`}
+              >
+                <span>Reports & Exports</span>
+              </button>
             </div>
 
-            {/* Vendor Selector Pill when Drilldown is displayed */}
+            {/* Vendor Selector Pill when Drilldown is displayed in Ledger view */}
             {activeTab === 'LEDGER' && selectedVendorId && (
-              <div className="flex items-center gap-2 text-xs font-sans">
+              <div className="hidden sm:flex items-center gap-2 text-xs">
                 <span className="text-zinc-500">Drilldown:</span>
                 <select
                   value={selectedVendorId}
                   onChange={(e) => setSelectedVendorId(e.target.value)}
-                  className="bg-[#111113] border border-zinc-800 text-zinc-200 px-2 py-1 rounded text-xs font-mono outline-none cursor-pointer"
+                  className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded text-xs font-mono outline-none cursor-pointer shadow-2xs"
                   aria-label="Select vendor for line item drilldown"
                 >
                   {safeVendors.map((v) => (
@@ -557,8 +508,8 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Workbench Views with ErrorBoundary Protection */}
-          <ErrorBoundary fallbackTitle={`Error rendering ${activeTab} tab`}>
+          {/* Workbench Tab Content Protected by ErrorBoundary */}
+          <ErrorBoundary fallbackTitle={`Error rendering ${activeTab} view`}>
             {activeTab === 'LEDGER' && (
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
                 {/* Main Evaluated Cost Ledger Table */}
@@ -576,7 +527,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
 
                 {/* Side-by-Side Line Item Drilldown Inspector */}
                 {selectedFinancials && (
-                  <div className="xl:col-span-5 sticky top-4">
+                  <div className="xl:col-span-5 sticky top-20">
                     <LineItemDrilldown
                       vendorId={selectedFinancials.vendor_id}
                       financials={selectedFinancials}
@@ -635,33 +586,41 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
               />
             )}
 
+            {activeTab === 'SENSITIVITY' && (
+              <SensitivityPanel
+                onEvaluate={handleSensitivityEvaluate}
+                isLoading={evaluating}
+                currentRates={currentRates}
+              />
+            )}
+
             {activeTab === 'SIGNOFF' && (
-              <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-5 space-y-5 text-xs font-sans shadow-sm">
+              <div className="border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 space-y-5 text-xs shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
                   <div>
-                    <h2 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                    <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       <span>Procurement Committee Sign-Off & Clarifications</span>
                     </h2>
-                    <p className="text-xs text-zinc-400 mt-1">
+                    <p className="text-xs text-zinc-500 mt-1">
                       Clear open verification items, export the Technical Bid Evaluation (TBE) workbook, or print the official sign-off sheet.
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/print/${tenderId}`}
+                      href={`/print?tender=${tenderId}`}
                       target="_blank"
-                      className="px-3.5 py-1.5 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-200 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
                     >
-                      <Printer className="w-3.5 h-3.5 text-zinc-400" />
+                      <Printer className="w-3.5 h-3.5 text-zinc-500" />
                       <span>Print Sign-Off Sheet</span>
                     </Link>
 
                     <button
                       onClick={handleExportTbeWorkbook}
                       disabled={isExportingTbe}
-                      className="px-3.5 py-1.5 bg-white hover:bg-zinc-200 text-black font-semibold rounded text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-sm"
+                      className="px-3.5 py-1.5 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-2xs"
                     >
                       {isExportingTbe ? (
                         <>
@@ -670,7 +629,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                         </>
                       ) : (
                         <>
-                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                           <span>Export TBE (.xlsx)</span>
                         </>
                       )}
@@ -679,40 +638,40 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                 </div>
 
                 {/* Open Items Clearance */}
-                <div className="p-4 rounded bg-[#111113] border border-zinc-800 space-y-3">
+                <div className="p-4 rounded-lg bg-zinc-50 dark:bg-[#09090B] border border-zinc-200 dark:border-zinc-800 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-zinc-200">
+                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                       Open Verification Items ({safeOpenItems.length})
                     </span>
                     {safeOpenItems.length === 0 ? (
-                      <span className="text-emerald-400 text-xs font-medium flex items-center gap-1.5">
+                      <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4" /> Cleared for Award Verification
                       </span>
                     ) : (
-                      <span className="text-amber-400 text-xs font-medium flex items-center gap-1.5">
+                      <span className="text-amber-600 dark:text-amber-400 text-xs font-semibold flex items-center gap-1.5">
                         <AlertTriangle className="w-4 h-4" /> Action Required Before Brief Sealing
                       </span>
                     )}
                   </div>
 
                   {safeOpenItems.length > 0 ? (
-                    <div className="divide-y divide-zinc-800 border border-zinc-800 rounded max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-zinc-200 dark:divide-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-md max-h-64 overflow-y-auto bg-white dark:bg-[#111113]">
                       {safeOpenItems.map((item, idx) => (
                         <div
                           key={idx}
-                          className="px-3.5 py-2.5 bg-white dark:bg-[#09090B] text-xs flex items-center justify-between gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors"
+                          className="px-3.5 py-2.5 text-xs flex items-center justify-between gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2 font-mono text-[11px]">
-                              <span className="text-amber-400 font-semibold uppercase">
+                              <span className="text-amber-600 dark:text-amber-400 font-bold uppercase">
                                 {item.kind}
                               </span>
-                              <span className="text-zinc-600">·</span>
-                              <span className="text-zinc-300">
+                              <span className="text-zinc-400">·</span>
+                              <span className="text-zinc-700 dark:text-zinc-300">
                                 {item.vendor_id} {item.param_id ? `(${item.param_id})` : ''}
                               </span>
                             </div>
-                            <div className="text-zinc-300">{item.message}</div>
+                            <div className="text-zinc-600 dark:text-zinc-400">{item.message}</div>
                           </div>
                           {item.param_id && (
                             <button
@@ -722,7 +681,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                                   paramId: item.param_id!,
                                 });
                               }}
-                              className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded text-xs font-medium shrink-0 transition-colors"
+                              className="px-2.5 py-1 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded text-xs font-medium shrink-0 transition-colors shadow-2xs"
                               aria-label={`Price gap for ${item.vendor_id} clause ${item.param_id}`}
                             >
                               Price Gap
@@ -732,19 +691,19 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-zinc-400">
+                    <p className="text-xs text-zinc-500">
                       Zero unpriced gaps remain. All technical and commercial deviations are fully leveled and priced in the evaluation ledger.
                     </p>
                   )}
                 </div>
 
                 {/* Clarifications Register Exports */}
-                <div className="p-4 rounded bg-[#111113] border border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="p-4 rounded-lg bg-zinc-50 dark:bg-[#09090B] border border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-xs font-semibold text-zinc-200 uppercase tracking-wide">
+                    <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wide">
                       Vendor Clarification Register
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">
+                    <p className="text-xs text-zinc-500 mt-0.5">
                       Formal clarification logs citing exact specification clauses and proposal quotations.
                     </p>
                   </div>
@@ -752,24 +711,24 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                     <button
                       onClick={() => handleExportClarifications('csv')}
                       disabled={isExportingCsv}
-                      className="px-3.5 py-1.5 bg-black hover:bg-zinc-900 border border-zinc-800 text-zinc-200 rounded text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
                     >
                       {isExportingCsv ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Download className="w-3.5 h-3.5 text-zinc-400" />
+                        <Download className="w-3.5 h-3.5 text-zinc-500" />
                       )}
                       <span>Download (.csv)</span>
                     </button>
                     <button
                       onClick={() => handleExportClarifications('xlsx')}
                       disabled={isExportingXlsx}
-                      className="px-3.5 py-1.5 bg-black hover:bg-zinc-900 border border-zinc-800 text-zinc-200 rounded text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
                     >
                       {isExportingXlsx ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                       )}
                       <span>Download (.xlsx)</span>
                     </button>
@@ -777,9 +736,87 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                 </div>
               </div>
             )}
+
+            {activeTab === 'REPORTS' && (
+              <div className="border border-zinc-200 dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-6 space-y-6 text-xs shadow-2xs">
+                <div>
+                  <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
+                    Procurement Exports & Audit Dossier
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Download verified commercial workbooks and committee packages for {tenderId}.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Export 1: TBE (.xlsx) */}
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                      <div className="font-bold text-zinc-900 dark:text-white text-xs">
+                        TBE Master Workbook (.xlsx)
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 leading-relaxed">
+                      Complete multi-tab Technical Bid Evaluation with verified Pint evaluation formulas, vendor rankings, and cell-by-cell price adders.
+                    </p>
+                    <button
+                      onClick={handleExportTbeWorkbook}
+                      disabled={isExportingTbe}
+                      className="w-full py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs disabled:opacity-50"
+                    >
+                      {isExportingTbe ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                      <span>Download TBE Workbook</span>
+                    </button>
+                  </div>
+
+                  {/* Export 2: Clarification Register (.xlsx) */}
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-cyan-600" />
+                      <div className="font-bold text-zinc-900 dark:text-white text-xs">
+                        Clarification Register (.xlsx)
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 leading-relaxed">
+                      Clause-by-clause vendor queries citing exact specification paragraphs and proposal deviations for formal procurement letters.
+                    </p>
+                    <button
+                      onClick={() => handleExportClarifications('xlsx')}
+                      disabled={isExportingXlsx}
+                      className="w-full py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs disabled:opacity-50"
+                    >
+                      {isExportingXlsx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                      <span>Download Register (.xlsx)</span>
+                    </button>
+                  </div>
+
+                  {/* Export 3: Print Executive Summary */}
+                  <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090B] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Printer className="w-5 h-5 text-zinc-600" />
+                      <div className="font-bold text-zinc-900 dark:text-white text-xs">
+                        Printable Executive Dossier
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 leading-relaxed">
+                      Clean print-optimized layout ready for paper sign-off, committee signatures, and formal EPC board submission.
+                    </p>
+                    <Link
+                      href={`/print?tender=${tenderId}`}
+                      target="_blank"
+                      className="w-full py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Open Print Sheet</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
           </ErrorBoundary>
 
-          {/* Evidence Crop Modal */}
+          {/* Two-Pane Evidence Inspector */}
           {evidenceTarget && (
             <EvidenceModal
               tenderId={tenderId}
@@ -792,7 +829,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
             />
           )}
 
-          {/* Override Drawer Modal */}
+          {/* Right-Side Slide-Over Override Drawer */}
           {overrideTarget && (
             <OverrideDrawer
               tenderId={tenderId}
@@ -806,10 +843,10 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
               onClose={() => setOverrideTarget(null)}
             />
           )}
-        </main>
+        </div>
       ) : (
         /* Actionable Backend Offline / Error Card when brief is null */
-        <main className="flex-1 p-6 max-w-4xl w-full mx-auto flex flex-col items-center justify-center font-sans">
+        <div className="p-6 max-w-4xl w-full mx-auto font-sans">
           <div className="w-full p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] space-y-4 shadow-xl">
             <div className="flex items-start justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
               <div className="flex items-center gap-3">
@@ -821,7 +858,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                     Tender Package Unavailable from Backend
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Target: <code className="text-zinc-300 font-mono">{API_BASE ? `${API_BASE}/api/review/tenders/${tenderId}` : `/api/review/tenders/${tenderId}`}</code>
+                    Target: <code className="text-zinc-700 dark:text-zinc-300 font-mono">{API_BASE ? `${API_BASE}/api/review/tenders/${tenderId}` : `/api/review/tenders/${tenderId}`}</code>
                   </p>
                 </div>
               </div>
@@ -830,13 +867,13 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
               </span>
             </div>
 
-            <div className="p-3.5 rounded bg-black/60 border border-zinc-800/80 text-xs text-zinc-300 space-y-2">
-              <div className="text-rose-400 font-medium">Diagnostic Error:</div>
-              <p className="font-mono text-[11px] text-zinc-400 break-all">
+            <div className="p-3.5 rounded bg-zinc-50 dark:bg-black/60 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 space-y-2">
+              <div className="text-rose-600 dark:text-rose-400 font-medium">Diagnostic Error:</div>
+              <p className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 break-all">
                 {error || 'The remote backend returned HTTP 500 or is currently booting up.'}
               </p>
-              <div className="pt-2 text-[11px] text-zinc-400 border-t border-zinc-900">
-                Ensure <code className="text-cyan-400">NEXT_PUBLIC_API_URL</code> is set in Vercel project environment variables pointing to your hosted <code className="text-cyan-400">antova-yc</code> backend instance, and CORS is enabled for your Vercel domain.
+              <div className="pt-2 text-[11px] text-zinc-500 border-t border-zinc-200 dark:border-zinc-800">
+                Ensure <code className="text-cyan-600 dark:text-cyan-400">NEXT_PUBLIC_API_URL</code> is set in Vercel project environment variables pointing to your hosted <code className="text-cyan-600 dark:text-cyan-400">antova-yc</code> backend instance, and CORS is enabled for your Vercel domain.
               </div>
             </div>
 
@@ -844,30 +881,44 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={fetchBrief}
-                  className="px-4 py-2 bg-white hover:bg-zinc-200 text-black font-semibold rounded text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+                  className="px-4 py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Retry Connection</span>
                 </button>
                 <button
                   onClick={handleLoadOfflineSample}
-                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-cyan-400 hover:text-cyan-300 font-semibold rounded text-xs flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-cyan-700 dark:text-cyan-400 font-semibold rounded text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
-                  <Database className="w-3.5 h-3.5 text-cyan-400" />
+                  <Database className="w-3.5 h-3.5 text-cyan-600" />
                   <span>Load Verified Demo Brief (TENDER-2026-402)</span>
                 </button>
               </div>
 
               <Link
                 href="/ingest"
-                className="px-3.5 py-2 bg-[#111113] hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded text-xs transition-colors"
+                className="px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded text-xs transition-colors"
               >
                 Go to Ingest Pipeline &rarr;
               </Link>
             </div>
           </div>
-        </main>
+        </div>
       )}
-    </div>
+    </AppShell>
+  );
+}
+
+export default function AuditWorkbenchPage(props: PageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F4F6F8] dark:bg-[#09090B] text-zinc-500 font-sans text-xs">
+          Loading audit workbench...
+        </div>
+      }
+    >
+      <AuditWorkbenchPageContent {...props} />
+    </Suspense>
   );
 }

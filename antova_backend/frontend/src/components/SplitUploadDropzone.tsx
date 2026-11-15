@@ -28,12 +28,12 @@ export function SplitUploadDropzone() {
 
   const simulateJobProgression = (targetTenderId: string) => {
     const stages = [
-      { msg: 'Intake: Ingesting MR Specification & Vendor Bid PDFs...', pct: 15 },
-      { msg: 'Parse: PyMuPDF extracting coordinate text & tables...', pct: 40 },
-      { msg: 'Locate & Verify: Grounding clause citations...', pct: 65 },
-      { msg: 'Read Values: Pint dimensional unit analysis...', pct: 85 },
-      { msg: 'Price: Evaluating scope omissions against rate tables...', pct: 95 },
-      { msg: 'Ingest pipeline complete! Redirecting to Audit Workbench...', pct: 100 },
+      { msg: '[Demo Replay Mode] Intake: Ingesting MR Specification & Vendor Bid PDFs...', pct: 15 },
+      { msg: '[Demo Replay Mode] Parse: PyMuPDF extracting coordinate text & tables...', pct: 40 },
+      { msg: '[Demo Replay Mode] Locate & Verify: Grounding clause citations...', pct: 65 },
+      { msg: '[Demo Replay Mode] Read Values: Pint dimensional unit analysis...', pct: 85 },
+      { msg: '[Demo Replay Mode] Price: Evaluating scope omissions against rate tables...', pct: 95 },
+      { msg: '[Demo Replay Mode] Pipeline complete! Redirecting to Audit Workbench...', pct: 100 },
     ];
     let i = 0;
     const interval = setInterval(() => {
@@ -61,7 +61,7 @@ export function SplitUploadDropzone() {
     try {
       setIsProcessing(true);
       setError(null);
-      setStatusMessage(`Enqueuing deterministic ingest evaluation for ${presetId}...`);
+      setStatusMessage(`[Preset Run] Enqueuing deterministic ingest evaluation for ${presetId}...`);
 
       const res = await startIngestJob(presetId, 'replay');
       if (res && res.job_id) {
@@ -70,7 +70,8 @@ export function SplitUploadDropzone() {
         simulateJobProgression(presetId);
       }
     } catch (err: any) {
-      console.warn('Backend startIngestJob error, running verified simulation:', err);
+      console.warn('Backend startIngestJob offline, starting demo replay:', err);
+      setStatusMessage(`[Demo Replay Mode] Replaying verified benchmark package for ${presetId}...`);
       simulateJobProgression(presetId);
     }
   };
@@ -90,13 +91,15 @@ export function SplitUploadDropzone() {
           }, 800);
         } else if (job.status === 'FAILED') {
           clearInterval(timer);
-          simulateJobProgression(targetTenderId);
+          setIsProcessing(false);
+          setError(job.error || 'Ingestion job failed during backend rule evaluation.');
         }
       } catch (err: any) {
         failedAttempts++;
-        if (failedAttempts > 2) {
+        if (failedAttempts > 3) {
           clearInterval(timer);
-          simulateJobProgression(targetTenderId);
+          setIsProcessing(false);
+          setError(`Lost polling connection to background job ${jobId}. Backend may be busy.`);
         }
       }
     }, 600);
@@ -160,20 +163,18 @@ export function SplitUploadDropzone() {
       }
 
       // 4. Start Ingestion Job
-      setStatusMessage('Queuing deterministic parsing and rule evaluation...');
-      try {
-        const res = await startIngestJob(tenderId, 'replay');
-        if (res && res.job_id) {
-          pollJob(res.job_id, tenderId);
-        } else {
-          simulateJobProgression(tenderId);
-        }
-      } catch {
-        simulateJobProgression(tenderId);
+      setStatusMessage('Queuing deterministic parsing and rule evaluation on backend engine...');
+      const res = await startIngestJob(tenderId, 'replay');
+      if (res && res.job_id) {
+        pollJob(res.job_id, tenderId);
+      } else {
+        setIsProcessing(false);
+        setError('Backend did not return a valid job ID for ingestion.');
       }
     } catch (err: any) {
-      console.warn('Backend custom submit error, running verified simulation:', err);
-      simulateJobProgression(tenderId);
+      console.error('Custom document ingestion error:', err);
+      setIsProcessing(false);
+      setError(err.message || 'Failed to stream documents or start ingestion job on backend.');
     }
   };
 

@@ -3,13 +3,31 @@
 @tailwind utilities;
 
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
+  --background: #F4F6F8;
+  --foreground: #182433;
+  --app-chrome: #172536;
+  --surface: #FFFFFF;
+  --surface-secondary: #F8FAFC;
+  --border: #DCE2E8;
+  --border-muted: #E2E8F0;
+  --text-primary: #182433;
+  --text-secondary: #667487;
+  --brand-accent: #B8894D;
+  --accent: #34495E;
 }
 
 .dark {
-  --background: #000000;
-  --foreground: #f4f4f5;
+  --background: #09090B;
+  --foreground: #F4F4F5;
+  --app-chrome: #09090B;
+  --surface: #111113;
+  --surface-secondary: #18181B;
+  --border: #27272A;
+  --border-muted: #3F3F46;
+  --text-primary: #F4F4F5;
+  --text-secondary: #A1A1AA;
+  --brand-accent: #B8894D;
+  --accent: #34495E;
 }
 
 body {
@@ -33,17 +51,35 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 2px;
+  background: #CBD5E1;
+  border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #27272A;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
+  background: #94A3B8;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #3F3F46;
+}
+
+/* Restrained transitions for enterprise UI */
+.transition-motion {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media print {
