@@ -99,8 +99,8 @@ export interface DashboardProps {
 export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps) => {
   const router = useRouter();
 
-  // Color theme state (dark by default for terminal workbench)
-  const [isDark, setIsDark] = useState(true);
+  // Color theme state (light by default for clean presentation)
+  const [isDark, setIsDark] = useState(false);
 
   // Sidebar state
   const [open, setOpen] = useState(true);
@@ -993,7 +993,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                   <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-mono font-bold text-white bg-black border border-zinc-800 px-2 py-0.5 rounded">
+                        <span className="font-mono font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-black border border-zinc-300 dark:border-zinc-800 px-2 py-0.5 rounded">
                           {brief.tender.id}
                         </span>
                         <span className="text-zinc-700 dark:text-zinc-300 font-medium">{brief.tender.client}</span>

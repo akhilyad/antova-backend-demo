@@ -180,16 +180,16 @@ export function SplitUploadDropzone() {
   return (
     <div className="space-y-6 text-xs max-w-5xl mx-auto font-sans">
       {/* Quick Launch Pre-Staged Tenders Ribbon */}
-      <div className="p-4 rounded border border-zinc-800 bg-[#09090B]">
+      <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <h3 className="text-xs font-semibold text-white uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <h3 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider">
                 Instant Repository Evaluation Run
               </h3>
             </div>
-            <p className="text-zinc-400 text-xs mt-1">
+            <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-1">
               Execute live rule evaluation on verified benchmark packages directly in the local repo:
             </p>
           </div>
@@ -198,14 +198,14 @@ export function SplitUploadDropzone() {
             <button
               onClick={() => handleQuickLoadPreset('TENDER-2026-402')}
               disabled={isProcessing}
-              className="px-3.5 py-1.5 bg-white hover:bg-zinc-200 text-black font-semibold rounded text-xs transition-colors disabled:opacity-50 shadow-sm"
+              className="px-3.5 py-1.5 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-sm"
             >
               Replay TENDER-2026-402
             </button>
             <button
               onClick={() => handleQuickLoadPreset('TENDER-2026-417')}
               disabled={isProcessing}
-              className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-medium rounded text-xs transition-colors disabled:opacity-50"
+              className="px-3.5 py-1.5 border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-[#111113] text-zinc-900 dark:text-white font-medium rounded text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
             >
               Replay TENDER-2026-417
             </button>
@@ -214,13 +214,13 @@ export function SplitUploadDropzone() {
       </div>
 
       {/* Main Split Ingestion Form */}
-      <form onSubmit={handleCustomSubmit} className="border border-zinc-800 bg-[#09090B] rounded p-5 space-y-5 shadow-sm">
-        <div className="border-b border-zinc-800 pb-3">
-          <h2 className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-2">
-            <UploadCloud className="w-4 h-4 text-zinc-400" />
+      <form onSubmit={handleCustomSubmit} className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-5 space-y-5 shadow-sm">
+        <div className="border-b border-zinc-200 dark:border-zinc-800 pb-3">
+          <h2 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <UploadCloud className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
             <span>Tender & Multi-Vendor Proposal Ingestion Workbench</span>
           </h2>
-          <p className="text-zinc-400 text-xs mt-0.5">
+          <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-0.5">
             Stage the baseline engineering specification against competitor bids for automated gap pricing.
           </p>
         </div>
@@ -228,7 +228,7 @@ export function SplitUploadDropzone() {
         {/* Tender Metadata */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="tenderIdInput" className="block text-zinc-400 font-medium mb-1 text-xs">
+            <label htmlFor="tenderIdInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
               Tender Reference ID
             </label>
             <input
@@ -237,13 +237,13 @@ export function SplitUploadDropzone() {
               value={tenderId}
               onChange={(e) => setTenderId(e.target.value)}
               placeholder="TENDER-2026-XXX"
-              className="w-full px-3 py-2 bg-black border border-zinc-800 rounded text-white text-xs font-mono focus:border-zinc-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs font-mono focus:border-zinc-500 focus:outline-none shadow-xs"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="tenderTitleInput" className="block text-zinc-400 font-medium mb-1 text-xs">
+            <label htmlFor="tenderTitleInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
               Package Title
             </label>
             <input
@@ -251,13 +251,13 @@ export function SplitUploadDropzone() {
               type="text"
               value={tenderTitle}
               onChange={(e) => setTenderTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-black border border-zinc-800 rounded text-white text-xs focus:border-zinc-500 focus:outline-none font-sans"
+              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="clientNameInput" className="block text-zinc-400 font-medium mb-1 text-xs">
+            <label htmlFor="clientNameInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
               Procurement Client / EPC Entity
             </label>
             <input
@@ -265,7 +265,7 @@ export function SplitUploadDropzone() {
               type="text"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              className="w-full px-3 py-2 bg-black border border-zinc-800 rounded text-white text-xs focus:border-zinc-500 focus:outline-none font-sans"
+              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
               required
             />
           </div>
@@ -274,16 +274,16 @@ export function SplitUploadDropzone() {
         {/* Split Upload Interface */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
           {/* Panel A: Baseline Engineering Tender Specification */}
-          <div className="border border-zinc-800 rounded p-4 bg-[#111113] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <span className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-zinc-50/70 dark:bg-[#111113] space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+              <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-500" />
                 (A) Engineering Specification / BOM
               </span>
               <span className="text-[10px] text-zinc-500 font-mono">MANDATORY BASELINE</span>
             </div>
 
-            <div className="border border-dashed border-zinc-800 hover:border-zinc-700 rounded p-5 text-center bg-black/60 cursor-pointer transition-colors">
+            <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
               <input
                 type="file"
                 accept=".pdf"
@@ -296,8 +296,8 @@ export function SplitUploadDropzone() {
                 }}
               />
               <label htmlFor="mrFileInput" className="cursor-pointer block">
-                <FileUp className="w-8 h-8 mx-auto mb-2 text-zinc-500" />
-                <div className="text-zinc-200 font-medium text-xs">
+                <FileUp className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
+                <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
                   {mrFile ? mrFile.name : 'Select or Drop Baseline MR Specification PDF'}
                 </div>
                 <div className="text-[11px] text-zinc-500 mt-1 font-mono">
@@ -306,23 +306,23 @@ export function SplitUploadDropzone() {
               </label>
             </div>
 
-            <div className="text-xs text-zinc-400 space-y-1">
-              <div>Default Repo Target: <strong className="text-zinc-200 font-mono">MR-33kV-GIS-Rev4.pdf</strong></div>
-              <div>Ontology Rules: <strong className="text-zinc-200">8 Evaluated Clauses (Pint 0.26)</strong></div>
+            <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+              <div>Default Repo Target: <strong className="text-zinc-900 dark:text-zinc-200 font-mono">MR-33kV-GIS-Rev4.pdf</strong></div>
+              <div>Ontology Rules: <strong className="text-zinc-900 dark:text-zinc-200">8 Evaluated Clauses (Pint 0.26)</strong></div>
             </div>
           </div>
 
           {/* Panel B: Vendor Proposals */}
-          <div className="border border-zinc-800 rounded p-4 bg-[#111113] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <span className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-zinc-50/70 dark:bg-[#111113] space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
+              <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 (B) Vendor Proposals (Bids)
               </span>
               <span className="text-[10px] text-zinc-500 font-mono">MULTI-VENDOR</span>
             </div>
 
-            <div className="border border-dashed border-zinc-800 hover:border-zinc-700 rounded p-5 text-center bg-black/60 cursor-pointer transition-colors">
+            <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
               <input
                 type="file"
                 accept=".pdf"
@@ -343,8 +343,8 @@ export function SplitUploadDropzone() {
                 }}
               />
               <label htmlFor="vendorFileInput" className="cursor-pointer block">
-                <FileCheck className="w-8 h-8 mx-auto mb-2 text-zinc-500" />
-                <div className="text-zinc-200 font-medium text-xs">
+                <FileCheck className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
+                <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
                   {vendorFiles.length > 0
                     ? `${vendorFiles.length} Vendor Proposal(s) Staged`
                     : 'Select or Drop Vendor Bid PDFs'}
@@ -359,9 +359,9 @@ export function SplitUploadDropzone() {
             {vendorFiles.length > 0 && (
               <div className="space-y-1.5 max-h-36 overflow-y-auto pt-1">
                 {vendorFiles.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded bg-black border border-zinc-800 text-xs">
-                    <span className="text-zinc-200 truncate max-w-[200px]">{v.file.name}</span>
-                    <span className="text-zinc-400 font-mono text-[11px]">{v.vendorId}</span>
+                  <div key={i} className="flex items-center justify-between p-2 rounded bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 text-xs shadow-xs">
+                    <span className="text-zinc-800 dark:text-zinc-200 truncate max-w-[200px]">{v.file.name}</span>
+                    <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[11px]">{v.vendorId}</span>
                   </div>
                 ))}
               </div>
@@ -370,21 +370,21 @@ export function SplitUploadDropzone() {
         </div>
 
         {error && (
-          <div className="p-3 rounded bg-rose-950/40 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className="p-3 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Submit */}
-        <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+        <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
           <div className="text-zinc-500 text-xs">
             Deterministic Pint unit engine + PyMuPDF coordinate indexing.
           </div>
           <button
             type="submit"
             disabled={isProcessing}
-            className="px-4 py-2 bg-white hover:bg-zinc-200 text-black font-semibold rounded transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm text-xs"
+            className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-black font-semibold rounded text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
           >
             {isProcessing ? (
               <>
@@ -403,32 +403,32 @@ export function SplitUploadDropzone() {
 
       {/* Live Pipeline Monitor Modal */}
       {isProcessing && currentJob && (
-        <div className="p-4 border border-zinc-800 bg-[#09090B] rounded space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+        <div className="p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl space-y-3 shadow-md">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-              <span className="font-semibold text-white uppercase tracking-wider text-xs">
+              <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
+              <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
                 Live Audit Pipeline Execution: {currentJob.job_id}
               </span>
             </div>
-            <span className="text-cyan-400 font-mono font-bold text-xs tabular-nums">
+            <span className="text-cyan-600 dark:text-cyan-400 font-mono font-bold text-xs tabular-nums">
               {currentJob.progress_pct}%
             </span>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-zinc-900 h-1.5 rounded overflow-hidden">
+          <div className="w-full bg-zinc-200 dark:bg-zinc-900 h-1.5 rounded overflow-hidden">
             <div
-              className="bg-white h-full transition-all duration-300"
+              className="bg-zinc-900 dark:bg-white h-full transition-all duration-300"
               style={{ width: `${currentJob.progress_pct}%` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-xs text-zinc-400 font-sans">
+          <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-sans">
             <div>
-              Current Stage: <strong className="text-white uppercase font-mono">{currentJob.stage}</strong>
+              Current Stage: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
             </div>
-            <div className="text-zinc-300">{statusMessage}</div>
+            <div className="text-zinc-800 dark:text-zinc-300">{statusMessage}</div>
           </div>
         </div>
       )}

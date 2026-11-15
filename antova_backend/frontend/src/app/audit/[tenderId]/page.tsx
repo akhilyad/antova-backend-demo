@@ -303,29 +303,29 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
       ) : brief ? (
         <main className="flex-1 p-4 max-w-[1720px] w-full mx-auto space-y-4">
           {/* Executive Tender Summary Banner */}
-          <div className="p-4 rounded border border-zinc-800 bg-[#09090B] flex flex-wrap items-center justify-between gap-4 shadow-sm">
+          <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] flex flex-wrap items-center justify-between gap-4 shadow-sm">
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
-                <span className="font-mono text-xs font-bold text-cyan-400 bg-black border border-zinc-800 px-2 py-0.5 rounded tracking-wide">
+                <span className="font-mono text-xs font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-black border border-cyan-200 dark:border-zinc-800 px-2 py-0.5 rounded tracking-wide">
                   {brief.tender?.id || tenderId}
                 </span>
-                <span className="text-zinc-600">·</span>
-                <h1 className="text-sm font-semibold text-white tracking-tight">
+                <span className="text-zinc-300 dark:text-zinc-600">·</span>
+                <h1 className="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">
                   {brief.tender?.title || 'Tender Audit'}
                 </h1>
-                <span className="text-zinc-600">·</span>
+                <span className="text-zinc-300 dark:text-zinc-600">·</span>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider uppercase border ${
                     isVerified
-                      ? 'bg-emerald-950/60 border-emerald-900 text-emerald-400'
-                      : 'bg-amber-950/60 border-amber-900 text-amber-400'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400'
                   }`}
                 >
                   {isVerified ? 'VERIFIED & SEALED' : 'DRAFT REVIEW'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 font-sans">
-                Client: <strong className="text-zinc-200">{brief.tender?.client || 'N/A'}</strong> · Material Requisition: <span className="font-mono text-zinc-300">{brief.tender?.mr_doc || 'MR Spec'}</span> ({brief.tender?.pages_parsed || 0} pages parsed)
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 font-sans">
+                Client: <strong className="text-zinc-900 dark:text-zinc-200">{brief.tender?.client || 'N/A'}</strong> · Material Requisition: <span className="font-mono text-zinc-800 dark:text-zinc-300">{brief.tender?.mr_doc || 'MR Spec'}</span> ({brief.tender?.pages_parsed || 0} pages parsed)
               </p>
             </div>
 
@@ -425,54 +425,54 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
 
           {/* Key Executive KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="p-3 rounded border border-zinc-800 bg-[#09090B]">
+            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
               <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
                 Bidders Evaluated
               </span>
-              <div className="text-lg font-bold text-white font-mono mt-0.5">
+              <div className="text-lg font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                 {safeVendors.length} Proposals
               </div>
-              <span className="text-[11px] text-zinc-400 mt-0.5 block font-sans">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 block font-sans">
                 {safeDocuments.length} total source PDFs indexed
               </span>
             </div>
 
-            <div className="p-3 rounded border border-zinc-800 bg-[#09090B]">
+            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
               <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
                 Clause Coverage
               </span>
-              <div className="text-lg font-bold text-white font-mono mt-0.5">
+              <div className="text-lg font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
                 {safeParameters.length} Clauses
               </div>
-              <span className="text-[11px] text-emerald-400 mt-0.5 block font-sans">
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5 block font-sans">
                 100% deterministic Pint evaluation
               </span>
             </div>
 
-            <div className="p-3 rounded border border-zinc-800 bg-[#09090B]">
+            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
               <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
                 Recommended Bidder (L1)
               </span>
-              <div className="text-lg font-bold text-emerald-400 font-mono mt-0.5 truncate">
+              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5 truncate">
                 {recommendedVendor?.name || 'Awaiting Award'}
               </div>
-              <span className="text-[11px] text-zinc-300 font-mono mt-0.5 block">
+              <span className="text-[11px] text-zinc-700 dark:text-zinc-300 font-mono mt-0.5 block">
                 True Cost: {formatEur(recommendedVendor?.true_evaluated_price)}
               </span>
             </div>
 
-            <div className="p-3 rounded border border-zinc-800 bg-[#09090B]">
+            <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B]">
               <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-sans">
                 Open Items / Clarifications
               </span>
               <div
                 className={`text-lg font-bold font-mono mt-0.5 ${
-                  safeOpenItems.length > 0 ? 'text-amber-400' : 'text-emerald-400'
+                  safeOpenItems.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               >
                 {safeOpenItems.length} Open Gaps
               </div>
-              <span className="text-[11px] text-zinc-400 mt-0.5 block font-sans">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 block font-sans">
                 {safeOpenItems.length === 0 ? 'Ready for sign-off' : 'Action needed before sealing'}
               </span>
             </div>
@@ -636,11 +636,11 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
             )}
 
             {activeTab === 'SIGNOFF' && (
-              <div className="border border-zinc-800 bg-[#09090B] rounded p-5 space-y-5 text-xs font-sans">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4">
+              <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-5 space-y-5 text-xs font-sans shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
                   <div>
-                    <h2 className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <h2 className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                       <span>Procurement Committee Sign-Off & Clarifications</span>
                     </h2>
                     <p className="text-xs text-zinc-400 mt-1">
@@ -700,7 +700,7 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
                       {safeOpenItems.map((item, idx) => (
                         <div
                           key={idx}
-                          className="px-3.5 py-2.5 bg-[#09090B] text-xs flex items-center justify-between gap-3 hover:bg-zinc-900/60 transition-colors"
+                          className="px-3.5 py-2.5 bg-white dark:bg-[#09090B] text-xs flex items-center justify-between gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors"
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2 font-mono text-[11px]">
@@ -810,17 +810,17 @@ export default function AuditWorkbenchPage({ params }: PageProps) {
       ) : (
         /* Actionable Backend Offline / Error Card when brief is null */
         <main className="flex-1 p-6 max-w-4xl w-full mx-auto flex flex-col items-center justify-center font-sans">
-          <div className="w-full p-6 rounded-lg border border-zinc-800 bg-[#09090B] space-y-4 shadow-xl">
-            <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-4">
+          <div className="w-full p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] space-y-4 shadow-xl">
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded bg-rose-950/40 border border-rose-900 text-rose-400">
+                <div className="p-2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-white">
+                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
                     Tender Package Unavailable from Backend
                   </h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                     Target: <code className="text-zinc-300 font-mono">{API_BASE ? `${API_BASE}/api/review/tenders/${tenderId}` : `/api/review/tenders/${tenderId}`}</code>
                   </p>
                 </div>

@@ -84,7 +84,7 @@ export function Header({
 
   return (
     <>
-      <header className="border-b border-zinc-800 bg-[#09090B] text-zinc-100 sticky top-0 z-40 select-none font-sans">
+      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] text-zinc-900 dark:text-zinc-100 sticky top-0 z-40 select-none font-sans">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           {/* Brand & Tender Selector */}
           <div className="flex items-center gap-3">
@@ -92,35 +92,35 @@ export function Header({
               href="/"
               className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 rounded px-1 -ml-1"
             >
-              <div className="w-6 h-6 bg-white text-black font-black flex items-center justify-center rounded text-xs tracking-tight">
+              <div className="w-6 h-6 bg-zinc-900 text-white dark:bg-white dark:text-black font-black flex items-center justify-center rounded text-xs tracking-tight shadow-xs">
                 A
               </div>
-              <span className="font-semibold text-sm tracking-tight text-white group-hover:text-zinc-200 transition-colors">
+              <span className="font-semibold text-sm tracking-tight text-zinc-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-colors">
                 Antova
               </span>
             </Link>
 
-            <span className="text-zinc-700">/</span>
+            <span className="text-zinc-300 dark:text-zinc-700">/</span>
 
             {/* Tender Selector Dropdown */}
             <div className="relative">
               <button
                 onClick={() => setIsSwitcherOpen(!isSwitcherOpen)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-[#111113] border border-zinc-800 hover:border-zinc-700 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-50 dark:bg-[#111113] border border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
                 aria-label="Select Active Tender"
                 aria-expanded={isSwitcherOpen}
               >
-                <span className="text-zinc-400 font-normal">Tender:</span>
-                <span className="text-white font-mono font-medium">{activeTenderId}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-zinc-500 dark:text-zinc-400 font-normal">Tender:</span>
+                <span className="text-zinc-900 dark:text-white font-mono font-medium">{activeTenderId}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
               </button>
 
               {isSwitcherOpen && (
                 <div
-                  className="absolute left-0 top-full mt-1.5 w-84 bg-[#09090B] border border-zinc-800 rounded shadow-2xl py-1 z-50 text-xs"
+                  className="absolute left-0 top-full mt-1.5 w-84 bg-white dark:bg-[#09090B] border border-zinc-200 dark:border-zinc-800 rounded shadow-2xl py-1 z-50 text-xs"
                   onMouseLeave={() => setIsSwitcherOpen(false)}
                 >
-                  <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold border-b border-zinc-800/80 font-mono">
+                  <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold border-b border-zinc-200 dark:border-zinc-800/80 font-mono">
                     Switch Ingested Tender
                   </div>
                   {displayTenders.map((t) => (
@@ -130,32 +130,32 @@ export function Header({
                         setIsSwitcherOpen(false);
                         router.push(`/audit/${t.tender_id}`);
                       }}
-                      className={`w-full text-left px-3 py-2 flex items-start justify-between gap-2 hover:bg-zinc-900 transition-colors ${
-                        t.tender_id === activeTenderId ? 'bg-zinc-900/80 text-white' : 'text-zinc-300'
+                      className={`w-full text-left px-3 py-2 flex items-start justify-between gap-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors ${
+                        t.tender_id === activeTenderId ? 'bg-zinc-100 dark:bg-zinc-900/80 text-zinc-900 dark:text-white font-medium' : 'text-zinc-700 dark:text-zinc-300'
                       }`}
                     >
                       <div>
-                        <div className="font-mono font-semibold text-xs text-zinc-100">{t.tender_id}</div>
-                        <div className="text-[11px] text-zinc-400 truncate max-w-[210px]" title={t.title}>
+                        <div className="font-mono font-semibold text-xs text-zinc-900 dark:text-zinc-100">{t.tender_id}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[210px]" title={t.title}>
                           {t.title}
                         </div>
                       </div>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-medium shrink-0 ${
                           t.status === 'VERIFIED'
-                            ? 'border border-emerald-500/30 text-emerald-400 bg-emerald-950/30'
-                            : 'border border-amber-500/30 text-amber-400 bg-amber-950/30'
+                            ? 'border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30'
+                            : 'border border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
                         }`}
                       >
                         {t.status}
                       </span>
                     </button>
                   ))}
-                  <div className="border-t border-zinc-800/80 mt-1 pt-1">
+                  <div className="border-t border-zinc-200 dark:border-zinc-800/80 mt-1 pt-1">
                     <Link
                       href="/ingest"
                       onClick={() => setIsSwitcherOpen(false)}
-                      className="block px-3 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-900"
+                      className="block px-3 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900"
                     >
                       + Ingest new tender documents
                     </Link>
@@ -222,7 +222,7 @@ export function Header({
                 disabled={isRefreshing}
                 aria-label="Refresh audit data"
                 title="Refresh audit data from backend"
-                className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded transition-colors disabled:opacity-50 border border-zinc-800"
+                className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded transition-colors disabled:opacity-50 border border-zinc-300 dark:border-zinc-800"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -232,9 +232,9 @@ export function Header({
             <Link
               href={`/print/${activeTenderId}`}
               target="_blank"
-              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-zinc-800 bg-[#111113] text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors font-medium"
+              className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border border-zinc-300 dark:border-zinc-800 bg-zinc-50 dark:bg-[#111113] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors font-medium"
             >
-              <Printer className="w-3.5 h-3.5 text-zinc-400" />
+              <Printer className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
               <span>Sign-Off Sheet</span>
             </Link>
 
@@ -242,7 +242,7 @@ export function Header({
             <button
               onClick={handleExportTbe}
               disabled={isExporting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded bg-white hover:bg-zinc-200 text-black transition-colors disabled:opacity-50 shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black transition-colors disabled:opacity-50 shadow-sm"
               title={status === 'VERIFIED' ? 'Download verified TBE workbook (.xlsx)' : 'Seal tender to download official TBE workbook'}
             >
               {isExporting ? (
@@ -252,7 +252,7 @@ export function Header({
                 </>
               ) : (
                 <>
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-800" />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Export TBE (.xlsx)</span>
                 </>
               )}

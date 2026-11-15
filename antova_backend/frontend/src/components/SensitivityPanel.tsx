@@ -40,13 +40,13 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
   const isModified = copper !== 1.0 || labor !== 60 || freight !== 1.0;
 
   return (
-    <div className="border border-zinc-800 bg-[#09090B] rounded p-3.5 text-xs shadow-sm font-sans">
-      <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800 mb-3">
-        <div className="flex items-center gap-2 text-zinc-200 font-semibold text-xs">
-          <Sliders className="w-3.5 h-3.5 text-zinc-400" />
+    <div className="border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] rounded-xl p-3.5 text-xs shadow-sm font-sans">
+      <div className="flex items-center justify-between pb-2.5 border-b border-zinc-200 dark:border-zinc-800 mb-3">
+        <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-200 font-semibold text-xs">
+          <Sliders className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
           <span>Commodity & Rate Sensitivity Engine</span>
           {isLoading && (
-            <span className="text-[11px] text-cyan-400 font-mono animate-pulse flex items-center gap-1">
+            <span className="text-[11px] text-cyan-600 dark:text-cyan-400 font-mono animate-pulse flex items-center gap-1">
               <Activity className="w-3 h-3 animate-spin" />
               <span>Recalculating...</span>
             </span>
@@ -55,7 +55,7 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
         {isModified && (
           <button
             onClick={handleReset}
-            className="text-[11px] text-zinc-300 hover:text-white flex items-center gap-1 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded transition-colors"
+            className="text-[11px] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 px-2 py-0.5 rounded transition-colors shadow-xs"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Reset Baseline Rates</span>
@@ -65,10 +65,10 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Copper Slider */}
-        <div className="p-2.5 rounded bg-[#111113] border border-zinc-800">
+        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
           <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-400">Copper (LME Index)</span>
-            <span className="text-white font-mono font-bold tabular-nums">{copper.toFixed(2)}x</span>
+            <span className="text-zinc-600 dark:text-zinc-400">Copper (LME Index)</span>
+            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">{copper.toFixed(2)}x</span>
           </div>
           <input
             type="range"
@@ -77,7 +77,7 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
             step="0.05"
             value={copper}
             onChange={(e) => handleCopperChange(parseFloat(e.target.value))}
-            className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-white"
+            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
             aria-label="Copper multiplier"
           />
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
@@ -88,10 +88,10 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
         </div>
 
         {/* Site Labor Slider */}
-        <div className="p-2.5 rounded bg-[#111113] border border-zinc-800">
+        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
           <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-400">Site Labor Hourly Rate</span>
-            <span className="text-white font-mono font-bold tabular-nums">€{labor}/hr</span>
+            <span className="text-zinc-600 dark:text-zinc-400">Site Labor Hourly Rate</span>
+            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">€{labor}/hr</span>
           </div>
           <input
             type="range"
@@ -100,7 +100,7 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
             step="5"
             value={labor}
             onChange={(e) => handleLaborChange(parseInt(e.target.value))}
-            className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-white"
+            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
             aria-label="Site labor rate"
           />
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
@@ -111,10 +111,10 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
         </div>
 
         {/* Freight Slider */}
-        <div className="p-2.5 rounded bg-[#111113] border border-zinc-800">
+        <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800">
           <div className="flex justify-between items-center mb-1 text-xs">
-            <span className="text-zinc-400">Heavy Haul & Sea Freight</span>
-            <span className="text-white font-mono font-bold tabular-nums">{freight.toFixed(2)}x</span>
+            <span className="text-zinc-600 dark:text-zinc-400">Heavy Haul & Sea Freight</span>
+            <span className="text-zinc-900 dark:text-white font-mono font-bold tabular-nums">{freight.toFixed(2)}x</span>
           </div>
           <input
             type="range"
@@ -123,7 +123,7 @@ export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: Sen
             step="0.05"
             value={freight}
             onChange={(e) => handleFreightChange(parseFloat(e.target.value))}
-            className="w-full h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-white"
+            className="w-full h-1 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-900 dark:accent-white"
             aria-label="Freight multiplier"
           />
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono mt-1">
