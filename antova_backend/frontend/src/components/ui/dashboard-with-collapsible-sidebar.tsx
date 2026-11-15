@@ -1051,7 +1051,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                             paramId: pId,
                             paramName: param?.name,
                             vendorName: vendor?.name,
-                            currentAdder: adderItem?.adder_eur,
+                            currentAdder: adderItem?.adder_eur ?? undefined,
                             currentNote: adderItem?.override_note,
                           });
                         }}
@@ -1088,7 +1088,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                               paramId,
                               paramName: param?.name,
                               vendorName: vendor?.name,
-                              currentAdder: adderItem?.adder_eur,
+                              currentAdder: adderItem?.adder_eur ?? undefined,
                               currentNote: adderItem?.override_note,
                             });
                           }}

@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { VendorFinancials, Vendor } from '../lib/types';
-import { formatEur, formatDelta } from '../lib/formatting';
-import { AlertCircle, Eye, Edit3, CheckCircle2, TrendingDown, Award } from 'lucide-react';
+import { formatEur, formatAdderEur } from '../lib/domain/money';
+import { AlertCircle, Eye, Edit3, Award, Info } from 'lucide-react';
 
 interface TrueJobCostTableProps {
   financials?: VendorFinancials[];
@@ -46,32 +46,32 @@ export function TrueJobCostTable({
     lowestHeadlineVendor.vendor_id !== bestValueVendor.vendor_id;
 
   return (
-    <div className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#09090B] rounded-xl overflow-hidden text-xs shadow-2xs font-sans">
+    <div className="border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] rounded-xl overflow-hidden text-xs shadow-2xs font-sans">
       {/* Table Header Section */}
-      <div className="px-5 py-3.5 border-b border-[#DCE2E8] dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 bg-[#F8FAFC] dark:bg-[#111113]">
+      <div className="px-5 py-3.5 border-b border-[#D9D4CC] dark:border-[#7A7266] flex flex-wrap items-center justify-between gap-3 bg-[#FAF8F5] dark:bg-[#141210]">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold text-[#182433] dark:text-white tracking-wider uppercase">
+            <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
               True Job Cost & Scope Omission Ledger
             </h2>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#DCE2E8] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#667487] dark:text-zinc-300 font-mono font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-[#767067] dark:text-[#A39A8D] font-mono font-medium">
               Deterministic Reconciliation
             </span>
           </div>
-          <p className="text-[11px] text-[#667487] dark:text-zinc-400 mt-0.5">
+          <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
             Nominal supplier quotes leveled against unquoted equipment omissions, transport boundaries, and warranty shortfalls.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 text-[11px] text-[#667487] dark:text-zinc-400 font-sans">
-          <span className="flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-[#278765]" />
-            <span className="text-[#182433] dark:text-zinc-300">L1 Recommended</span>
+        <div className="flex items-center gap-3 text-[11px] text-[#767067] dark:text-[#A39A8D] font-sans">
+          <span className="flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="w-2 h-2 rounded-full bg-zinc-800 dark:bg-zinc-200" />
+            <span>L1 Recommended</span>
           </span>
           <span className="text-zinc-300 dark:text-zinc-700">·</span>
-          <span className="flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-[#B94A48]" />
-            <span className="text-[#182433] dark:text-zinc-300">Scope Gap Add-Back</span>
+          <span className="flex items-center gap-1.5 font-medium text-[#9E2B1F] dark:text-[#E07A6A]">
+            <span className="w-2 h-2 rounded-full bg-[#9E2B1F] dark:bg-[#E07A6A]" />
+            <span>Scope Gap Add-Back</span>
           </span>
         </div>
       </div>
@@ -80,21 +80,21 @@ export function TrueJobCostTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse" aria-label="Bid Audit Ledger">
           <thead>
-            <tr className="border-b border-[#DCE2E8] dark:border-zinc-800 bg-[#F4F6F8] dark:bg-black text-[#667487] dark:text-zinc-400 text-[10px] tracking-wider uppercase font-semibold">
+            <tr className="border-b border-[#D9D4CC] dark:border-[#7A7266] bg-[#FAF8F5] dark:bg-[#141210] text-[#767067] dark:text-[#A39A8D] text-[10px] tracking-wider uppercase font-semibold">
               <th scope="col" className="py-3 px-3.5 w-14">Rank</th>
               <th scope="col" className="py-3 px-3.5 min-w-[210px]">Vendor Proposal</th>
               <th scope="col" className="py-3 px-3.5 text-right">Quoted Bid</th>
               <th scope="col" className="py-3 px-3.5 text-right">Technical Gaps</th>
               <th scope="col" className="py-3 px-3.5 text-right">Commercial Gaps</th>
               <th scope="col" className="py-3 px-3.5 text-right">Net Omissions</th>
-              <th scope="col" className="py-3 px-3.5 font-bold text-right bg-zinc-200/50 dark:bg-zinc-900/60 text-[#182433] dark:text-white">
+              <th scope="col" className="py-3 px-3.5 font-bold text-right bg-zinc-100/60 dark:bg-zinc-900/60 text-zinc-900 dark:text-white">
                 True Job Cost
               </th>
               <th scope="col" className="py-3 px-3.5 text-right">Delta vs Quote</th>
               <th scope="col" className="py-3 px-3.5 text-center w-28">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#DCE2E8] dark:divide-zinc-800/80 bg-white dark:bg-[#09090B]">
+          <tbody className="divide-y divide-[#D9D4CC] dark:divide-[#7A7266]/40 bg-white dark:bg-[#1C1916]">
             {sortedAll.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
@@ -108,6 +108,7 @@ export function TrueJobCostTable({
                 const isPriced = item.headline_price !== null && item.true_evaluated_price !== null;
                 const isLowestNominal = isPriced && item.headline_price === lowestHeadline;
                 const isBestValue = isPriced && index === 0;
+                const isUnpricedItems = item.price_status === 'UNPRICED_ITEMS';
 
                 const deltaVsLowestQuote =
                   lowestHeadline !== null && item.true_evaluated_price !== null
@@ -125,10 +126,10 @@ export function TrueJobCostTable({
                         onSelectVendor(item.vendor_id);
                       }
                     }}
-                    className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#172536] dark:focus-visible:ring-zinc-400 ${
+                    className={`cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 ${
                       isSelected
-                        ? 'bg-zinc-100/80 dark:bg-zinc-800/60 border-l-4 border-l-[#172536] dark:border-l-cyan-400 font-medium'
-                        : 'hover:bg-[#F8FAFC] dark:hover:bg-zinc-900/40 border-l-4 border-l-transparent'
+                        ? 'bg-zinc-100/80 dark:bg-zinc-800/60 border-l-4 border-l-zinc-900 dark:border-l-zinc-100 font-medium'
+                        : 'hover:bg-[#FAF8F5] dark:hover:bg-zinc-900/40 border-l-4 border-l-transparent'
                     }`}
                   >
                     {/* Rank Badge */}
@@ -137,9 +138,9 @@ export function TrueJobCostTable({
                         <span
                           className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
                             isBestValue
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                              ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-zinc-900 dark:border-zinc-200'
                               : isLowestNominal
-                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                              ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
                           }`}
                         >
@@ -153,22 +154,22 @@ export function TrueJobCostTable({
                     {/* Vendor Name & Origin */}
                     <td className="py-3.5 px-3.5 font-sans">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#182433] dark:text-zinc-100 text-xs">
+                        <span className="font-bold text-zinc-900 dark:text-zinc-100 text-xs">
                           {item.name || vendor?.name || item.vendor_id}
                         </span>
                         {isBestValue && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-zinc-900">
                             <Award className="w-3 h-3" />
-                            Recommended
+                            Recommended Award
                           </span>
                         )}
                         {isLowestNominal && !isBestValue && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                             Apparent Low Bidder
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-[#667487] dark:text-zinc-400 font-mono mt-0.5">
+                      <div className="text-[11px] text-[#767067] dark:text-[#A39A8D] font-mono mt-0.5">
                         {item.country || vendor?.country || 'N/A'} · {vendor?.doc_name || 'Offer PDF'}
                       </div>
                     </td>
@@ -178,14 +179,14 @@ export function TrueJobCostTable({
                       {item.headline_price !== null ? (
                         <span className="text-zinc-800 dark:text-zinc-200">{formatEur(item.headline_price)}</span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 text-[11px] font-semibold font-sans">Unpriced</span>
+                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">Unpriced</span>
                       )}
                     </td>
 
                     {/* Technical Adders */}
                     <td className="py-3.5 px-3.5 text-right font-mono tabular-nums whitespace-nowrap text-xs">
                       {item.total_tech_penalty > 0 ? (
-                        <span className="text-rose-600 dark:text-rose-400 font-semibold">+{formatEur(item.total_tech_penalty)}</span>
+                        <span className="text-[#9E2B1F] dark:text-[#E07A6A] font-semibold">+{formatEur(item.total_tech_penalty)}</span>
                       ) : (
                         <span className="text-zinc-400 dark:text-zinc-500">€0</span>
                       )}
@@ -194,7 +195,7 @@ export function TrueJobCostTable({
                     {/* Commercial Adders */}
                     <td className="py-3.5 px-3.5 text-right font-mono tabular-nums whitespace-nowrap text-xs">
                       {item.total_commercial_adder > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-semibold">+{formatEur(item.total_commercial_adder)}</span>
+                        <span className="text-amber-700 dark:text-amber-400 font-semibold">+{formatEur(item.total_commercial_adder)}</span>
                       ) : (
                         <span className="text-zinc-400 dark:text-zinc-500">€0</span>
                       )}
@@ -203,20 +204,33 @@ export function TrueJobCostTable({
                     {/* Net Omissions (Total Adders) */}
                     <td className="py-3.5 px-3.5 text-right font-mono tabular-nums whitespace-nowrap text-xs font-bold">
                       {item.total_adders > 0 ? (
-                        <span className="text-rose-600 dark:text-rose-400">+{formatEur(item.total_adders)}</span>
+                        <span className="text-[#9E2B1F] dark:text-[#E07A6A]">+{formatEur(item.total_adders)}</span>
                       ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400">€0</span>
+                        <span className="text-zinc-700 dark:text-zinc-300">€0</span>
                       )}
                     </td>
 
                     {/* True Job Cost */}
                     <td className="py-3.5 px-3.5 text-right font-mono tabular-nums whitespace-nowrap bg-zinc-100/50 dark:bg-zinc-900/40 text-xs font-bold">
                       {isPriced ? (
-                        <span className={isBestValue ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-[#182433] dark:text-white'}>
-                          {formatEur(item.true_evaluated_price)}
-                        </span>
+                        <div className="space-y-0.5">
+                          <span
+                            className={
+                              isBestValue
+                                ? 'text-zinc-950 dark:text-white font-black underline decoration-zinc-400'
+                                : 'text-zinc-900 dark:text-white'
+                            }
+                          >
+                            {formatEur(item.true_evaluated_price, { isLowerBound: isUnpricedItems })}
+                          </span>
+                          {isUnpricedItems && (
+                            <div className="text-[10px] text-amber-700 dark:text-amber-400 font-sans font-medium">
+                              lower bound · 1 unpriced
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 text-[11px] font-semibold font-sans">Incomplete Bid</span>
+                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">Incomplete Bid</span>
                       )}
                     </td>
 
@@ -224,9 +238,9 @@ export function TrueJobCostTable({
                     <td className="py-3.5 px-3.5 text-right font-mono tabular-nums whitespace-nowrap text-xs">
                       {deltaVsLowestQuote !== null ? (
                         deltaVsLowestQuote > 0 ? (
-                          <span className="text-rose-600 dark:text-rose-400 font-semibold">+{formatEur(deltaVsLowestQuote)}</span>
+                          <span className="text-[#9E2B1F] dark:text-[#E07A6A] font-semibold">+{formatEur(deltaVsLowestQuote)}</span>
                         ) : (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Baseline</span>
+                          <span className="text-zinc-700 dark:text-zinc-300 font-semibold">Baseline</span>
                         )
                       ) : (
                         <span className="text-zinc-400 dark:text-zinc-600">—</span>
@@ -238,7 +252,7 @@ export function TrueJobCostTable({
                       <div className="flex items-center justify-center gap-1.5 font-sans">
                         <button
                           onClick={() => onSelectVendor(item.vendor_id)}
-                          className="px-2.5 py-1 rounded bg-white dark:bg-[#111113] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
+                          className="px-2.5 py-1 rounded bg-white dark:bg-[#1C1916] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
                           aria-label={`Inspect ${item.name} breakdown`}
                         >
                           <Eye className="w-3 h-3 text-zinc-500" />
@@ -247,7 +261,7 @@ export function TrueJobCostTable({
                         <button
                           onClick={() => onOpenOverride(item.vendor_id)}
                           title="Override adder amount"
-                          className="p-1 rounded bg-white dark:bg-[#111113] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
+                          className="p-1 rounded bg-white dark:bg-[#1C1916] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors shadow-2xs"
                           aria-label={`Override adder for ${item.name}`}
                         >
                           <Edit3 className="w-3 h-3" />
@@ -262,34 +276,20 @@ export function TrueJobCostTable({
         </table>
       </div>
 
-      {/* Dynamic Procurement Audit Verdict Footer */}
-      <div className="px-5 py-4 bg-[#F8FAFC] dark:bg-[#111113] border-t border-[#DCE2E8] dark:border-zinc-800 text-xs text-zinc-700 dark:text-zinc-300 flex items-start gap-3 font-sans">
-        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <div className="font-bold text-[#182433] dark:text-white tracking-wider uppercase text-[11px]">
-            Procurement Recommendation Analysis
+      {/* Rank Reversal & Leveling Summary Callout */}
+      {hasReversal && (
+        <div className="p-4 border-t border-[#D9D4CC] dark:border-[#7A7266] bg-[#FAF8F5] dark:bg-[#141210] flex items-start gap-3">
+          <Info className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-bold text-zinc-900 dark:text-white uppercase tracking-wider text-[11px]">
+              Procurement Leveling & Award Analysis
+            </span>
+            <p className="text-[#767067] dark:text-[#A39A8D] leading-relaxed text-[11px]">
+              Nominal apparent low bidder <strong className="text-zinc-900 dark:text-zinc-100">{lowestHeadlineVendor.name}</strong> ({formatEur(lowestHeadlineVendor.headline_price)}) carries unquoted scope omissions and warranty delivery boundaries, elevating its true evaluated cost to <strong className="text-zinc-900 dark:text-zinc-100">{formatEur(lowestHeadlineVendor.true_evaluated_price, { isLowerBound: lowestHeadlineVendor.price_status === 'UNPRICED_ITEMS' })}</strong>. Recommended award is <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong> at <strong className="text-zinc-900 dark:text-zinc-100">{formatEur(bestValueVendor.true_evaluated_price)}</strong>, delivering verified specification compliance and the lowest true total cost of ownership.
+            </p>
           </div>
-          {hasReversal ? (
-            <p className="text-xs text-[#182433] dark:text-zinc-300 leading-relaxed">
-              Nominal low bidder <strong className="text-zinc-900 dark:text-white">{lowestHeadlineVendor.name}</strong> ({formatEur(lowestHeadlineVendor.headline_price)}) carries{' '}
-              <strong className="text-rose-600 dark:text-rose-400 font-semibold">+{formatEur(lowestHeadlineVendor.total_adders)} in unquoted scope omissions</strong> and delivery boundaries, elevating its true reconciled cost to{' '}
-              <strong className="text-zinc-900 dark:text-white font-mono">{formatEur(lowestHeadlineVendor.true_evaluated_price)}</strong>.
-              Recommended award is <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">{bestValueVendor.name}</strong> at{' '}
-              <strong className="text-zinc-900 dark:text-white font-mono">{formatEur(bestValueVendor.true_evaluated_price)}</strong>, delivering verified specification compliance and the lowest true total cost of ownership.
-            </p>
-          ) : bestValueVendor ? (
-            <p className="text-xs text-[#182433] dark:text-zinc-300 leading-relaxed">
-              <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">{bestValueVendor.name}</strong> leads at{' '}
-              <strong className="text-zinc-900 dark:text-white font-mono">{formatEur(bestValueVendor.true_evaluated_price)}</strong> with {bestValueVendor.total_adders === 0 ? 'zero unpriced gaps' : `+${formatEur(bestValueVendor.total_adders)} in leveled adders`}.
-              {unpriced.length > 0 && (
-                <span> Note: {unpriced.map((u) => u.name).join(', ')} submitted incomplete commercial terms and require formal clarification.</span>
-              )}
-            </p>
-          ) : (
-            <p className="text-xs text-zinc-500">Awaiting commercial tender proposals for evaluation.</p>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

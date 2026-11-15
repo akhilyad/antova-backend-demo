@@ -126,7 +126,7 @@ export function LineItemDrilldown({
                   <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
                     <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
                       <span>Proposal Extracted Verbatim</span>
-                      {ext?.confidence !== undefined && (
+                      {typeof ext?.confidence === 'number' && (
                         <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
                           Confidence: {(ext.confidence * 100).toFixed(0)}%
                         </span>

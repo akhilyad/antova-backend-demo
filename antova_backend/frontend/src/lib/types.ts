@@ -69,11 +69,11 @@ export interface Segment {
 export interface Extraction {
   extracted_text: string;
   status: ComplianceStatus;
-  confidence: number;
+  confidence: number | null;
   bbox: string;
   snippet: string;
   conflict_note: string | null;
-  cost_adder: number;
+  cost_adder: number | null;
   adder_formula: string;
   cost_lines: CostLine[];
   pricing_status: PricingStatus;
@@ -116,6 +116,54 @@ export interface Vendor {
   fx_date?: string | null;
 }
 
+export interface ProjectBaselineField {
+  value: string | number | boolean;
+  source: string;
+  note?: string;
+}
+
+export interface FindingMoneyLine {
+  label: string;
+  qty: string;
+  unit: string;
+  rate: string;
+  driver: string;
+}
+
+export interface FindingMoneyInput {
+  name: string;
+  value: string;
+  source: string;
+}
+
+export interface FindingMoney {
+  basis: 'adder' | 'exposure';
+  kind: string;
+  amount: string | null;
+  formula?: string;
+  reason?: string;
+  lines: FindingMoneyLine[];
+  inputs: FindingMoneyInput[];
+}
+
+export interface Finding {
+  vendor_id: string;
+  param_id: string;
+  kind:
+    | 'deviation'
+    | 'conflict'
+    | 'omitted'
+    | 'unstated'
+    | 'claim_only'
+    | 'schedule_unassessed'
+    | 'critical_path_breach'
+    | string;
+  severity: 'critical' | 'major' | 'minor';
+  message: string;
+  citations: Citation[];
+  money: FindingMoney[];
+}
+
 export interface Tender {
   id: string;
   title: string;
@@ -128,8 +176,8 @@ export interface Tender {
   parameters: Parameter[];
   equipment_class: string;
   rate_table_version: string;
-  project?: Record<string, any>;
-  findings?: Record<string, any>;
+  project?: Record<string, ProjectBaselineField>;
+  findings?: Finding[] | Record<string, Finding>;
 }
 
 export interface ItemizedAdder {
@@ -137,11 +185,11 @@ export interface ItemizedAdder {
   param_name: string;
   status: ComplianceStatus;
   is_conceded: boolean;
-  adder_eur: number;
-  adder_low_eur?: number;
-  adder_high_eur?: number;
+  adder_eur: number | null;
+  adder_low_eur?: number | null;
+  adder_high_eur?: number | null;
   criticality: Criticality;
-  pricing_status?: string;
+  pricing_status?: PricingStatus;
   is_overridden: boolean;
   override_note: string | null;
 }
@@ -162,7 +210,7 @@ export interface VendorFinancials {
   true_evaluated_price: number | null;
   true_evaluated_low?: number | null;
   true_evaluated_high?: number | null;
-  price_status?: string;
+  price_status?: PricingStatus | 'UNPRICED_ITEMS' | string;
   itemized_breakdown: ItemizedAdder[];
 }
 
@@ -174,7 +222,7 @@ export interface OverrideEntry {
 }
 
 export interface OpenItem {
-  kind: 'unpriced' | 'needs_inspection' | 'missing_price' | 'review_flag' | 'project_field';
+  kind: 'unpriced' | 'needs_inspection' | 'missing_price' | 'review_flag' | 'project_field' | string;
   vendor_id: string;
   param_id: string | null;
   message: string;
@@ -237,6 +285,14 @@ export interface IngestStats {
   synthetic: boolean;
 }
 
+export interface ReviewSummary {
+  open_flags: number;
+  stale: number;
+  rejected: number;
+  reviewed: number;
+  final: boolean;
+}
+
 export interface Brief {
   share_id: string;
   status: BriefStatus;
@@ -250,13 +306,8 @@ export interface Brief {
   financials: VendorFinancials[];
   overrides: OverrideEntry[];
   open_items: OpenItem[];
-  review?: {
-    open_flags: number;
-    stale: number;
-    rejected: number;
-    reviewed: number;
-    final: boolean;
-  };
+  review?: ReviewSummary;
+  _source?: 'live' | 'replay';
 }
 
 export interface ReviewTenderRow {

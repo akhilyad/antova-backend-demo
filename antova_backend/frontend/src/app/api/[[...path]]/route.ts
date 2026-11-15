@@ -12,8 +12,8 @@ const FALLBACK_TENDERS = [
     tender_id: "TENDER-2026-402",
     title: "350 MWp Solar + BESS Substation — 33kV GIS Switchgear & RTU Protection Package",
     client: "Vogt-Grid EPC Consortium GmbH (Berlin / Madrid)",
-    status: "VERIFIED",
-    open_items_count: 0,
+    status: "DRAFT",
+    open_items_count: 2,
     created_at: "2026-11-13T10:00:00Z",
   },
   {
@@ -24,103 +24,105 @@ const FALLBACK_TENDERS = [
     open_items_count: 3,
     created_at: "2026-11-14T08:30:00Z",
   },
+  {
+    tender_id: "TENDER-2026-418",
+    title: "200 MW Grid Booster BESS — High Voltage Switchgear",
+    client: "TransNet European Infrastructure",
+    status: "DRAFT",
+    open_items_count: 1,
+    created_at: "2026-11-14T11:00:00Z",
+  },
 ];
 
+const REPLAY_HEADERS = {
+  "x-antova-source": "replay",
+};
+
 function getMockResponse(method: string, subPath: string) {
+  // Disallow fake silent writes in offline replay mode (Defect D4)
+  if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    return NextResponse.json(
+      {
+        detail:
+          "Offline replay mode is read-only. Live mutations, reviews, and overrides require an active backend engine.",
+      },
+      {
+        status: 405,
+        headers: REPLAY_HEADERS,
+      }
+    );
+  }
+
   // 1. Health check
   if (subPath === "health") {
-    return NextResponse.json({
-      status: "healthy",
-      version: "3.0.0",
-      pint_version: "0.26.2",
-      mode: "fallback-verified",
-    });
+    return NextResponse.json(
+      {
+        status: "healthy",
+        version: "3.0.0",
+        pint_version: "0.26.2",
+        mode: "replay",
+      },
+      { headers: REPLAY_HEADERS }
+    );
   }
 
   // 2. List tenders
   if (subPath === "review/tenders" && method === "GET") {
-    return NextResponse.json(FALLBACK_TENDERS);
+    return NextResponse.json(FALLBACK_TENDERS, { headers: REPLAY_HEADERS });
   }
 
-  // 3. Ingest job start
-  if (subPath === "jobs/ingest" && method === "POST") {
-    return NextResponse.json({
-      job_id: "job-replay-402",
-      status: "QUEUED",
-      tender_id: "TENDER-2026-402",
-    });
+  // 3. Review history for tender
+  if (subPath.match(/review\/tenders\/[^/]+\/reviews$/) && method === "GET") {
+    return NextResponse.json([], { headers: REPLAY_HEADERS });
   }
 
-  // 4. Job polling
+  // 4. Job status
   if (subPath.startsWith("jobs/") && method === "GET") {
     const jobId = subPath.replace("jobs/", "");
-    return NextResponse.json({
-      job_id: jobId,
-      status: "COMPLETED",
-      progress: 100,
-      stage: "Price",
-      result: {
-        tender_id: "TENDER-2026-402",
-        status: "VERIFIED",
+    return NextResponse.json(
+      {
+        job_id: jobId,
+        status: "COMPLETED",
+        progress_pct: 100,
+        stage: "Price",
+        result: {
+          tender_id: "TENDER-2026-402",
+          status: "DRAFT",
+        },
       },
-    });
+      { headers: REPLAY_HEADERS }
+    );
   }
 
-  // 5. Evaluate tender
-  if (subPath.includes("/evaluate") && method === "POST") {
-    return NextResponse.json({
-      tender_id: "TENDER-2026-402",
-      financials: sample402Raw.financials,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  // 6. Verify brief
-  if (subPath.includes("/verify") && method === "POST") {
-    return NextResponse.json({
-      status: "VERIFIED",
-      verified_at: new Date().toISOString(),
-    });
-  }
-
-  // 7. Withdraw brief
-  if (subPath.includes("/withdraw") && method === "POST") {
-    return NextResponse.json({
-      status: "DRAFT",
-      verified_at: null,
-    });
-  }
-
-  // 8. Overrides PUT/DELETE
-  if (subPath.includes("/overrides/") && ["PUT", "DELETE"].includes(method)) {
-    return new NextResponse(null, { status: 204 });
-  }
-
-  // 9. Clarifications CSV export
+  // 5. Clarifications CSV export (read-only)
   if (subPath.endsWith("/clarifications.csv")) {
     const csvContent =
       "Vendor ID,Vendor Name,Clause ID,Clause Name,Quoted Value,Required Value,Pricing Status,Adder EUR\n" +
-      "vendor-b,VoltSwitch Industrial,PARAM-01,Rated Short-Time Withstand Current,31.5 kA,50 kA,PRICED,14200.00\n" +
-      "vendor-b,VoltSwitch Industrial,PARAM-06,Incoterms 2020 & Site Unloading,EXW Izmir,DDP Project Site,OVERRIDDEN,9300.00\n";
+      "vendor-b,VoltSwitch Industrial,PARAM-01,Rated Short-Time Withstand Current,31.5 kA,50 kA,PRICED,18500.00\n" +
+      "vendor-b,VoltSwitch Industrial,PARAM-06,Incoterms 2020 & Site Unloading,EXW Izmir,DDP Project Site,UNPRICED,\n";
     return new NextResponse(csvContent, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": 'attachment; filename="clarifications.csv"',
+        ...REPLAY_HEADERS,
       },
     });
   }
 
-  // 10. Single tender brief (default for review/tenders/*)
+  // 6. Single tender brief (sample402 truthful engine snapshot)
   if (subPath.startsWith("review/tenders/")) {
-    return NextResponse.json(sample402Raw);
+    return NextResponse.json(sample402Raw, { headers: REPLAY_HEADERS });
   }
 
   // Default fallback
-  return NextResponse.json({
-    status: "ok",
-    fallback: true,
-    subPath,
-  });
+  return NextResponse.json(
+    {
+      status: "ok",
+      mode: "replay",
+      subPath,
+    },
+    { headers: REPLAY_HEADERS }
+  );
 }
 
 async function proxy(request: NextRequest, context: RouteContext) {
@@ -133,8 +135,6 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const backendBase = rawBackendBase.replace(/\/$/, "");
   const subPath = pathSegments.join("/");
 
-  // If backend base is localhost or empty on Vercel production without a reachable host,
-  // we try upstream with a short timeout, and if it fails or returns >= 500, we serve verified mock.
   const targetUrl = new URL(
     `/api/${subPath}${request.nextUrl.search}`,
     backendBase.startsWith("http") ? backendBase : "http://127.0.0.1:8000"
@@ -142,6 +142,15 @@ async function proxy(request: NextRequest, context: RouteContext) {
 
   const headers = new Headers(request.headers);
   headers.delete("host");
+
+  // Inject review token into upstream request (Defect D7)
+  const configuredReviewToken =
+    process.env.REVIEW_TOKEN ||
+    process.env.NEXT_PUBLIC_REVIEW_TOKEN ||
+    "dev-review-token-antova";
+  if (!headers.has("X-Antova-Review-Token")) {
+    headers.set("X-Antova-Review-Token", configuredReviewToken);
+  }
 
   const method = request.method;
   const hasBody = !["GET", "HEAD"].includes(method);
@@ -160,11 +169,13 @@ async function proxy(request: NextRequest, context: RouteContext) {
     });
     clearTimeout(timeoutId);
 
-    // If upstream succeeds and is not a server error, pass it through
+    // If upstream succeeds and is not a 5xx server error, pass it through stamped with live source
     if (upstreamResponse.ok || upstreamResponse.status < 500) {
       const responseHeaders = new Headers(upstreamResponse.headers);
       responseHeaders.delete("content-encoding");
       responseHeaders.delete("content-length");
+      // Add x-antova-source: live (Defect D4)
+      responseHeaders.set("x-antova-source", "live");
 
       return new NextResponse(upstreamResponse.body, {
         status: upstreamResponse.status,
@@ -173,12 +184,16 @@ async function proxy(request: NextRequest, context: RouteContext) {
       });
     }
 
-    // Upstream returned 5xx: fall back to verified mock
-    console.warn(`Upstream ${targetUrl.toString()} returned ${upstreamResponse.status}. Serving verified fallback.`);
+    // Upstream returned 5xx: fall back to replay mode
+    console.warn(
+      `Upstream ${targetUrl.toString()} returned ${upstreamResponse.status}. Serving verified fallback.`
+    );
     return getMockResponse(method, subPath);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Upstream unreachable";
-    console.warn(`Upstream unreachable (${targetUrl.toString()}): ${message}. Serving verified fallback.`);
+    console.warn(
+      `Upstream unreachable (${targetUrl.toString()}): ${message}. Serving verified fallback.`
+    );
     return getMockResponse(method, subPath);
   }
 }

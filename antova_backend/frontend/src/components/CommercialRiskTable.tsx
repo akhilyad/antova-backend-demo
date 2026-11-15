@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { Parameter, Vendor, VendorFinancials } from '../lib/types';
-import { formatEur } from '../lib/formatting';
-import { Truck, ShieldAlert, Wrench, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { formatEur, formatAdderEur } from '../lib/domain/money';
+import { Truck, ShieldAlert, Wrench, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface CommercialRiskTableProps {
   parameters?: Parameter[];
@@ -29,24 +29,24 @@ export function CommercialRiskTable({
   );
 
   return (
-    <div className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#09090B] rounded-xl overflow-hidden text-xs shadow-2xs font-sans">
-      <div className="px-5 py-3.5 border-b border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between bg-[#F8FAFC] dark:bg-[#111113]">
+    <div className="border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] rounded-xl overflow-hidden text-xs shadow-2xs font-sans">
+      <div className="px-5 py-3.5 border-b border-[#D9D4CC] dark:border-[#7A7266] flex items-center justify-between bg-[#FAF8F5] dark:bg-[#141210]">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold text-[#182433] dark:text-white tracking-wider uppercase">
+            <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
               Commercial, Warranty & Logistics Risk Exposure
             </h2>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#DCE2E8] dark:border-zinc-700 bg-white dark:bg-zinc-800 text-amber-700 dark:text-amber-400 font-mono font-medium">
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-amber-800 dark:text-amber-300 font-mono font-medium">
               Incoterms & Liability Audits
             </span>
           </div>
-          <p className="text-[11px] text-[#667487] dark:text-zinc-400 mt-0.5">
+          <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
             Cross-examination of Incoterms delivery liabilities, defect liability periods, and witnessed factory acceptance tests.
           </p>
         </div>
       </div>
 
-      <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-white dark:bg-[#09090B]">
+      <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-white dark:bg-[#1C1916]">
         {safeVendors.length === 0 ? (
           <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
             No vendor proposals currently available for commercial risk cross-examination.
@@ -58,7 +58,7 @@ export function CommercialRiskTable({
             const commExt = paramComm?.vendors?.[vendor.id];
 
             const commercialAdder = typeof fin?.total_commercial_adder === 'number' ? fin.total_commercial_adder : 0;
-            const isPriced = fin && fin.headline_price !== null;
+            const isUnpricedItems = fin?.price_status === 'UNPRICED_ITEMS';
 
             // Find check values
             const commChecks = Array.isArray(commExt?.checks) ? commExt.checks : [];
@@ -73,20 +73,20 @@ export function CommercialRiskTable({
                 key={vendor.id}
                 className={`p-4 rounded-xl border flex flex-col justify-between transition-all shadow-2xs ${
                   commercialAdder > 0
-                    ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/20'
-                    : 'border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113]'
+                    ? 'border-amber-300 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-950/20'
+                    : 'border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916]'
                 }`}
               >
                 <div>
                   {/* Vendor Header */}
-                  <div className="flex items-start justify-between pb-3 border-b border-[#DCE2E8] dark:border-zinc-800">
+                  <div className="flex items-start justify-between pb-3 border-b border-[#D9D4CC] dark:border-[#7A7266]">
                     <div>
-                      <div className="text-[#182433] dark:text-zinc-100 font-bold text-xs">{vendor.name || vendor.id}</div>
-                      <div className="text-[#667487] dark:text-zinc-400 text-[10px] font-mono mt-0.5">{vendor.country || 'N/A'}</div>
+                      <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs">{vendor.name || vendor.id}</div>
+                      <div className="text-[#767067] dark:text-[#A39A8D] text-[10px] font-mono mt-0.5">{vendor.country || 'N/A'}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] text-zinc-500 uppercase font-semibold">Commercial Adders</div>
-                      <div className={`text-xs font-bold font-mono tabular-nums ${commercialAdder > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                      <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase font-semibold">Commercial Adders</div>
+                      <div className={`text-xs font-bold font-mono tabular-nums ${commercialAdder > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'}`}>
                         {commercialAdder > 0 ? `+${formatEur(commercialAdder)}` : '€0'}
                       </div>
                     </div>
@@ -95,19 +95,19 @@ export function CommercialRiskTable({
                   {/* Risk Factors */}
                   <div className="space-y-3 mt-3 text-xs">
                     {/* Delivery & Incoterm */}
-                    <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                         <Truck className="w-3.5 h-3.5 text-zinc-500" />
                         <span>Delivery Incoterm (2020)</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {incotermCheck ? (
                           <div className="flex items-center justify-between font-mono text-[11px]">
-                            <span>Offered: <strong className="text-[#182433] dark:text-white">{incotermCheck.offered}</strong></span>
+                            <span>Offered: <strong className="text-zinc-900 dark:text-white">{incotermCheck.offered}</strong></span>
                             {incotermCheck.passed ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold font-sans">Compliant</span>
+                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
                             ) : (
-                              <span className="text-rose-600 dark:text-rose-400 text-[10px] font-semibold font-sans">
+                              <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
                                 Req: {incotermCheck.required}
                               </span>
                             )}
@@ -119,26 +119,26 @@ export function CommercialRiskTable({
                     </div>
 
                     {/* Warranty & Defect Liability */}
-                    <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
                         <span>Defect Liability Period</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {warrantyCheck ? (
                           <div>
                             <div className="flex items-center justify-between font-mono text-[11px]">
-                              <span>Offered: <strong className="text-[#182433] dark:text-white">{warrantyCheck.offered}</strong></span>
+                              <span>Offered: <strong className="text-zinc-900 dark:text-white">{warrantyCheck.offered}</strong></span>
                               {warrantyCheck.passed ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold font-sans">Compliant</span>
+                                <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
                               ) : (
-                                <span className="text-amber-600 dark:text-amber-400 text-[10px] font-semibold font-sans">
+                                <span className="text-amber-800 dark:text-amber-300 text-[10px] font-semibold font-sans">
                                   Req: {warrantyCheck.required}
                                 </span>
                               )}
                             </div>
                             {warrantyCheck.offered_basis && (
-                              <div className="text-[10px] text-zinc-500 mt-1 font-sans">
+                              <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] mt-1 font-sans">
                                 Clock origin: from {warrantyCheck.offered_basis}
                               </div>
                             )}
@@ -150,19 +150,19 @@ export function CommercialRiskTable({
                     </div>
 
                     {/* Factory Testing (I-FAT) */}
-                    <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1.5">
+                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                         <Wrench className="w-3.5 h-3.5 text-zinc-500" />
                         <span>Witnessed Factory Testing (I-FAT)</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {fatCheck ? (
                           <div className="flex items-center justify-between font-mono text-[11px]">
-                            <span>Offered: <strong className="text-[#182433] dark:text-white">{fatCheck.offered}</strong></span>
+                            <span>Offered: <strong className="text-zinc-900 dark:text-white">{fatCheck.offered}</strong></span>
                             {fatCheck.passed ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold font-sans">Compliant</span>
+                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
                             ) : (
-                              <span className="text-rose-600 dark:text-rose-400 text-[10px] font-semibold font-sans">
+                              <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
                                 Shortfall: Req {fatCheck.required}
                               </span>
                             )}
@@ -176,10 +176,10 @@ export function CommercialRiskTable({
                 </div>
 
                 {/* Card Footprint */}
-                <div className="pt-3 mt-3 border-t border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between text-[11px]">
-                  <span className="text-[#667487] dark:text-zinc-400">Total True Cost:</span>
+                <div className="pt-3 mt-3 border-t border-[#D9D4CC] dark:border-[#7A7266] flex items-center justify-between text-[11px]">
+                  <span className="text-[#767067] dark:text-[#A39A8D]">Total True Cost:</span>
                   <span className="font-bold font-mono text-zinc-900 dark:text-white tabular-nums">
-                    {formatEur(fin?.true_evaluated_price)}
+                    {formatEur(fin?.true_evaluated_price, { isLowerBound: isUnpricedItems })}
                   </span>
                 </div>
               </div>
