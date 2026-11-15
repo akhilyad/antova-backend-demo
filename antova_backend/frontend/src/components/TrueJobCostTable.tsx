@@ -3,26 +3,29 @@
 import React from 'react';
 import { VendorFinancials, Vendor } from '../lib/types';
 import { formatEur, formatDelta } from '../lib/formatting';
-import { AlertCircle, CheckCircle2, Eye, Edit3 } from 'lucide-react';
+import { AlertCircle, Eye, Edit3 } from 'lucide-react';
 
 interface TrueJobCostTableProps {
-  financials: VendorFinancials[];
-  vendors: Vendor[];
+  financials?: VendorFinancials[];
+  vendors?: Vendor[];
   onSelectVendor: (vendorId: string) => void;
   onOpenOverride: (vendorId: string, paramId?: string) => void;
   selectedVendorId?: string | null;
 }
 
 export function TrueJobCostTable({
-  financials,
-  vendors,
+  financials = [],
+  vendors = [],
   onSelectVendor,
   onOpenOverride,
   selectedVendorId,
 }: TrueJobCostTableProps) {
+  const safeFinancials = Array.isArray(financials) ? financials : [];
+  const safeVendors = Array.isArray(vendors) ? vendors : [];
+
   // Split into priced vs unquoted/incomplete bids
-  const priced = financials.filter((f) => f.headline_price !== null && f.true_evaluated_price !== null);
-  const unpriced = financials.filter((f) => f.headline_price === null || f.true_evaluated_price === null);
+  const priced = safeFinancials.filter((f) => f && f.headline_price !== null && f.true_evaluated_price !== null);
+  const unpriced = safeFinancials.filter((f) => f && (f.headline_price === null || f.true_evaluated_price === null));
 
   // Sort priced by true evaluated price ascending
   priced.sort((a, b) => (a.true_evaluated_price ?? 0) - (b.true_evaluated_price ?? 0));
@@ -35,7 +38,6 @@ export function TrueJobCostTable({
 
   // Best value (lowest true cost)
   const bestValueVendor = priced[0];
-  const lowestTrueCost = bestValueVendor?.true_evaluated_price ?? null;
 
   // Has rank reversal occurred?
   const hasReversal =
@@ -93,158 +95,161 @@ export function TrueJobCostTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-900 bg-[#09090B]">
-            {sortedAll.map((item, index) => {
-              const vendor = vendors.find((v) => v.id === item.vendor_id);
-              const isSelected = selectedVendorId === item.vendor_id;
-              const isPriced = item.headline_price !== null && item.true_evaluated_price !== null;
-              const isLowestNominal = isPriced && item.headline_price === lowestHeadline;
-              const isBestValue = isPriced && index === 0;
+            {sortedAll.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-zinc-500 font-sans">
+                  No evaluated vendor bids available in this tender.
+                </td>
+              </tr>
+            ) : (
+              sortedAll.map((item, index) => {
+                const vendor = safeVendors.find((v) => v && v.id === item.vendor_id);
+                const isSelected = selectedVendorId === item.vendor_id;
+                const isPriced = item.headline_price !== null && item.true_evaluated_price !== null;
+                const isLowestNominal = isPriced && item.headline_price === lowestHeadline;
+                const isBestValue = isPriced && index === 0;
 
-              const deltaVsLowestQuote =
-                isPriced && lowestHeadline !== null
-                  ? item.true_evaluated_price! - lowestHeadline
-                  : null;
+                const deltaVsLowestQuote =
+                  lowestHeadline !== null && item.true_evaluated_price !== null
+                    ? item.true_evaluated_price - lowestHeadline
+                    : null;
 
-              return (
-                <tr
-                  key={item.vendor_id}
-                  onClick={() => onSelectVendor(item.vendor_id)}
-                  className={`cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-zinc-900/80 border-l-2 border-l-white'
-                      : 'hover:bg-zinc-900/40'
-                  }`}
-                >
-                  {/* Rank */}
-                  <td className="py-3 px-3 whitespace-nowrap">
-                    {isPriced ? (
-                      <div className="flex items-center gap-1.5 font-mono">
+                return (
+                  <tr
+                    key={item.vendor_id}
+                    onClick={() => onSelectVendor(item.vendor_id)}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-zinc-800/40 ring-1 ring-inset ring-cyan-500/40'
+                        : 'hover:bg-zinc-900/40'
+                    }`}
+                  >
+                    {/* Rank */}
+                    <td className="py-3 px-3 font-mono text-xs">
+                      {isPriced ? (
                         <span
-                          className={`inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-bold ${
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${
                             isBestValue
-                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/40'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : isLowestNominal
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                               : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
                           }`}
                         >
-                          #{index + 1}
+                          L{index + 1}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+
+                    {/* Vendor Name & Origin */}
+                    <td className="py-3 px-3 font-sans">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-zinc-100 text-xs">
+                          {item.name || vendor?.name || item.vendor_id}
                         </span>
                         {isBestValue && (
-                          <span className="text-[10px] text-emerald-400 font-semibold font-sans">
-                            L1
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Recommended Award
+                          </span>
+                        )}
+                        {isLowestNominal && !isBestValue && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Apparent Low Bidder
                           </span>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-zinc-600 text-xs font-mono">—</span>
-                    )}
-                  </td>
-
-                  {/* Vendor Identity */}
-                  <td className="py-3 px-3">
-                    <div className="font-semibold text-zinc-100 text-xs flex items-center gap-2">
-                      <span>{item.name}</span>
-                      {isLowestNominal && hasReversal && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded border border-amber-500/30 bg-amber-950/20 text-amber-400 font-normal font-sans">
-                          Nominal Low
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-zinc-500 mt-0.5 flex items-center gap-1.5 font-mono">
-                      <span>{item.country}</span>
-                      <span>·</span>
-                      <span className="text-zinc-400">{vendor?.doc_name || item.badge}</span>
-                    </div>
-                  </td>
-
-                  {/* Quoted Price */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-zinc-300">
-                    {isPriced ? (
-                      <div>
-                        <div className="font-medium text-xs">{formatEur(item.headline_price)}</div>
-                        {isLowestNominal && (
-                          <div className="text-[10px] text-amber-400/90 font-sans">Cheapest Base</div>
-                        )}
+                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                        {item.country || vendor?.country || 'N/A'} · {vendor?.doc_name || 'Offer PDF'}
                       </div>
-                    ) : (
-                      <span className="text-amber-400 text-xs font-medium font-sans">Unquoted</span>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Technical Adders */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap">
-                    {item.total_tech_penalty > 0 ? (
-                      <span className="text-rose-400">+{formatEur(item.total_tech_penalty)}</span>
-                    ) : (
-                      <span className="text-zinc-500">€0</span>
-                    )}
-                  </td>
-
-                  {/* Commercial Adders */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap">
-                    {item.total_commercial_adder > 0 ? (
-                      <span className="text-amber-400">+{formatEur(item.total_commercial_adder)}</span>
-                    ) : (
-                      <span className="text-zinc-500">€0</span>
-                    )}
-                  </td>
-
-                  {/* Net Omissions */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap font-medium">
-                    {item.total_adders > 0 ? (
-                      <span className="text-rose-400 font-semibold">+{formatEur(item.total_adders)}</span>
-                    ) : (
-                      <span className="text-emerald-400 font-normal">€0</span>
-                    )}
-                  </td>
-
-                  {/* True Job Cost */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap bg-zinc-900/40 text-xs font-bold">
-                    {isPriced ? (
-                      <span className={isBestValue ? 'text-emerald-400 font-black' : 'text-white'}>
-                        {formatEur(item.true_evaluated_price)}
-                      </span>
-                    ) : (
-                      <span className="text-amber-400 text-[11px] font-semibold font-sans">Incomplete Bid</span>
-                    )}
-                  </td>
-
-                  {/* Delta vs Lowest Quote */}
-                  <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs">
-                    {deltaVsLowestQuote !== null ? (
-                      deltaVsLowestQuote > 0 ? (
-                        <span className="text-rose-400">+{formatEur(deltaVsLowestQuote)}</span>
+                    {/* Nominal Quoted Bid */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs">
+                      {item.headline_price !== null ? (
+                        <span className="text-zinc-300">{formatEur(item.headline_price)}</span>
                       ) : (
-                        <span className="text-emerald-400">Baseline</span>
-                      )
-                    ) : (
-                      <span className="text-zinc-600">—</span>
-                    )}
-                  </td>
+                        <span className="text-amber-400 text-[11px] font-semibold font-sans">Unpriced</span>
+                      )}
+                    </td>
 
-                  {/* Actions */}
-                  <td className="py-3 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1.5 font-sans">
-                      <button
-                        onClick={() => onSelectVendor(item.vendor_id)}
-                        className="px-2 py-1 rounded bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] transition-colors flex items-center gap-1"
-                        aria-label={`Inspect ${item.name} breakdown`}
-                      >
-                        <Eye className="w-3 h-3 text-zinc-400" />
-                        <span>Inspect</span>
-                      </button>
-                      <button
-                        onClick={() => onOpenOverride(item.vendor_id)}
-                        title="Override adder amount"
-                        className="p-1 rounded bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                        aria-label={`Override adder for ${item.name}`}
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                    {/* Technical Adders */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs">
+                      {item.total_tech_penalty > 0 ? (
+                        <span className="text-rose-400 font-medium">+{formatEur(item.total_tech_penalty)}</span>
+                      ) : (
+                        <span className="text-zinc-600">€0</span>
+                      )}
+                    </td>
+
+                    {/* Commercial Adders */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs">
+                      {item.total_commercial_adder > 0 ? (
+                        <span className="text-amber-400 font-medium">+{formatEur(item.total_commercial_adder)}</span>
+                      ) : (
+                        <span className="text-zinc-600">€0</span>
+                      )}
+                    </td>
+
+                    {/* Net Omissions (Total Adders) */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs font-semibold">
+                      {item.total_adders > 0 ? (
+                        <span className="text-rose-400">+{formatEur(item.total_adders)}</span>
+                      ) : (
+                        <span className="text-emerald-400">€0</span>
+                      )}
+                    </td>
+
+                    {/* True Job Cost */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap bg-zinc-900/40 text-xs font-bold">
+                      {isPriced ? (
+                        <span className={isBestValue ? 'text-emerald-400 font-black' : 'text-white'}>
+                          {formatEur(item.true_evaluated_price)}
+                        </span>
+                      ) : (
+                        <span className="text-amber-400 text-[11px] font-semibold font-sans">Incomplete Bid</span>
+                      )}
+                    </td>
+
+                    {/* Delta vs Lowest Quote */}
+                    <td className="py-3 px-3 text-right font-mono tabular-nums whitespace-nowrap text-xs">
+                      {deltaVsLowestQuote !== null ? (
+                        deltaVsLowestQuote > 0 ? (
+                          <span className="text-rose-400">+{formatEur(deltaVsLowestQuote)}</span>
+                        ) : (
+                          <span className="text-emerald-400">Baseline</span>
+                        )
+                      ) : (
+                        <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-1.5 font-sans">
+                        <button
+                          onClick={() => onSelectVendor(item.vendor_id)}
+                          className="px-2 py-1 rounded bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-[11px] transition-colors flex items-center gap-1"
+                          aria-label={`Inspect ${item.name} breakdown`}
+                        >
+                          <Eye className="w-3 h-3 text-zinc-400" />
+                          <span>Inspect</span>
+                        </button>
+                        <button
+                          onClick={() => onOpenOverride(item.vendor_id)}
+                          title="Override adder amount"
+                          className="p-1 rounded bg-[#111113] hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                          aria-label={`Override adder for ${item.name}`}
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

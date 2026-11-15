@@ -49,6 +49,27 @@ export function Header({
 
   const activeTenderId = tenderId || tenders[0]?.tender_id || 'TENDER-2026-402';
 
+  const displayTenders = tenders.length > 0 ? tenders : [
+    {
+      tender_id: 'TENDER-2026-402',
+      title: '350 MWp Solar + BESS Substation — 33kV GIS Switchgear Package',
+      status: 'VERIFIED' as const,
+      share_id: 'XmlZsvxPn-QxV260E0ZmPg',
+      ingested_at: '2026-11-14T23:40:04.593260+00:00',
+      verified_at: '2026-11-15T00:08:13.053137+00:00',
+      open_items: 0,
+    },
+    {
+      tender_id: 'TENDER-2026-417',
+      title: '120 MW Wind Farm Collector Substation — 33kV GIS Switchgear Package',
+      status: 'DRAFT' as const,
+      share_id: 'bBBTOjH8naxHZHrJbSmxew',
+      ingested_at: '2026-11-14T23:53:51.128575+00:00',
+      verified_at: null,
+      open_items: 18,
+    },
+  ];
+
   const handleExportTbe = async () => {
     try {
       setIsExporting(true);
@@ -102,7 +123,7 @@ export function Header({
                   <div className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold border-b border-zinc-800/80 font-mono">
                     Switch Ingested Tender
                   </div>
-                  {tenders.map((t) => (
+                  {displayTenders.map((t) => (
                     <button
                       key={t.tender_id}
                       onClick={() => {

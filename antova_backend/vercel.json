@@ -1,34 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "nextjs",
-      "bindings": [
-        {
-          "type": "service",
-          "service": "backend",
-          "format": "url",
-          "env": "BACKEND_URL"
-        }
-      ]
-    },
-    "backend": {
-      "root": "backend",
-      "entrypoint": "antova_api:app"
-    },
     "web": {
       "root": "backend/web",
       "framework": "vite"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "nextjs"
     }
   },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "backend"
-      }
-    },
     {
       "source": "/b/(.*)",
       "destination": {

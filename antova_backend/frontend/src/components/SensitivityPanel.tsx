@@ -7,9 +7,10 @@ import { Sliders, RotateCcw, Activity } from 'lucide-react';
 interface SensitivityPanelProps {
   onEvaluate: (rates: RatesSettings) => void;
   isLoading?: boolean;
+  onClose?: () => void;
 }
 
-export function SensitivityPanel({ onEvaluate, isLoading = false }: SensitivityPanelProps) {
+export function SensitivityPanel({ onEvaluate, isLoading = false, onClose }: SensitivityPanelProps) {
   const [copper, setCopper] = useState<number>(1.0);
   const [labor, setLabor] = useState<number>(60);
   const [freight, setFreight] = useState<number>(1.0);

@@ -9,7 +9,11 @@ type RouteContext = {
 async function proxy(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const pathSegments = path || [];
-  const backendBase = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+  const rawBackendBase =
+    process.env.BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:8000";
+  const backendBase = rawBackendBase.replace(/\/$/, "");
   const subPath = pathSegments.join("/");
   const targetUrl = new URL(
     `/api/${subPath}${request.nextUrl.search}`,
@@ -43,8 +47,13 @@ async function proxy(request: NextRequest, context: RouteContext) {
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Upstream backend unreachable";
+    console.error(`Backend proxy failure for ${targetUrl.toString()}:`, message);
     return NextResponse.json(
-      { error: "Backend proxy error", detail: message },
+      {
+        error: "Backend proxy error",
+        target: targetUrl.toString(),
+        detail: message,
+      },
       { status: 502 }
     );
   }
