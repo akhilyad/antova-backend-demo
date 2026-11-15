@@ -34,14 +34,14 @@ export function CommercialRiskTable({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
-              Commercial, Warranty & Logistics Risk Exposure
+              Commercial terms
             </h2>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-amber-800 dark:text-amber-300 font-mono font-medium">
-              Incoterms & Liability Audits
+              Delivery, warranty and testing
             </span>
           </div>
           <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
-            Cross-examination of Incoterms delivery liabilities, defect liability periods, and witnessed factory acceptance tests.
+            Delivery terms, warranty period and witnessed factory tests, compared with your spec.
           </p>
         </div>
       </div>
@@ -49,7 +49,7 @@ export function CommercialRiskTable({
       <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-white dark:bg-[#1C1916]">
         {safeVendors.length === 0 ? (
           <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
-            No vendor proposals currently available for commercial risk cross-examination.
+            No bids to compare yet.
           </div>
         ) : (
           safeVendors.map((vendor) => {
@@ -82,10 +82,10 @@ export function CommercialRiskTable({
                   <div className="flex items-start justify-between pb-3 border-b border-[#D9D4CC] dark:border-[#7A7266]">
                     <div>
                       <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs">{vendor.name || vendor.id}</div>
-                      <div className="text-[#767067] dark:text-[#A39A8D] text-[10px] font-mono mt-0.5">{vendor.country || 'N/A'}</div>
+                      <div className="text-[#767067] dark:text-[#A39A8D] text-[10px] font-mono mt-0.5">{vendor.country || 'n/a'}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase font-semibold">Commercial Adders</div>
+                      <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase font-semibold">Commercial cost adjustments</div>
                       <div className={`text-xs font-bold font-mono tabular-nums ${commercialAdder > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'}`}>
                         {commercialAdder > 0 ? `+${formatEur(commercialAdder)}` : '€0'}
                       </div>
@@ -98,22 +98,22 @@ export function CommercialRiskTable({
                     <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
                       <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                         <Truck className="w-3.5 h-3.5 text-zinc-500" />
-                        <span>Delivery Incoterm (2020)</span>
+                        <span>Delivery terms (Incoterms 2020)</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {incotermCheck ? (
                           <div className="flex items-center justify-between font-mono text-[11px]">
                             <span>Offered: <strong className="text-zinc-900 dark:text-white">{incotermCheck.offered}</strong></span>
                             {incotermCheck.passed ? (
-                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
+                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
                             ) : (
                               <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
-                                Req: {incotermCheck.required}
+                                Required: {incotermCheck.required}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-zinc-500">{commExt?.extracted_text || 'See proposal terms'}</span>
+                          <span className="text-zinc-500">{commExt?.extracted_text || 'See the bid'}</span>
                         )}
                       </div>
                     </div>
@@ -122,7 +122,7 @@ export function CommercialRiskTable({
                     <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
                       <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                         <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Defect Liability Period</span>
+                        <span>Warranty period</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {warrantyCheck ? (
@@ -130,21 +130,21 @@ export function CommercialRiskTable({
                             <div className="flex items-center justify-between font-mono text-[11px]">
                               <span>Offered: <strong className="text-zinc-900 dark:text-white">{warrantyCheck.offered}</strong></span>
                               {warrantyCheck.passed ? (
-                                <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
+                                <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
                               ) : (
                                 <span className="text-amber-800 dark:text-amber-300 text-[10px] font-semibold font-sans">
-                                  Req: {warrantyCheck.required}
+                                  Required: {warrantyCheck.required}
                                 </span>
                               )}
                             </div>
                             {warrantyCheck.offered_basis && (
                               <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] mt-1 font-sans">
-                                Clock origin: from {warrantyCheck.offered_basis}
+                                Starts at: {warrantyCheck.offered_basis}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-zinc-500">Standard vendor warranty</span>
+                          <span className="text-zinc-500">Standard warranty</span>
                         )}
                       </div>
                     </div>
@@ -153,22 +153,22 @@ export function CommercialRiskTable({
                     <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
                       <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
                         <Wrench className="w-3.5 h-3.5 text-zinc-500" />
-                        <span>Witnessed Factory Testing (I-FAT)</span>
+                        <span>Witnessed factory test (FAT)</span>
                       </div>
                       <div className="text-zinc-800 dark:text-zinc-200">
                         {fatCheck ? (
                           <div className="flex items-center justify-between font-mono text-[11px]">
                             <span>Offered: <strong className="text-zinc-900 dark:text-white">{fatCheck.offered}</strong></span>
                             {fatCheck.passed ? (
-                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Compliant</span>
+                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
                             ) : (
                               <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
-                                Shortfall: Req {fatCheck.required}
+                                Short by: required {fatCheck.required}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-zinc-500">Included per standard offer</span>
+                          <span className="text-zinc-500">Included in the bid</span>
                         )}
                       </div>
                     </div>
@@ -177,7 +177,7 @@ export function CommercialRiskTable({
 
                 {/* Card Footprint */}
                 <div className="pt-3 mt-3 border-t border-[#D9D4CC] dark:border-[#7A7266] flex items-center justify-between text-[11px]">
-                  <span className="text-[#767067] dark:text-[#A39A8D]">Total True Cost:</span>
+                  <span className="text-[#767067] dark:text-[#A39A8D]">Evaluated total:</span>
                   <span className="font-bold font-mono text-zinc-900 dark:text-white tabular-nums">
                     {formatEur(fin?.true_evaluated_price, { isLowerBound: isUnpricedItems })}
                   </span>

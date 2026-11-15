@@ -86,7 +86,7 @@ async function smartFetch(path: string, init?: RequestInit): Promise<Response> {
  */
 export function normalizeBrief(raw: any): Brief {
   if (!raw || typeof raw !== 'object') {
-    throw new Error('Invalid brief payload received from backend');
+    throw new Error("The server sent data this page can't read.");
   }
 
   const tender = raw.tender || {};
@@ -246,7 +246,7 @@ export async function listTenders(token: string = DEFAULT_REVIEW_TOKEN): Promise
     cache: 'no-store',
   });
   if (!res.ok) {
-    throw new Error(`Failed to list tenders: ${res.status} ${res.statusText}`);
+    throw new Error("Couldn't load tenders. Try again.");
   }
   return res.json();
 }
@@ -257,7 +257,7 @@ export async function getTenderBrief(tenderId: string, token: string = DEFAULT_R
     cache: 'no-store',
   });
   if (!res.ok) {
-    throw new Error(`Failed to fetch brief for ${tenderId}: ${res.status} ${res.statusText}`);
+    throw new Error(`Couldn't load ${tenderId}. Try again.`);
   }
   const source = (res.headers.get('x-antova-source') as 'live' | 'replay') || 'live';
   const raw = await res.json();
@@ -297,7 +297,7 @@ export async function uploadTenderFile(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Upload failed: ${res.status}`);
+    throw new Error(err.detail || "Upload failed. Try again.");
   }
   return res.json();
 }
@@ -311,7 +311,7 @@ export async function listTenderFiles(
     cache: 'no-store',
   });
   if (!res.ok) {
-    throw new Error(`Failed to list files: ${res.status}`);
+    throw new Error("Couldn't load files. Try again.");
   }
   return res.json();
 }
@@ -328,7 +328,7 @@ export async function putManifest(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Failed to store manifest: ${res.status}`);
+    throw new Error(err.detail || "Couldn't save the manifest. Try again.");
   }
   return res.json();
 }
@@ -345,7 +345,7 @@ export async function startIngestJob(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Failed to queue ingest: ${res.status}`);
+    throw new Error(err.detail || "Couldn't start processing. Try again.");
   }
   return res.json();
 }
@@ -356,7 +356,7 @@ export async function getJobStatus(jobId: string, token: string = DEFAULT_REVIEW
     cache: 'no-store',
   });
   if (!res.ok) {
-    throw new Error(`Failed to fetch job ${jobId}: ${res.status}`);
+    throw new Error("Couldn't check status. Try again.");
   }
   return res.json();
 }
@@ -373,7 +373,7 @@ export async function evaluateTender(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Evaluation failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't update totals. Try again.");
   }
   return res.json();
 }
@@ -400,7 +400,7 @@ export async function putOverride(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Failed to set override: ${res.status}`);
+    throw new Error(err.detail || "Couldn't save the amount. Try again.");
   }
 }
 
@@ -419,7 +419,7 @@ export async function deleteOverride(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Failed to delete override: ${res.status}`);
+    throw new Error(err.detail || "Couldn't reset the amount. Try again.");
   }
 }
 
@@ -441,7 +441,7 @@ export async function submitReviewDecision(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Review decision failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't save your decision. Try again.");
   }
   return res.json();
 }
@@ -470,7 +470,7 @@ export async function fetchEvidenceImageBlob(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Evidence retrieval failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't load evidence. Try again.");
   }
   const blob = await res.blob();
   return URL.createObjectURL(blob);
@@ -487,11 +487,11 @@ export async function downloadTbeExport(
   });
   if (!res.ok) {
     if (res.status === 409) {
-      const err = await res.json().catch(() => ({ detail: 'Verify the brief before exporting it' }));
-      throw new Error(err.detail || 'Verify the brief before exporting it');
+      const err = await res.json().catch(() => ({ detail: 'Sign off before you download the workbook.' }));
+      throw new Error(err.detail || 'Sign off before you download the workbook.');
     }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Export failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't download. Try again.");
   }
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
@@ -521,7 +521,7 @@ export async function downloadClarificationsExport(
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Clarifications export failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't download. Try again.");
   }
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
@@ -547,7 +547,7 @@ export async function verifyTender(
   if (!res.ok) {
     const data = await res.json().catch(() => ({ detail: res.statusText }));
     throw new ApiError(
-      data.detail || `Verification failed: ${res.status}`,
+      data.detail || "Couldn't sign off. Try again.",
       res.status,
       data.detail,
       data.code,
@@ -564,7 +564,7 @@ export async function withdrawTender(tenderId: string, token: string = DEFAULT_R
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || `Withdraw failed: ${res.status}`);
+    throw new Error(err.detail || "Couldn't reopen. Try again.");
   }
   return res.json();
 }

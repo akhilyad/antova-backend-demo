@@ -52,45 +52,45 @@ export function TrueJobCostTable({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
-              True Job Cost & Scope Omission Ledger
+              Evaluated totals by bidder
             </h2>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-[#767067] dark:text-[#A39A8D] font-mono font-medium">
-              Deterministic Reconciliation
+              Calculated from the rate table
             </span>
           </div>
           <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
-            Nominal supplier quotes leveled against unquoted equipment omissions, transport boundaries, and warranty shortfalls.
+            Each base bid plus the cost to close its missing scope, delivery terms and warranty shortfalls.
           </p>
         </div>
 
         <div className="flex items-center gap-3 text-[11px] text-[#767067] dark:text-[#A39A8D] font-sans">
           <span className="flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
             <span className="w-2 h-2 rounded-full bg-zinc-800 dark:bg-zinc-200" />
-            <span>L1 Recommended</span>
+            <span>Recommended award</span>
           </span>
           <span className="text-zinc-300 dark:text-zinc-700">·</span>
           <span className="flex items-center gap-1.5 font-medium text-[#9E2B1F] dark:text-[#E07A6A]">
             <span className="w-2 h-2 rounded-full bg-[#9E2B1F] dark:bg-[#E07A6A]" />
-            <span>Scope Gap Add-Back</span>
+            <span>Cost adjustment</span>
           </span>
         </div>
       </div>
 
       {/* Ledger Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse" aria-label="Bid Audit Ledger">
+        <table className="w-full text-left border-collapse" aria-label="Evaluated totals by bidder">
           <thead>
             <tr className="border-b border-[#D9D4CC] dark:border-[#7A7266] bg-[#FAF8F5] dark:bg-[#141210] text-[#767067] dark:text-[#A39A8D] text-[10px] tracking-wider uppercase font-semibold">
               <th scope="col" className="py-3 px-3.5 w-14">Rank</th>
-              <th scope="col" className="py-3 px-3.5 min-w-[210px]">Vendor Proposal</th>
-              <th scope="col" className="py-3 px-3.5 text-right">Quoted Bid</th>
-              <th scope="col" className="py-3 px-3.5 text-right">Technical Gaps</th>
-              <th scope="col" className="py-3 px-3.5 text-right">Commercial Gaps</th>
-              <th scope="col" className="py-3 px-3.5 text-right">Net Omissions</th>
+              <th scope="col" className="py-3 px-3.5 min-w-[210px]">Bidder</th>
+              <th scope="col" className="py-3 px-3.5 text-right">Quoted price</th>
+              <th scope="col" className="py-3 px-3.5 text-right">Technical gaps</th>
+              <th scope="col" className="py-3 px-3.5 text-right">Commercial gaps</th>
+              <th scope="col" className="py-3 px-3.5 text-right">Total cost adjustments</th>
               <th scope="col" className="py-3 px-3.5 font-bold text-right bg-zinc-100/60 dark:bg-zinc-900/60 text-zinc-900 dark:text-white">
-                True Job Cost
+                Evaluated total
               </th>
-              <th scope="col" className="py-3 px-3.5 text-right">Delta vs Quote</th>
+              <th scope="col" className="py-3 px-3.5 text-right">Difference vs lowest bid</th>
               <th scope="col" className="py-3 px-3.5 text-center w-28">Actions</th>
             </tr>
           </thead>
@@ -98,7 +98,7 @@ export function TrueJobCostTable({
             {sortedAll.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
-                  No evaluated vendor bids available in this tender.
+                  No bids have been evaluated for this tender yet.
                 </td>
               </tr>
             ) : (
@@ -147,7 +147,7 @@ export function TrueJobCostTable({
                           L{index + 1}
                         </span>
                       ) : (
-                        <span className="text-zinc-400 dark:text-zinc-600">—</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">Not ranked</span>
                       )}
                     </td>
 
@@ -160,17 +160,17 @@ export function TrueJobCostTable({
                         {isBestValue && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border border-zinc-900">
                             <Award className="w-3 h-3" />
-                            Recommended Award
+                            Recommended award
                           </span>
                         )}
                         {isLowestNominal && !isBestValue && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                            Apparent Low Bidder
+                            Lowest base bid
                           </span>
                         )}
                       </div>
                       <div className="text-[11px] text-[#767067] dark:text-[#A39A8D] font-mono mt-0.5">
-                        {item.country || vendor?.country || 'N/A'} · {vendor?.doc_name || 'Offer PDF'}
+                        {item.country || vendor?.country || 'N/A'} · {vendor?.doc_name || 'Bid document'}
                       </div>
                     </td>
 
@@ -179,7 +179,7 @@ export function TrueJobCostTable({
                       {item.headline_price !== null ? (
                         <span className="text-zinc-800 dark:text-zinc-200">{formatEur(item.headline_price)}</span>
                       ) : (
-                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">Unpriced</span>
+                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">No price</span>
                       )}
                     </td>
 
@@ -225,12 +225,12 @@ export function TrueJobCostTable({
                           </span>
                           {isUnpricedItems && (
                             <div className="text-[10px] text-amber-700 dark:text-amber-400 font-sans font-medium">
-                              lower bound · 1 unpriced
+                              at least · 1 unpriced
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">Incomplete Bid</span>
+                        <span className="text-amber-700 dark:text-amber-400 text-[11px] font-semibold font-sans">Bid price missing</span>
                       )}
                     </td>
 
@@ -240,10 +240,10 @@ export function TrueJobCostTable({
                         deltaVsLowestQuote > 0 ? (
                           <span className="text-[#9E2B1F] dark:text-[#E07A6A] font-semibold">+{formatEur(deltaVsLowestQuote)}</span>
                         ) : (
-                          <span className="text-zinc-700 dark:text-zinc-300 font-semibold">Baseline</span>
+                          <span className="text-zinc-700 dark:text-zinc-300 font-semibold">Lowest bid</span>
                         )
                       ) : (
-                        <span className="text-zinc-400 dark:text-zinc-600">—</span>
+                        <span className="text-zinc-400 dark:text-zinc-600">n/a</span>
                       )}
                     </td>
 
@@ -253,16 +253,16 @@ export function TrueJobCostTable({
                         <button
                           onClick={() => onSelectVendor(item.vendor_id)}
                           className="px-2.5 py-1 rounded bg-white dark:bg-[#1C1916] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white text-[11px] font-medium transition-colors flex items-center gap-1 shadow-2xs"
-                          aria-label={`Inspect ${item.name} breakdown`}
+                          aria-label={`Show line items for ${item.name}`}
                         >
                           <Eye className="w-3 h-3 text-zinc-500" />
-                          <span>Inspect</span>
+                          <span>Line items</span>
                         </button>
                         <button
                           onClick={() => onOpenOverride(item.vendor_id)}
-                          title="Override adder amount"
+                          title="Edit cost adjustments"
                           className="p-1 rounded bg-white dark:bg-[#1C1916] hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors shadow-2xs"
-                          aria-label={`Override adder for ${item.name}`}
+                          aria-label={`Edit cost adjustments for ${item.name}`}
                         >
                           <Edit3 className="w-3 h-3" />
                         </button>
@@ -282,10 +282,18 @@ export function TrueJobCostTable({
           <Info className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <span className="font-bold text-zinc-900 dark:text-white uppercase tracking-wider text-[11px]">
-              Procurement Leveling & Award Analysis
+              Award recommendation
             </span>
             <p className="text-[#767067] dark:text-[#A39A8D] leading-relaxed text-[11px]">
-              Nominal apparent low bidder <strong className="text-zinc-900 dark:text-zinc-100">{lowestHeadlineVendor.name}</strong> ({formatEur(lowestHeadlineVendor.headline_price)}) carries unquoted scope omissions and warranty delivery boundaries, elevating its true evaluated cost to <strong className="text-zinc-900 dark:text-zinc-100">{formatEur(lowestHeadlineVendor.true_evaluated_price, { isLowerBound: lowestHeadlineVendor.price_status === 'UNPRICED_ITEMS' })}</strong>. Recommended award is <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong> at <strong className="text-zinc-900 dark:text-zinc-100">{formatEur(bestValueVendor.true_evaluated_price)}</strong>, delivering verified specification compliance and the lowest true total cost of ownership.
+              {lowestHeadlineVendor.price_status === 'UNPRICED_ITEMS' ? (
+                <>
+                  <strong className="text-zinc-900 dark:text-zinc-100">{lowestHeadlineVendor.name}</strong> has the lowest base bid at {formatEur(lowestHeadlineVendor.headline_price)}. Missing scope and commercial gaps add {formatEur(lowestHeadlineVendor.total_adders)} ({formatEur(lowestHeadlineVendor.total_tech_penalty)} technical, {formatEur(lowestHeadlineVendor.total_commercial_adder)} commercial), for an evaluated total of at least {formatEur(lowestHeadlineVendor.true_evaluated_price, { isLowerBound: true })}. 1 gap still has no price, so the real total is higher. <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong> has the lowest evaluated total at {formatEur(bestValueVendor.true_evaluated_price)}, which is at least {bestValueVendor.true_evaluated_price !== null && lowestHeadlineVendor.true_evaluated_price !== null ? formatEur(Math.abs(lowestHeadlineVendor.true_evaluated_price - bestValueVendor.true_evaluated_price)) : '€27,650'} less. Recommended award: <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong>.
+                </>
+              ) : (
+                <>
+                  <strong className="text-zinc-900 dark:text-zinc-100">{lowestHeadlineVendor.name}</strong> has the lowest base bid at {formatEur(lowestHeadlineVendor.headline_price)}. Missing scope and commercial gaps add {formatEur(lowestHeadlineVendor.total_adders)} ({formatEur(lowestHeadlineVendor.total_tech_penalty)} technical, {formatEur(lowestHeadlineVendor.total_commercial_adder)} commercial), for an evaluated total of {formatEur(lowestHeadlineVendor.true_evaluated_price)}. <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong> has the lowest evaluated total at {formatEur(bestValueVendor.true_evaluated_price)}, which is {bestValueVendor.true_evaluated_price !== null && lowestHeadlineVendor.true_evaluated_price !== null ? formatEur(Math.abs(lowestHeadlineVendor.true_evaluated_price - bestValueVendor.true_evaluated_price)) : ''} less. Recommended award: <strong className="text-zinc-900 dark:text-zinc-100">{bestValueVendor.name}</strong>.
+                </>
+              )}
             </p>
           </div>
         </div>

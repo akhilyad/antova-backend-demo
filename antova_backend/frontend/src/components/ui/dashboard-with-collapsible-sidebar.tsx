@@ -799,8 +799,8 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                         {[
                           {
                             icon: DollarSign,
-                            title: "Commercial rank reversal flagged: VoltSwitch Industrial",
-                            desc: "Nominal low bid of €418,000 leveled to €482,800 (+€64,800 net adders) after I-FAT, DDP & busbar gap pricing.",
+                            title: "Lowest bid is not the lowest cost: VoltSwitch Industrial",
+                            desc: "VoltSwitch's base bid of €418,000 becomes an evaluated total of at least €479,650 after pricing the factory test, delivery and busbar gaps.",
                             time: "Deterministic",
                             badge: "Rank Reversal",
                             badgeColor: "text-rose-500 border-rose-500/30 bg-rose-50 dark:bg-rose-950/20",
@@ -811,8 +811,8 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                           },
                           {
                             icon: CheckCircle2,
-                            title: "Lowest Evaluated Cost Confirmed: Nordwerk Schaltanlagen GmbH",
-                            desc: "Quoted at €452,000 with 100% specification compliance and €0 omissions. Recommended for award.",
+                            title: "Lowest evaluated total: Nordwerk Schaltanlagen GmbH",
+                            desc: "Base bid €452,000 with no cost adjustments. Recommended award.",
                             time: "Deterministic",
                             badge: "L1 Confirmed",
                             badgeColor: "text-emerald-500 border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20",
@@ -823,8 +823,8 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                           },
                           {
                             icon: Shield,
-                            title: "Founder Cell Override recorded for PARAM-06 (Warranty Basis)",
-                            desc: "Priced by founder: freight €6,150 + 18 months storage x €175 = €9,300 adder with PyMuPDF citation hash.",
+                            title: "Amount edited for PARAM-06 (warranty basis)",
+                            desc: "Freight €6,150 + 18 months storage × €175 = €9,300 cost adjustment.",
                             time: "Review Audit",
                             badge: "Manual Override",
                             badgeColor: "text-amber-500 border-amber-500/30 bg-amber-50 dark:bg-amber-950/20",
@@ -1182,7 +1182,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                     onClick={() => setSelected("Bid Audits")}
                     className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline"
                   >
-                    View Reconciled Ledger →
+                    View evaluated totals
                   </button>
                 </div>
 
@@ -1263,7 +1263,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                       ) : (
                         <>
                           <Download className="w-4 h-4" />
-                          <span>Download Official TBE (.xlsx)</span>
+                          <span>Download workbook (.xlsx)</span>
                         </>
                       )}
                     </button>
@@ -1392,7 +1392,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                       1. Deterministic Unit & Dimensional Math
                     </h3>
                     <p className="text-zinc-600 dark:text-zinc-300">
-                      Antova uses the Python <strong>Pint</strong> dimensional library to normalize disparate vendor measurements (e.g., converting 104 °F into 40 °C, or 36,000 V into 36 kV) with strict zero-hallucination validation before running boolean comparison operators.
+                      Antova uses the Python <strong>Pint</strong> dimensional library to normalize disparate vendor measurements (e.g., converting 104 °F into 40 °C, or 36,000 V into 36 kV). Code converts units, then compares them.
                     </p>
                   </div>
 
@@ -1401,7 +1401,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                       2. True Job Cost & Commercial Leveling
                     </h3>
                     <p className="text-zinc-600 dark:text-zinc-300">
-                      When a vendor omits scope or offers inferior ratings (e.g., missing witness I-FAT tests or EXW delivery instead of DDP site delivery), Antova applies rate table additions directly to the vendor&apos;s base proposal, ensuring accurate procurement ranking.
+                      When a vendor omits scope or offers inferior ratings (e.g., missing witness I-FAT tests or EXW delivery instead of DDP site delivery), Antova adds the rate-table cost to the base bid. The ranking uses the evaluated total.
                     </p>
                   </div>
                 </div>

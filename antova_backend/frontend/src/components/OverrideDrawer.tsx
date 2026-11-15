@@ -66,11 +66,11 @@ export function OverrideDrawer({
 
     const num = parseFloat(adder);
     if (isNaN(num) || num < 0 || num > 10000000) {
-      setError('Adder must be between €0.00 and €10,000,000.00');
+      setError('Enter an amount from €0 to €10,000,000.');
       return;
     }
     if (!note.trim() || note.trim().length < 8) {
-      setError('A mandatory engineering audit note (minimum 8 characters) is required for compliance traceability');
+      setError('Add a reason of at least 8 characters.');
       return;
     }
 
@@ -83,21 +83,21 @@ export function OverrideDrawer({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to apply override');
+      setError(err.message || "Couldn't save the amount.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Revert this line item to the automated rate table adder?')) return;
+    if (!confirm('Go back to the calculated amount for this line item?')) return;
     try {
       setIsSubmitting(true);
       await deleteOverride(tenderId, paramId, vendorId);
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete override');
+      setError(err.message || "Couldn't restore the calculated amount.");
     } finally {
       setIsSubmitting(false);
     }
@@ -108,7 +108,7 @@ export function OverrideDrawer({
   const deltaNum = proposedAdderNum - originalAdderNum;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-label="Procurement Cost Override">
+    <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-label="Edit cost adjustment">
       {/* Semi-transparent Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-200"
@@ -124,10 +124,10 @@ export function OverrideDrawer({
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-500/20" />
               <div>
                 <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                  Procurement Cost Override
+                  Edit cost adjustment
                 </h2>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Line item scope gap adjustment & formal audit note
+                  Change the amount for one line item and record why.
                 </p>
               </div>
             </div>
@@ -145,7 +145,7 @@ export function OverrideDrawer({
             {/* Target Item Summary */}
             <div className="p-3.5 bg-zinc-50 dark:bg-[#111113] rounded-lg border border-zinc-200 dark:border-zinc-800 space-y-2">
               <div className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                Audited Scope Item
+                Line item
               </div>
               <div>
                 <div className="text-zinc-900 dark:text-white font-semibold text-sm">
@@ -160,20 +160,20 @@ export function OverrideDrawer({
             {/* Comparison Grid: Automated Adder vs Proposed Override */}
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                <div className="text-[10px] uppercase text-zinc-500 font-medium">Automated Rate</div>
+                <div className="text-[10px] uppercase text-zinc-500 font-medium">Calculated amount</div>
                 <div className="text-sm font-mono font-bold text-zinc-800 dark:text-zinc-200 mt-1 tabular-nums">
                   {formatEur(originalAdderNum)}
                 </div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">Calculated by engine</div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">From the rate table</div>
               </div>
 
               <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20">
-                <div className="text-[10px] uppercase text-amber-700 dark:text-amber-400 font-medium">Proposed Value</div>
+                <div className="text-[10px] uppercase text-amber-700 dark:text-amber-400 font-medium">New amount</div>
                 <div className="text-sm font-mono font-bold text-amber-900 dark:text-amber-300 mt-1 tabular-nums">
                   {formatEur(proposedAdderNum)}
                 </div>
                 <div className="text-[10px] text-amber-700/80 dark:text-amber-400/80 mt-0.5">
-                  {deltaNum >= 0 ? `+${formatEur(deltaNum)}` : `-${formatEur(Math.abs(deltaNum))}`} delta
+                  {deltaNum >= 0 ? `+${formatEur(deltaNum)}` : `-${formatEur(Math.abs(deltaNum))}`} difference
                 </div>
               </div>
             </div>
@@ -181,7 +181,7 @@ export function OverrideDrawer({
             {/* Cost Input */}
             <div>
               <label className="block text-zinc-800 dark:text-zinc-200 font-semibold mb-1 text-xs">
-                Override Adder Amount (€ EUR)
+                New cost adjustment (€)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-zinc-400 font-mono text-xs">€</span>
@@ -199,7 +199,7 @@ export function OverrideDrawer({
                 />
               </div>
               <p className="text-[11px] text-zinc-500 mt-1">
-                Replaces the engine&apos;s automated formula adder for this parameter cell.
+                Replaces the calculated amount for this line item.
               </p>
             </div>
 
@@ -208,7 +208,7 @@ export function OverrideDrawer({
               <div className="flex items-center justify-between mb-1">
                 <label className="text-zinc-800 dark:text-zinc-200 font-semibold text-xs flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-zinc-500" />
-                  Mandatory Engineering Justification
+                  Reason (required)
                 </label>
                 <span className="text-[10px] text-zinc-400 font-mono">
                   {note.length} characters (min 8)
@@ -217,13 +217,13 @@ export function OverrideDrawer({
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="e.g. Quoted freight rate confirmed directly with logistics carrier; 18-month warranty gap priced via insurance policy."
+                placeholder="Example: Vendor quoted €6,150 freight in clarification of 12 Nov."
                 rows={4}
                 className="w-full p-2.5 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded-md text-zinc-900 dark:text-zinc-200 text-xs focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 resize-none font-sans shadow-2xs leading-relaxed"
                 required
               />
               <p className="text-[11px] text-zinc-500 mt-1">
-                This explanation is stamped permanently in the TBE export and procurement audit log.
+                Your reason is saved in the workbook and the decision history.
               </p>
             </div>
 
@@ -231,10 +231,10 @@ export function OverrideDrawer({
             <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-1.5">
               <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 font-semibold text-[11px]">
                 <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Governance & Audit Trail</span>
+                <span>Record of changes</span>
               </div>
               <p className="text-[11px] text-zinc-500 leading-normal">
-                Applying an override marks the tender brief as modified. Overridden cells are flagged in red within the True Job Cost Ledger and export workbooks.
+                Edited amounts show in red in the evaluated totals and in the workbook.
               </p>
             </div>
 
@@ -256,7 +256,7 @@ export function OverrideDrawer({
                 className="px-3 py-2 bg-transparent text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors flex items-center gap-1.5 font-medium text-xs disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Revert to Auto</span>
+                <span>Use calculated amount</span>
               </button>
             ) : (
               <div />
@@ -285,7 +285,7 @@ export function OverrideDrawer({
                 ) : (
                   <>
                     <Check className="w-3.5 h-3.5" />
-                    <span>Save Override</span>
+                    <span>Save amount</span>
                   </>
                 )}
               </button>

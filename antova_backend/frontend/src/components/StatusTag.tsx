@@ -38,7 +38,7 @@ export function StatusTag({
   if (showGlyphOnly) {
     return (
       <span
-        title={`${tag.word}${overridden ? ' (Overridden)' : ''}`}
+        title={`${tag.word}${overridden ? ' · amount edited' : ''}`}
         className={`inline-flex items-center justify-center w-5 h-5 rounded font-mono text-xs font-semibold border ${colorClasses} ${className}`}
       >
         <span aria-hidden="true">{tag.glyph}</span>
@@ -56,7 +56,7 @@ export function StatusTag({
       <span>{tag.word}</span>
       {overridden && (
         <span className="text-[9px] uppercase tracking-wider font-bold opacity-75 font-mono">
-          · Override
+          · amount edited
         </span>
       )}
     </span>

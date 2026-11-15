@@ -29,7 +29,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
     return (
       <div className="min-h-screen bg-white text-black p-12 flex flex-col items-center justify-center font-sans space-y-2">
         <Loader2 className="w-6 h-6 animate-spin text-zinc-600" />
-        <span className="text-xs font-mono">Generating official printable procurement sign-off sheet...</span>
+        <span className="text-xs font-mono">Preparing the sign-off sheet...</span>
       </div>
     );
   }
@@ -37,7 +37,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
   if (!brief) {
     return (
       <div className="min-h-screen bg-white text-black p-12 text-center font-sans text-xs text-rose-600">
-        Failed to load tender audit data from Antova backend.
+        Couldn't load this tender.
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
           className="flex items-center gap-1.5 text-zinc-600 hover:text-black font-semibold text-xs"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Return to Interactive Workbench</span>
+          <span>Back to the tender</span>
         </Link>
 
         <button
@@ -66,7 +66,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
           className="px-4 py-2 bg-black text-white rounded font-semibold text-xs flex items-center gap-2 hover:bg-zinc-800 transition-colors shadow-sm"
         >
           <Printer className="w-4 h-4" />
-          <span>Print Official Sign-Off Report</span>
+          <span>Print</span>
         </button>
       </div>
 
@@ -74,15 +74,12 @@ export default function PrintableAuditSheet({ params }: PageProps) {
       <div className="border-b-2 border-black pb-4 mb-6">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-xl font-black uppercase tracking-tight">ANTOVA PROCUREMENT AUDIT REPORT</div>
-            <div className="text-xs font-bold text-zinc-800 mt-0.5 tracking-wide">
-              TECHNICAL BID EVALUATION & COMMERCIAL RECONCILIATION
-            </div>
+            <div className="text-xl font-bold tracking-tight">Bid evaluation and award recommendation</div>
           </div>
           <div className="text-right text-[11px] font-mono">
             <div>Audit Status: <strong className="uppercase">{brief.status}</strong></div>
             <div>Generated: {new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC</div>
-            <div>Engine Version: FastAPI 3.0.0 / Pint 0.26.2</div>
+            <div>Antova version 3.0.0</div>
           </div>
         </div>
 
@@ -93,9 +90,9 @@ export default function PrintableAuditSheet({ params }: PageProps) {
             <div><strong>Client:</strong> {brief.tender.client}</div>
           </div>
           <div>
-            <div><strong>Equipment Package:</strong> <span className="font-mono">{brief.tender.equipment_class}</span></div>
-            <div><strong>Baseline Spec Document:</strong> <span className="font-mono">{brief.tender.mr_doc}</span></div>
-            <div><strong>Rate Table Applied:</strong> <span className="font-mono">{brief.tender.rate_table_version}</span></div>
+            <div><strong>Package:</strong> <span className="font-mono">{brief.tender.equipment_class}</span></div>
+            <div><strong>Spec:</strong> <span className="font-mono">{brief.tender.mr_doc}</span></div>
+            <div><strong>Rate table:</strong> <span className="font-mono">{brief.tender.rate_table_version}</span></div>
           </div>
         </div>
       </div>
@@ -103,18 +100,18 @@ export default function PrintableAuditSheet({ params }: PageProps) {
       {/* Reconciled True Job Cost Table */}
       <div className="mb-6">
         <h2 className="text-xs font-bold uppercase tracking-wider mb-2 border-b border-black pb-1">
-          1. Commercial Bid Reconciled Ranking & Omission Summary
+          1. Ranking by evaluated total
         </h2>
         <table className="w-full border-collapse border border-zinc-300 text-left text-xs">
           <thead>
             <tr className="bg-zinc-100 border-b border-zinc-300 text-[11px]">
               <th className="p-2 border border-zinc-300">Rank</th>
-              <th className="p-2 border border-zinc-300">Vendor / Origin</th>
-              <th className="p-2 border border-zinc-300 text-right">Quoted Price (Bid)</th>
-              <th className="p-2 border border-zinc-300 text-right">Tech Adders</th>
-              <th className="p-2 border border-zinc-300 text-right">Comm. Adders</th>
-              <th className="p-2 border border-zinc-300 text-right">Total Omissions</th>
-              <th className="p-2 border border-zinc-300 text-right font-bold bg-zinc-200">True Evaluated Cost</th>
+              <th className="p-2 border border-zinc-300">Bidder</th>
+              <th className="p-2 border border-zinc-300 text-right">Quoted price</th>
+              <th className="p-2 border border-zinc-300 text-right">Technical adjustments</th>
+              <th className="p-2 border border-zinc-300 text-right">Commercial adjustments</th>
+              <th className="p-2 border border-zinc-300 text-right">Total adjustments</th>
+              <th className="p-2 border border-zinc-300 text-right font-bold bg-zinc-200">Evaluated total</th>
               <th className="p-2 border border-zinc-300 text-center">Status</th>
             </tr>
           </thead>
@@ -133,7 +130,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
                   {formatEur(item.true_evaluated_price)}
                 </td>
                 <td className="p-2 border border-zinc-300 text-center uppercase font-bold text-[10px]">
-                  {idx === 0 ? 'Recommended Award' : 'Subordinate'}
+                  {idx === 0 ? 'Recommended award' : ''}
                 </td>
               </tr>
             ))}
@@ -144,7 +141,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
       {/* Findings & Audit Clearance */}
       <div className="mb-6 p-4 bg-zinc-50 border border-zinc-300 text-xs leading-relaxed">
         <h3 className="font-bold text-xs uppercase tracking-wide mb-1.5 text-zinc-900">
-          Executive Summary & Commercial Reconciliation
+          Summary
         </h3>
         {(() => {
           const pricedBidders = [...brief.financials].filter((f) => f.headline_price !== null);
@@ -162,39 +159,28 @@ export default function PrintableAuditSheet({ params }: PageProps) {
             <div className="space-y-2 text-zinc-800">
               {hasReversal ? (
                 <p>
-                  The nominal lowest bidder at quote submission was{' '}
-                  <strong>
-                    {nominalLow.name} ({formatEur(nominalLow.headline_price)})
-                  </strong>
-                  . Following systematic engineering clause audits against specification{' '}
-                  <strong>{brief.tender.mr_doc}</strong>, {nominalLow.name} was assessed{' '}
-                  <strong>+{formatEur(nominalLow.total_adders)} in mandatory cost add-backs</strong>{' '}
-                  ({formatEur(nominalLow.total_tech_penalty)} technical scope omissions and{' '}
-                  {formatEur(nominalLow.total_commercial_adder)} commercial terms adjustments). This
-                  causes a commercial rank reversal, identifying{' '}
-                  <strong>
-                    {bestEvaluated.name} at {formatEur(bestEvaluated.true_evaluated_price)}
-                  </strong>{' '}
-                  as the true lowest evaluated cost package.
+                  <strong>{nominalLow.name}</strong> submitted the lowest base bid at{' '}
+                  {formatEur(nominalLow.headline_price)}. Checked against spec{' '}
+                  {brief.tender.mr_doc}, its missing scope and commercial gaps add{' '}
+                  {formatEur(nominalLow.total_adders)} ({formatEur(nominalLow.total_tech_penalty)} technical,{' '}
+                  {formatEur(nominalLow.total_commercial_adder)} commercial), for an evaluated total of{' '}
+                  {formatEur(nominalLow.true_evaluated_price)}.{' '}
+                  <strong>{bestEvaluated.name}</strong> has the lowest evaluated total at{' '}
+                  {formatEur(bestEvaluated.true_evaluated_price)} and is the recommended award.
                 </p>
               ) : bestEvaluated ? (
                 <p>
-                  The recommended lowest evaluated bidder is{' '}
-                  <strong>
-                    {bestEvaluated.name} ({formatEur(bestEvaluated.true_evaluated_price)})
-                  </strong>
-                  . Audited scope omissions and commercial terms adjustments total{' '}
-                  <strong>+{formatEur(bestEvaluated.total_adders)}</strong>, evaluated against
-                  specification {brief.tender.mr_doc} and benchmark rate table{' '}
-                  {brief.tender.rate_table_version}.
+                  <strong>{bestEvaluated.name}</strong> has the lowest evaluated total at{' '}
+                  {formatEur(bestEvaluated.true_evaluated_price)}. Its cost adjustments total{' '}
+                  {formatEur(bestEvaluated.total_adders)}, priced from rate table{' '}
+                  {brief.tender.rate_table_version} against spec {brief.tender.mr_doc}.
                 </p>
               ) : null}
 
               {unpriced.length > 0 && (
                 <p className="text-zinc-600 border-t border-zinc-200 pt-1.5 text-[11px]">
-                  <strong>Commercial Exception:</strong> {unpriced.map((u) => u.name).join(', ')}{' '}
-                  submitted non-priced or incomplete commercial schedules and require formal price
-                  submission before commercial ranking can be finalized.
+                  <strong>Missing prices:</strong> {unpriced.map((u) => u.name).join(', ')}{' '}
+                  did not price every item. Ask for the missing prices before you award.
                 </p>
               )}
             </div>
@@ -204,21 +190,18 @@ export default function PrintableAuditSheet({ params }: PageProps) {
 
       {/* Signature Authorization Block */}
       <div className="pt-8 border-t-2 border-black mt-12">
-        <div className="text-[11px] uppercase font-bold mb-6">Tender Evaluation Committee Sign-Off & Verification Signatures:</div>
+        <div className="text-[11px] uppercase font-bold mb-6">Approvals</div>
         <div className="grid grid-cols-3 gap-8">
           <div className="border-t border-black pt-2">
-            <div className="font-bold text-xs">Chief Procurement Officer</div>
-            <div className="text-zinc-500 text-[11px]">EPC Consortium GmbH</div>
+            <div className="font-bold text-xs">Procurement lead</div>
             <div className="mt-8 text-[11px] text-zinc-400 font-mono">Date: ________________________</div>
           </div>
           <div className="border-t border-black pt-2">
-            <div className="font-bold text-xs">Senior Electrical Lead Engineer</div>
-            <div className="text-zinc-500 text-[11px]">High Voltage Substation Dept</div>
+            <div className="font-bold text-xs">Electrical lead</div>
             <div className="mt-8 text-[11px] text-zinc-400 font-mono">Date: ________________________</div>
           </div>
           <div className="border-t border-black pt-2">
-            <div className="font-bold text-xs">Head of Estimating & Contracts</div>
-            <div className="text-zinc-500 text-[11px]">Commercial Operations</div>
+            <div className="font-bold text-xs">Commercial lead</div>
             <div className="mt-8 text-[11px] text-zinc-400 font-mono">Date: ________________________</div>
           </div>
         </div>

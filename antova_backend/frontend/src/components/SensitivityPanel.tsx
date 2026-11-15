@@ -84,16 +84,16 @@ export function SensitivityPanel({
           </div>
           <div>
             <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-              <span>Commodity & Rate Sensitivity Scenario Engine</span>
+              <span>Rate scenarios</span>
               {isLoading && (
                 <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono animate-pulse flex items-center gap-1 font-normal">
                   <Activity className="w-3 h-3 animate-spin" />
-                  <span>Calculating...</span>
+                  <span>Updating...</span>
                 </span>
               )}
             </div>
             <p className="text-[11px] text-zinc-500">
-              Adjust macroeconomic commodity multipliers and simulate vendor ranking sensitivity before award.
+              Change copper, labour and freight rates to see if the ranking changes.
             </p>
           </div>
         </div>
@@ -106,7 +106,7 @@ export function SensitivityPanel({
               className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2.5 py-1.5 rounded-md transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Reset Baseline</span>
+              <span>Reset all</span>
             </button>
           )}
 
@@ -120,7 +120,7 @@ export function SensitivityPanel({
             }`}
           >
             <Play className="w-3 h-3 fill-current" />
-            <span>Apply Scenario</span>
+            <span>Update totals</span>
           </button>
         </div>
       </div>
@@ -131,14 +131,14 @@ export function SensitivityPanel({
         <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
           <div className="flex justify-between items-start">
             <div>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Copper (LME Index)</span>
-              <p className="text-[10px] text-zinc-500">Impacts Cu-ETP busbars & cables</p>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Copper price (LME)</span>
+              <p className="text-[10px] text-zinc-500">Affects copper busbars and cables</p>
             </div>
             {stagedCopper !== 1.0 && (
               <button
                 onClick={handleResetCopper}
                 className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                title="Reset Copper"
+                title="Reset copper"
               >
                 Reset
               </button>
@@ -154,7 +154,7 @@ export function SensitivityPanel({
               value={stagedCopper}
               onChange={(e) => setStagedCopper(parseFloat(e.target.value))}
               className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
-              aria-label="Copper multiplier slider"
+              aria-label="Copper price"
             />
             <div className="flex items-center w-20 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
               <input
@@ -175,7 +175,7 @@ export function SensitivityPanel({
 
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
             <span>0.50x</span>
-            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00x (Base)</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00× (rate table)</span>
             <span>2.50x</span>
           </div>
         </div>
@@ -184,14 +184,14 @@ export function SensitivityPanel({
         <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
           <div className="flex justify-between items-start">
             <div>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Site Labor Hourly Rate</span>
-              <p className="text-[10px] text-zinc-500">Field cabling & installation supervision</p>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Site labour rate</span>
+              <p className="text-[10px] text-zinc-500">Cabling and installation supervision</p>
             </div>
             {stagedLabor !== 60 && (
               <button
                 onClick={handleResetLabor}
                 className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                title="Reset Labor"
+                title="Reset labour"
               >
                 Reset
               </button>
@@ -207,7 +207,7 @@ export function SensitivityPanel({
               value={stagedLabor}
               onChange={(e) => setStagedLabor(parseInt(e.target.value))}
               className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
-              aria-label="Site labor rate slider"
+              aria-label="Site labour rate"
             />
             <div className="flex items-center w-24 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
               <span className="text-[11px] text-zinc-400 mr-0.5">€</span>
@@ -229,7 +229,7 @@ export function SensitivityPanel({
 
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
             <span>€20/h</span>
-            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">€60/h (Base)</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">€60/h (rate table)</span>
             <span>€200/h</span>
           </div>
         </div>
@@ -238,14 +238,14 @@ export function SensitivityPanel({
         <div className="p-3 rounded-lg bg-zinc-50 dark:bg-[#111113] border border-zinc-200 dark:border-zinc-800 space-y-2.5">
           <div className="flex justify-between items-start">
             <div>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Heavy Haul & Sea Freight</span>
-              <p className="text-[10px] text-zinc-500">Incoterms DAP/DDP transport leveling</p>
+              <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs">Freight</span>
+              <p className="text-[10px] text-zinc-500">Transport to site (DAP or DDP)</p>
             </div>
             {stagedFreight !== 1.0 && (
               <button
                 onClick={handleResetFreight}
                 className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                title="Reset Freight"
+                title="Reset freight"
               >
                 Reset
               </button>
@@ -261,7 +261,7 @@ export function SensitivityPanel({
               value={stagedFreight}
               onChange={(e) => setStagedFreight(parseFloat(e.target.value))}
               className="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-800 rounded appearance-none cursor-pointer accent-[#172536] dark:accent-white"
-              aria-label="Freight multiplier slider"
+              aria-label="Freight rate"
             />
             <div className="flex items-center w-20 px-2 py-1 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-700 rounded text-right shadow-2xs">
               <input
@@ -282,7 +282,7 @@ export function SensitivityPanel({
 
           <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
             <span>0.50x</span>
-            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00x (Base)</span>
+            <span className="text-zinc-700 dark:text-zinc-300 font-semibold">1.00× (rate table)</span>
             <span>2.50x</span>
           </div>
         </div>
@@ -293,12 +293,12 @@ export function SensitivityPanel({
         <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
           <Info className="w-3.5 h-3.5 text-zinc-500" />
           <span>
-            Active calculation basis: Copper <strong className="text-zinc-900 dark:text-white font-mono">{appliedCopper.toFixed(2)}x</strong> · Labor <strong className="text-zinc-900 dark:text-white font-mono">€{appliedLabor}/h</strong> · Freight <strong className="text-zinc-900 dark:text-white font-mono">{appliedFreight.toFixed(2)}x</strong>
+            Current rates: copper <strong className="text-zinc-900 dark:text-white font-mono">{appliedCopper.toFixed(2)}x</strong> · labour <strong className="text-zinc-900 dark:text-white font-mono">€{appliedLabor}/h</strong> · freight <strong className="text-zinc-900 dark:text-white font-mono">{appliedFreight.toFixed(2)}x</strong>
           </span>
         </div>
         {hasUnappliedChanges && (
           <span className="text-amber-600 dark:text-amber-400 font-medium">
-            Pending changes staged — Click &ldquo;Apply Scenario&rdquo; to recalculate
+            Rates changed. Select "Update totals" to recalculate.
           </span>
         )}
       </div>

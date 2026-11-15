@@ -37,6 +37,7 @@ export interface CellReviewPanelProps {
   currentNote: string | null;
   isOverridden: boolean;
   isVerified: boolean;
+  initialAction?: 'approve' | 'override' | 'reject';
   onDecisionSuccess: () => void;
   onOpenEvidence: (paramId: string, which: 'primary' | 'secondary') => void;
 }
@@ -55,6 +56,7 @@ export function CellReviewPanel({
   currentNote,
   isOverridden,
   isVerified,
+  initialAction,
   onDecisionSuccess,
   onOpenEvidence,
 }: CellReviewPanelProps) {
@@ -73,7 +75,7 @@ export function CellReviewPanel({
     setErrorMsg(null);
     setNote(currentNote || '');
     setOverrideAmount(currentAdder !== null ? currentAdder.toString() : '');
-    setActiveAction(isOverridden ? 'override' : 'approve');
+    setActiveAction(initialAction || (isOverridden ? 'override' : 'approve'));
 
     // Fetch review history
     let isSubscribed = true;
@@ -96,14 +98,14 @@ export function CellReviewPanel({
     return () => {
       isSubscribed = false;
     };
-  }, [isOpen, tenderId, paramId, vendorId, currentAdder, currentNote, isOverridden]);
+  }, [isOpen, tenderId, paramId, vendorId, currentAdder, currentNote, isOverridden, initialAction]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!note.trim()) {
-      setErrorMsg('A reviewer justification note is required for institutional audit trail.');
+      setErrorMsg('Add a reason. It is saved with your decision.');
       return;
     }
 
@@ -114,7 +116,7 @@ export function CellReviewPanel({
       if (activeAction === 'override') {
         const val = parseFloat(overrideAmount);
         if (isNaN(val) || val < 0) {
-          setErrorMsg('Please enter a valid numeric adder amount in EUR.');
+          setErrorMsg('Enter an amount in euros, for example 18500 or 18500.50.');
           setSubmitting(false);
           return;
         }
@@ -127,7 +129,7 @@ export function CellReviewPanel({
       onClose();
     } catch (err: any) {
       console.error('Review action failed:', err);
-      setErrorMsg(err.message || 'Action failed. Please try again.');
+      setErrorMsg(err.message || "Couldn't save your decision. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +154,7 @@ export function CellReviewPanel({
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            aria-label="Close review panel"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -165,7 +167,7 @@ export function CellReviewPanel({
             <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] flex items-center justify-between shadow-2xs">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-bold text-[#767067] dark:text-[#A39A8D] tracking-wider">
-                  Compliance Status
+                  Result
                 </span>
                 <div>
                   <StatusTag
@@ -177,7 +179,7 @@ export function CellReviewPanel({
               </div>
               <div className="text-right">
                 <span className="text-[10px] uppercase font-bold text-[#767067] dark:text-[#A39A8D] tracking-wider">
-                  Cost to Close
+                  Cost to close
                 </span>
                 <div className="font-mono text-sm font-bold text-[#9E2B1F] dark:text-[#E07A6A]">
                   {formatAdderEur(currentAdder ?? extraction.cost_adder)}
@@ -189,10 +191,10 @@ export function CellReviewPanel({
           {/* Specification Clause */}
           <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] space-y-1.5 shadow-2xs">
             <span className="text-[10px] uppercase font-bold text-[#767067] dark:text-[#A39A8D] tracking-wider">
-              Employer Requirement Clause
+              Your requirement
             </span>
             <p className="text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans">
-              {mrRequirement || 'No specification text recorded.'}
+              {mrRequirement || 'No requirement text found in the spec.'}
             </p>
           </div>
 
@@ -200,16 +202,16 @@ export function CellReviewPanel({
           <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] space-y-2 shadow-2xs">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-bold text-[#767067] dark:text-[#A39A8D] tracking-wider">
-                Extracted Proposal Verbatim
+                Bidder's text
               </span>
               {typeof extraction?.confidence === 'number' && (
                 <span className="font-mono text-[10px] text-[#767067] dark:text-[#A39A8D]">
-                  Confidence: {(extraction.confidence * 100).toFixed(0)}%
+                  Match confidence: {(extraction.confidence * 100).toFixed(0)}%
                 </span>
               )}
             </div>
             <p className="text-zinc-900 dark:text-zinc-100 font-mono text-[11px] bg-zinc-50 dark:bg-zinc-900/60 p-2.5 rounded border border-zinc-200 dark:border-zinc-800 leading-relaxed">
-              &ldquo;{extraction?.extracted_text || 'No explicit text identified in proposal'}&rdquo;
+              "{extraction?.extracted_text || 'Not found in the bid'}"
             </p>
 
             {/* Citations & Evidence Button */}
@@ -225,7 +227,7 @@ export function CellReviewPanel({
                   className="px-2.5 py-1 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 font-sans font-semibold flex items-center gap-1 transition-colors"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  <span>Inspect Crop</span>
+                  <span>View page</span>
                 </button>
               </div>
             )}
@@ -236,7 +238,7 @@ export function CellReviewPanel({
             <div className="p-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 space-y-1">
               <span className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                Contradiction Detected
+                Documents disagree
               </span>
               <p className="leading-relaxed">{extraction.conflict_note}</p>
             </div>
@@ -245,7 +247,7 @@ export function CellReviewPanel({
           {/* Review Decision History */}
           <div className="space-y-2">
             <span className="text-[10px] uppercase font-bold text-[#767067] dark:text-[#A39A8D] tracking-wider">
-              Audit Decision Record
+              Decision history
             </span>
             {loadingHistory ? (
               <div className="flex items-center justify-center p-4 text-zinc-400">
@@ -254,7 +256,7 @@ export function CellReviewPanel({
               </div>
             ) : history.length === 0 ? (
               <div className="p-3 rounded-lg border border-dashed border-[#D9D4CC] dark:border-[#7A7266] text-zinc-500 text-center">
-                No previous human review decisions recorded for this cell.
+                No decisions yet.
               </div>
             ) : (
               <div className="space-y-2">
@@ -273,7 +275,7 @@ export function CellReviewPanel({
                         {new Date(row.created_at).toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-zinc-700 dark:text-zinc-300 italic">&ldquo;{row.note}&rdquo;</p>
+                    <p className="text-zinc-700 dark:text-zinc-300 italic">"{row.note}"</p>
                   </div>
                 ))}
               </div>
@@ -284,13 +286,13 @@ export function CellReviewPanel({
           {isVerified ? (
             <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-center text-zinc-600 dark:text-zinc-400">
               <ShieldCheck className="w-5 h-5 mx-auto mb-1 text-zinc-400" />
-              <span>Tender is verified and sealed. Review decisions and overrides are locked.</span>
+              <span>This tender is signed off. Reopen it to change decisions or amounts.</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="p-4 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] space-y-4 shadow-2xs">
               <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-900 dark:text-white">
-                  Record Review Decision
+                  Your decision
                 </span>
                 <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700">
                   <button
@@ -303,7 +305,7 @@ export function CellReviewPanel({
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
-                    <span>Approve</span>
+                    <span>Accept</span>
                   </button>
 
                   <button
@@ -316,7 +318,7 @@ export function CellReviewPanel({
                     }`}
                   >
                     <Edit3 className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Override</span>
+                    <span>Edit amount</span>
                   </button>
 
                   <button
@@ -338,7 +340,7 @@ export function CellReviewPanel({
               {activeAction === 'override' && (
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-bold text-zinc-500">
-                    Override True Cost Adder (EUR)
+                    New cost adjustment (€)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 font-mono text-zinc-400">€</span>
@@ -354,7 +356,7 @@ export function CellReviewPanel({
                     />
                   </div>
                   <span className="text-[10px] text-zinc-500">
-                    Original rate table adder: {formatEur(extraction?.cost_adder || 0)}
+                    Calculated from the rate table: {formatEur(extraction?.cost_adder || 0)}
                   </span>
                 </div>
               )}
@@ -362,7 +364,7 @@ export function CellReviewPanel({
               {/* Justification Note */}
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-bold text-zinc-500">
-                  Audit Justification Note (Required)
+                  Reason (required)
                 </label>
                 <textarea
                   value={note}
@@ -370,10 +372,10 @@ export function CellReviewPanel({
                   rows={3}
                   placeholder={
                     activeAction === 'approve'
-                      ? 'Confirm specification compliance or approved variance rationale...'
+                      ? 'Example: Datasheet p.4 confirms 50 kA for 3 s.'
                       : activeAction === 'override'
-                      ? 'State pricing basis, commercial agreement, or rate revision source...'
-                      : 'State technical or commercial deficiency leading to rejection...'
+                      ? 'Example: Vendor quoted €6,150 freight in clarification of 12 Nov.'
+                      : 'Example: Quote is from a different product range.'
                   }
                   className="w-full p-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white text-xs focus:ring-1 focus:ring-zinc-900 outline-none leading-relaxed"
                   required
@@ -403,10 +405,10 @@ export function CellReviewPanel({
                   {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>
                     {activeAction === 'approve'
-                      ? 'Approve Cell'
+                      ? 'Accept'
                       : activeAction === 'override'
-                      ? 'Save Override'
-                      : 'Reject Claim'}
+                      ? 'Save new amount'
+                      : 'Reject'}
                   </span>
                 </button>
               </div>

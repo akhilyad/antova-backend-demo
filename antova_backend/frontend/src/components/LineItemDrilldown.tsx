@@ -33,17 +33,17 @@ export function LineItemDrilldown({
           <div className="w-2.5 h-2.5 rounded-full bg-[#172536] dark:bg-cyan-400 shrink-0" />
           <div>
             <h3 className="text-xs font-bold text-[#182433] dark:text-white tracking-tight">
-              Parameter Breakdown: {financials?.name || vendorId} ({financials?.country || 'N/A'})
+              Line items: {financials?.name || vendorId} ({financials?.country || 'N/A'})
             </h3>
             <p className="text-[11px] text-[#667487] dark:text-zinc-400 mt-0.5 font-mono">
-              Base: <span className="text-zinc-900 dark:text-zinc-200 tabular-nums font-semibold">{formatEur(financials?.headline_price)}</span> · Adders: <span className="text-rose-600 dark:text-rose-400 tabular-nums font-semibold">+{formatEur(financials?.total_adders)}</span> · True Cost: <span className="text-[#182433] dark:text-white font-bold tabular-nums">{formatEur(financials?.true_evaluated_price)}</span>
+              Base bid: <span className="text-zinc-900 dark:text-zinc-200 tabular-nums font-semibold">{formatEur(financials?.headline_price)}</span> · Cost adjustments: <span className="text-rose-600 dark:text-rose-400 tabular-nums font-semibold">+{formatEur(financials?.total_adders)}</span> · Evaluated total: <span className="text-[#182433] dark:text-white font-bold tabular-nums">{formatEur(financials?.true_evaluated_price)}</span>
             </p>
           </div>
         </div>
         <button
           onClick={onClose}
           className="p-1.5 text-zinc-400 hover:text-zinc-800 dark:hover:text-white hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-md transition-colors"
-          aria-label="Close parameter breakdown"
+          aria-label="Close line items"
         >
           <X className="w-4 h-4" />
         </button>
@@ -53,7 +53,7 @@ export function LineItemDrilldown({
       <div className="p-4 space-y-3.5 max-h-[700px] overflow-y-auto">
         {safeParameters.length === 0 ? (
           <div className="py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
-            No specification parameters available for drilldown.
+            No requirements to show for this bidder.
           </div>
         ) : (
           safeParameters.map((param) => {
@@ -112,7 +112,7 @@ export function LineItemDrilldown({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-xs">
                   <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
                     <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">
-                      Specification Clause
+                      Your requirement
                     </div>
                     <div className="text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans">{param.mr_requirement}</div>
                     {param.requirement_citation && (
@@ -125,15 +125,15 @@ export function LineItemDrilldown({
 
                   <div className="p-3 rounded-md bg-zinc-50 dark:bg-black border border-[#DCE2E8] dark:border-zinc-800/80 shadow-2xs">
                     <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
-                      <span>Proposal Extracted Verbatim</span>
+                      <span>Bidder's text</span>
                       {typeof ext?.confidence === 'number' && (
                         <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[10px]">
-                          Confidence: {(ext.confidence * 100).toFixed(0)}%
+                          Match confidence: {(ext.confidence * 100).toFixed(0)}%
                         </span>
                       )}
                     </div>
                     <div className="text-zinc-800 dark:text-zinc-200 leading-relaxed font-sans">
-                      {ext?.extracted_text || <span className="text-zinc-400 italic">No explicit quotation identified in proposal</span>}
+                      {ext?.extracted_text || <span className="text-zinc-400 italic">Not found in the bid</span>}
                     </div>
                     {ext?.citation && (
                       <div className="text-[10px] text-zinc-500 mt-2 flex items-center justify-between font-mono">
@@ -146,7 +146,7 @@ export function LineItemDrilldown({
                           className="text-cyan-700 dark:text-cyan-400 hover:underline flex items-center gap-1 ml-2 font-sans text-xs font-semibold"
                         >
                           <ExternalLink className="w-3 h-3" />
-                          <span>Inspect Evidence</span>
+                          <span>View page</span>
                         </button>
                       </div>
                     )}
@@ -158,10 +158,10 @@ export function LineItemDrilldown({
                   <div className="mt-3 p-3 rounded-md bg-white dark:bg-black/80 border border-rose-200 dark:border-rose-900/60 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
                     <div className="space-y-0.5">
                       <div className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400 tracking-wider">
-                        Scope Omission Price Adder
+                        Cost adjustment for missing scope
                       </div>
                       <div className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">
-                        Formula: {ext?.adder_formula || 'Calculated scope omission adder'}
+                        Formula: {ext?.adder_formula || 'calculated from the rate table'}
                       </div>
                     </div>
                     <button
@@ -169,7 +169,7 @@ export function LineItemDrilldown({
                       className="px-2.5 py-1 rounded bg-[#172536] dark:bg-zinc-800 text-white font-semibold text-[11px] hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors flex items-center gap-1 shadow-2xs"
                     >
                       <Edit2 className="w-3 h-3" />
-                      <span>Override Adder</span>
+                      <span>Edit cost adjustment</span>
                     </button>
                   </div>
                 )}

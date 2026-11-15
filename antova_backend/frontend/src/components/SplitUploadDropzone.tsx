@@ -11,7 +11,7 @@ export function SplitUploadDropzone() {
 
   // Ingestion form state
   const [tenderId, setTenderId] = useState('TENDER-2026-402');
-  const [tenderTitle, setTenderTitle] = useState('350 MWp Solar + BESS Substation — 33kV GIS Switchgear Package');
+  const [tenderTitle, setTenderTitle] = useState('350 MWp Solar + BESS Substation: 33 kV GIS Switchgear Package');
   const [clientName, setClientName] = useState('Vogt-Grid EPC Consortium GmbH');
   const [equipmentClass, setEquipmentClass] = useState('mv_gis_switchgear');
   const [rateTable, setRateTable] = useState('mv_gis_switchgear_v2');
@@ -28,12 +28,12 @@ export function SplitUploadDropzone() {
 
   const simulateJobProgression = (targetTenderId: string) => {
     const stages = [
-      { msg: '[Demo Replay Mode] Intake: Ingesting MR Specification & Vendor Bid PDFs...', pct: 15 },
-      { msg: '[Demo Replay Mode] Parse: PyMuPDF extracting coordinate text & tables...', pct: 40 },
-      { msg: '[Demo Replay Mode] Locate & Verify: Grounding clause citations...', pct: 65 },
-      { msg: '[Demo Replay Mode] Read Values: Pint dimensional unit analysis...', pct: 85 },
-      { msg: '[Demo Replay Mode] Price: Evaluating scope omissions against rate tables...', pct: 95 },
-      { msg: '[Demo Replay Mode] Pipeline complete! Redirecting to Audit Workbench...', pct: 100 },
+      { msg: 'Sample run: reading the documents...', pct: 15 },
+      { msg: 'Sample run: finding each quote...', pct: 40 },
+      { msg: 'Sample run: checking each quote is on its page...', pct: 65 },
+      { msg: 'Sample run: reading the values...', pct: 85 },
+      { msg: 'Sample run: pricing the gaps...', pct: 95 },
+      { msg: 'Sample run: done. Opening the tender...', pct: 100 },
     ];
     let i = 0;
     const interval = setInterval(() => {
@@ -61,7 +61,7 @@ export function SplitUploadDropzone() {
     try {
       setIsProcessing(true);
       setError(null);
-      setStatusMessage(`[Preset Run] Enqueuing deterministic ingest evaluation for ${presetId}...`);
+      setStatusMessage(`Starting ${presetId}...`);
 
       const res = await startIngestJob(presetId, 'replay');
       if (res && res.job_id) {
@@ -71,7 +71,7 @@ export function SplitUploadDropzone() {
       }
     } catch (err: any) {
       console.warn('Backend startIngestJob offline, starting demo replay:', err);
-      setStatusMessage(`[Demo Replay Mode] Replaying verified benchmark package for ${presetId}...`);
+      setStatusMessage(`Loading the saved sample for ${presetId}...`);
       simulateJobProgression(presetId);
     }
   };
@@ -85,21 +85,21 @@ export function SplitUploadDropzone() {
 
         if (job.status === 'COMPLETED') {
           clearInterval(timer);
-          setStatusMessage('Ingest pipeline complete! Redirecting to Audit Workbench...');
+          setStatusMessage('Done. Opening the tender...');
           setTimeout(() => {
             router.push(`/audit/${targetTenderId}`);
           }, 800);
         } else if (job.status === 'FAILED') {
           clearInterval(timer);
           setIsProcessing(false);
-          setError(job.error || 'Ingestion job failed during backend rule evaluation.');
+          setError(job.error || 'Processing stopped. Nothing was saved. Try again.');
         }
       } catch (err: any) {
         failedAttempts++;
         if (failedAttempts > 3) {
           clearInterval(timer);
           setIsProcessing(false);
-          setError(`Lost polling connection to background job ${jobId}. Backend may be busy.`);
+          setError(`Lost contact with the server. Check the tender list in a minute.`);
         }
       }
     }, 600);
@@ -110,28 +110,28 @@ export function SplitUploadDropzone() {
     setError(null);
 
     if (!mrFile && !tenderId) {
-      setError('Please select an Engineering Tender Specification PDF');
+      setError('Add your spec PDF first.');
       return;
     }
 
     try {
       setIsProcessing(true);
-      setStatusMessage('Staging and streaming documents to Antova backend...');
+      setStatusMessage('Uploading...');
 
       // 1. Upload MR Spec if provided
       if (mrFile) {
-        setStatusMessage(`Streaming ${mrFile.name}...`);
+        setStatusMessage(`Uploading ${mrFile.name}...`);
         await uploadTenderFile(tenderId, mrFile.name, mrFile);
       }
 
       // 2. Upload Vendor Proposals
       for (const v of vendorFiles) {
-        setStatusMessage(`Streaming vendor proposal: ${v.file.name}...`);
+        setStatusMessage(`Uploading bid: ${v.file.name}...`);
         await uploadTenderFile(tenderId, v.file.name, v.file);
       }
 
       // 3. Commit Manifest
-      setStatusMessage('Validating and committing tender manifest...');
+      setStatusMessage('Saving the file list...');
       const manifestDocuments: any[] = [];
       if (mrFile) {
         manifestDocuments.push({ file: mrFile.name, role: 'mr_spec' });
@@ -163,18 +163,18 @@ export function SplitUploadDropzone() {
       }
 
       // 4. Start Ingestion Job
-      setStatusMessage('Queuing deterministic parsing and rule evaluation on backend engine...');
+      setStatusMessage('Queued. Processing starts shortly.');
       const res = await startIngestJob(tenderId, 'replay');
       if (res && res.job_id) {
         pollJob(res.job_id, tenderId);
       } else {
         setIsProcessing(false);
-        setError('Backend did not return a valid job ID for ingestion.');
+        setError('The server didn\'t start processing. Try again.');
       }
     } catch (err: any) {
       console.error('Custom document ingestion error:', err);
       setIsProcessing(false);
-      setError(err.message || 'Failed to stream documents or start ingestion job on backend.');
+      setError(err.message || 'Upload failed. Try again.');
     }
   };
 
@@ -187,11 +187,11 @@ export function SplitUploadDropzone() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <h3 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider">
-                Instant Repository Evaluation Run
+                Try a sample tender
               </h3>
             </div>
             <p className="text-[#667487] dark:text-zinc-400 text-xs mt-1">
-              Execute live rule evaluation on verified benchmark packages directly in the local repo:
+              Run a saved sample to see a full result:
             </p>
           </div>
 
@@ -201,14 +201,14 @@ export function SplitUploadDropzone() {
               disabled={isProcessing}
               className="px-3.5 py-1.5 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-2xs"
             >
-              Replay TENDER-2026-402
+              Open sample 402
             </button>
             <button
               onClick={() => handleQuickLoadPreset('TENDER-2026-417')}
               disabled={isProcessing}
               className="px-3.5 py-1.5 border border-[#DCE2E8] dark:border-zinc-700 bg-zinc-50 dark:bg-[#111113] text-zinc-900 dark:text-white font-medium rounded-md text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50 shadow-2xs"
             >
-              Replay TENDER-2026-417
+              Open sample 417
             </button>
           </div>
         </div>
@@ -219,10 +219,10 @@ export function SplitUploadDropzone() {
         <div className="border-b border-[#DCE2E8] dark:border-zinc-800 pb-3">
           <h2 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider flex items-center gap-2">
             <UploadCloud className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-            <span>Tender & Multi-Vendor Proposal Ingestion Workbench</span>
+            <span>Upload a tender</span>
           </h2>
           <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-0.5">
-            Stage the baseline engineering specification against competitor bids for automated gap pricing.
+            Add your spec and every bid. Antova prices each gap against your spec.
           </p>
         </div>
 
@@ -230,7 +230,7 @@ export function SplitUploadDropzone() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="tenderIdInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Tender Reference ID
+              Tender ID
             </label>
             <input
               id="tenderIdInput"
@@ -245,7 +245,7 @@ export function SplitUploadDropzone() {
 
           <div>
             <label htmlFor="tenderTitleInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Package Title
+              Package name
             </label>
             <input
               id="tenderTitleInput"
@@ -259,7 +259,7 @@ export function SplitUploadDropzone() {
 
           <div>
             <label htmlFor="clientNameInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Procurement Client / EPC Entity
+              Client
             </label>
             <input
               id="clientNameInput"
@@ -279,9 +279,9 @@ export function SplitUploadDropzone() {
             <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
               <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                (A) Engineering Specification / BOM
+                Your spec
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">MANDATORY BASELINE</span>
+              <span className="text-[10px] text-zinc-500 font-mono">Required</span>
             </div>
 
             <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
@@ -299,17 +299,12 @@ export function SplitUploadDropzone() {
               <label htmlFor="mrFileInput" className="cursor-pointer block">
                 <FileUp className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
                 <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
-                  {mrFile ? mrFile.name : 'Select or Drop Baseline MR Specification PDF'}
+                  {mrFile ? mrFile.name : 'Drop your spec PDF here, or browse'}
                 </div>
                 <div className="text-[11px] text-zinc-500 mt-1 font-mono">
-                  {mrFile ? `${(mrFile.size / 1024).toFixed(0)} KB · PDF Ready` : 'Max 50MB · Up to 600 Pages · PDF Layer Validated'}
+                  {mrFile ? `${(mrFile.size / 1024).toFixed(0)} KB, ready` : 'PDF up to 50 MB and 600 pages'}
                 </div>
               </label>
-            </div>
-
-            <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
-              <div>Default Repo Target: <strong className="text-zinc-900 dark:text-zinc-200 font-mono">MR-33kV-GIS-Rev4.pdf</strong></div>
-              <div>Ontology Rules: <strong className="text-zinc-900 dark:text-zinc-200">8 Evaluated Clauses (Pint 0.26)</strong></div>
             </div>
           </div>
 
@@ -318,9 +313,9 @@ export function SplitUploadDropzone() {
             <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
               <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                (B) Vendor Proposals (Bids)
+                Bids
               </span>
-              <span className="text-[10px] text-zinc-500 font-mono">MULTI-VENDOR</span>
+              <span className="text-[10px] text-zinc-500 font-mono">One PDF per bidder</span>
             </div>
 
             <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
@@ -347,11 +342,11 @@ export function SplitUploadDropzone() {
                 <FileCheck className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
                 <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
                   {vendorFiles.length > 0
-                    ? `${vendorFiles.length} Vendor Proposal(s) Staged`
-                    : 'Select or Drop Vendor Bid PDFs'}
+                    ? `${vendorFiles.length} ${vendorFiles.length === 1 ? 'bid' : 'bids'} added`
+                    : 'Drop bid PDFs here, or browse'}
                 </div>
                 <div className="text-[11px] text-zinc-500 mt-1">
-                  Upload multiple competitor bids for simultaneous audit comparison
+                  Add every bid you want to compare
                 </div>
               </label>
             </div>
@@ -380,7 +375,6 @@ export function SplitUploadDropzone() {
         {/* Submit */}
         <div className="pt-3 border-t border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between">
           <div className="text-[#667487] dark:text-zinc-400 text-xs">
-            Deterministic Pint unit engine + PyMuPDF coordinate indexing.
           </div>
           <button
             type="submit"
@@ -390,11 +384,11 @@ export function SplitUploadDropzone() {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Auditing Documents...</span>
+                <span>Processing...</span>
               </>
             ) : (
               <>
-                <span>Commit & Execute Bid Audit</span>
+                <span>Evaluate bids</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -409,7 +403,7 @@ export function SplitUploadDropzone() {
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
               <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
-                Live Audit Pipeline Execution: {currentJob.job_id}
+                Progress: {currentJob.job_id}
               </span>
             </div>
             <span className="text-cyan-600 dark:text-cyan-400 font-mono font-bold text-xs tabular-nums">
@@ -427,7 +421,7 @@ export function SplitUploadDropzone() {
 
           <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-sans">
             <div>
-              Current Stage: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
+              Step: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
             </div>
             <div className="text-zinc-800 dark:text-zinc-300">{statusMessage}</div>
           </div>

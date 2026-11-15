@@ -10,7 +10,7 @@ type RouteContext = {
 const FALLBACK_TENDERS = [
   {
     tender_id: "TENDER-2026-402",
-    title: "350 MWp Solar + BESS Substation — 33kV GIS Switchgear & RTU Protection Package",
+    title: "350 MWp Solar + BESS Substation: 33 kV GIS Switchgear and RTU Protection Package",
     client: "Vogt-Grid EPC Consortium GmbH (Berlin / Madrid)",
     status: "DRAFT",
     open_items_count: 2,
@@ -18,7 +18,7 @@ const FALLBACK_TENDERS = [
   },
   {
     tender_id: "TENDER-2026-417",
-    title: "500 MW Hybrid Wind/Solar Collector Substation — 33kV GIS",
+    title: "500 MW Hybrid Wind/Solar Collector Substation: 33 kV GIS",
     client: "Iberia Renovables S.A.",
     status: "DRAFT",
     open_items_count: 3,
@@ -26,7 +26,7 @@ const FALLBACK_TENDERS = [
   },
   {
     tender_id: "TENDER-2026-418",
-    title: "200 MW Grid Booster BESS — High Voltage Switchgear",
+    title: "200 MW Grid Booster BESS: High Voltage Switchgear",
     client: "TransNet European Infrastructure",
     status: "DRAFT",
     open_items_count: 1,
@@ -44,7 +44,7 @@ function getMockResponse(method: string, subPath: string) {
     return NextResponse.json(
       {
         detail:
-          "Offline replay mode is read-only. Live mutations, reviews, and overrides require an active backend engine.",
+          "This is sample data and can't be changed. Connect a live server to save decisions and amounts.",
       },
       {
         status: 405,
@@ -97,7 +97,7 @@ function getMockResponse(method: string, subPath: string) {
   // 5. Clarifications CSV export (read-only)
   if (subPath.endsWith("/clarifications.csv")) {
     const csvContent =
-      "Vendor ID,Vendor Name,Clause ID,Clause Name,Quoted Value,Required Value,Pricing Status,Adder EUR\n" +
+      "Bidder ID,Bidder,Requirement ID,Requirement,Offered,Required,Price status,Cost adjustment (EUR)\n" +
       "vendor-b,VoltSwitch Industrial,PARAM-01,Rated Short-Time Withstand Current,31.5 kA,50 kA,PRICED,18500.00\n" +
       "vendor-b,VoltSwitch Industrial,PARAM-06,Incoterms 2020 & Site Unloading,EXW Izmir,DDP Project Site,UNPRICED,\n";
     return new NextResponse(csvContent, {
@@ -190,7 +190,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
     );
     return getMockResponse(method, subPath);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Upstream unreachable";
+    const message = err instanceof Error ? err.message : "Server not responding";
     console.warn(
       `Upstream unreachable (${targetUrl.toString()}): ${message}. Serving verified fallback.`
     );

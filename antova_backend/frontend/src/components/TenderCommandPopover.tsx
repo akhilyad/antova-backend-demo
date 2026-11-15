@@ -134,11 +134,11 @@ export function TenderCommandPopover({
       >
         <span className="text-zinc-500 dark:text-zinc-400">Tender:</span>
         <span className="font-semibold text-zinc-900 dark:text-white font-mono">
-          {activeTender?.tender_id || activeTenderId || 'Select Tender'}
+          {activeTender?.tender_id || activeTenderId || 'Choose tender'}
         </span>
         {activeTender?.status === 'VERIFIED' ? (
           <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-            Verified
+            Signed off
           </span>
         ) : (
           <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
@@ -163,7 +163,7 @@ export function TenderCommandPopover({
                 setSelectedIndex(0);
               }}
               onKeyDown={handleInputKeyDown}
-              placeholder="Search by tender ID or title..."
+              placeholder="Search tenders"
               className="w-full bg-transparent border-none text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 text-xs focus:outline-none"
             />
             {query ? (
@@ -183,13 +183,13 @@ export function TenderCommandPopover({
           {/* Section: Tenders List */}
           <div className="max-h-64 overflow-y-auto p-1.5 space-y-1">
             <div className="px-2 py-1 text-[10px] uppercase font-semibold text-zinc-500 tracking-wider flex items-center justify-between">
-              <span>{query ? 'Search Results' : 'Active Tenders'}</span>
+              <span>{query ? 'Results' : 'Tenders'}</span>
               <span>{filteredTenders.length} available</span>
             </div>
 
             {filteredTenders.length === 0 ? (
               <div className="py-6 text-center text-zinc-500 dark:text-zinc-400 text-xs">
-                No matching tenders found for &ldquo;{query}&rdquo;
+                No tenders match &quot;{query}&quot;
               </div>
             ) : (
               filteredTenders.map((tender, index) => {
@@ -223,7 +223,7 @@ export function TenderCommandPopover({
                         {tender.title}
                       </p>
                       <div className="flex items-center gap-3 text-[10px] text-zinc-500 mt-1 font-mono">
-                        <span>{tender.open_items ?? 0} open clarifications</span>
+                        <span>{tender.open_items ?? 0} open items</span>
                         {tender.ingested_at && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-2.5 h-2.5" />
@@ -237,7 +237,7 @@ export function TenderCommandPopover({
                       {isVerified ? (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                           <CheckCircle2 className="w-2.5 h-2.5" />
-                          Verified
+                          Signed off
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
@@ -259,9 +259,9 @@ export function TenderCommandPopover({
               className="flex items-center gap-1.5 px-2 py-1 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors font-medium text-[11px]"
             >
               <PlusCircle className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Ingest & Create New Tender</span>
+              <span>Upload new tender</span>
             </button>
-            <span className="text-[10px] text-zinc-400 font-mono">ESC to close</span>
+            <span className="text-[10px] text-zinc-400 font-mono">Esc to close</span>
           </div>
         </div>
       )}

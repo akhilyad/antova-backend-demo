@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Antova — Technical Bid Evaluation & Tender Auditing',
-  description: 'Automated technical bid evaluation and tender auditing engine for electrical and EPC procurement.',
+  title: 'Antova: bid evaluation for electrical tenders',
+  description: 'Antova compares electrical bids with your spec and prices every gap.',
 };
 
 export default function RootLayout({

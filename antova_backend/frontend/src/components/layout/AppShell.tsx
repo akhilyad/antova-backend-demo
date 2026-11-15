@@ -125,23 +125,23 @@ function AppShellContent({
 
   // Breadcrumb generator
   const getBreadcrumbTitle = () => {
-    if (pathname === '/') return 'Workspace / Overview';
-    if (pathname === '/ingest') return 'Workspace / Document Ingestion';
-    if (pathname === '/reports') return `Workspace / ${currentTenderId} / Reports`;
-    if (pathname === '/governance') return 'Administration / Governance';
-    if (pathname === '/settings') return 'Administration / Settings';
+    if (pathname === '/') return 'Overview';
+    if (pathname === '/ingest') return 'Upload';
+    if (pathname === '/reports') return `${currentTenderId} / Downloads`;
+    if (pathname === '/governance') return 'Governance';
+    if (pathname === '/settings') return 'Settings';
     if (pathname.startsWith('/audit')) {
       const tabNames: Record<string, string> = {
-        ledger: 'True Job Cost Ledger',
-        compliance: 'Compliance Matrix',
-        risks: 'Commercial Risks',
-        sensitivity: 'Rate Sensitivity',
-        signoff: 'Review & Sign-off',
-        reports: 'Reports & Exports',
+        ledger: 'Evaluated totals',
+        compliance: 'Requirements check',
+        risks: 'Commercial terms',
+        sensitivity: 'Rate scenarios',
+        signoff: 'Sign-off',
+        reports: 'Downloads',
       };
-      return `Workspace / ${currentTenderId} / ${tabNames[activeAuditTab] || 'Bid Audit'}`;
+      return `${currentTenderId} / ${tabNames[activeAuditTab] || 'Bid evaluation'}`;
     }
-    return 'Workspace / Antova';
+    return 'Antova';
   };
 
   return (
@@ -166,12 +166,6 @@ function AppShellContent({
                     <span className="font-bold text-xs tracking-wider text-[#182433] dark:text-white uppercase font-mono">
                       ANTOVA
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                      Unified
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-[#667487] dark:text-zinc-400 truncate">
-                    Enterprise EPC
                   </div>
                 </div>
               )}
@@ -204,7 +198,7 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="Executive Overview"
+                  title="Overview"
                 >
                   <LayoutDashboard className="w-4 h-4 shrink-0 text-zinc-500" />
                   {sidebarOpen && <span>Overview</span>}
@@ -213,7 +207,7 @@ function AppShellContent({
                 <Link
                   href="/"
                   className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100"
-                  title="Tenders Registry"
+                  title="Tenders"
                 >
                   <FolderKanban className="w-4 h-4 shrink-0 text-zinc-500" />
                   {sidebarOpen && <span>Tenders</span>}
@@ -236,12 +230,12 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="Bid Evaluation Workbench"
+                  title="Tender"
                 >
                   <FileSpreadsheet className="w-4 h-4 shrink-0 text-zinc-500" />
                   {sidebarOpen && (
                     <div className="flex-1 flex items-center justify-between">
-                      <span>Bid Audit</span>
+                      <span>Bid evaluation</span>
                       {isVerified ? (
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       ) : (
@@ -262,7 +256,7 @@ function AppShellContent({
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      True Job Cost Ledger
+                      Evaluated totals
                     </Link>
                     <Link
                       href={`/audit/${currentTenderId}?tab=compliance`}
@@ -272,7 +266,7 @@ function AppShellContent({
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      Compliance Matrix
+                      Requirements check
                     </Link>
                     <Link
                       href={`/audit/${currentTenderId}?tab=risks`}
@@ -282,7 +276,7 @@ function AppShellContent({
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      Commercial Risks
+                      Commercial terms
                     </Link>
                     <Link
                       href={`/audit/${currentTenderId}?tab=sensitivity`}
@@ -292,7 +286,7 @@ function AppShellContent({
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      Rate Sensitivity
+                      Rate scenarios
                     </Link>
                     <Link
                       href={`/audit/${currentTenderId}?tab=signoff`}
@@ -302,7 +296,7 @@ function AppShellContent({
                           : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                       }`}
                     >
-                      Review & Sign-Off
+                      Sign-off
                     </Link>
                   </div>
                 )}
@@ -324,10 +318,10 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="Document Ingestion"
+                  title="Upload"
                 >
                   <UploadCloud className="w-4 h-4 shrink-0 text-zinc-500" />
-                  {sidebarOpen && <span>Document Ingestion</span>}
+                  {sidebarOpen && <span>Upload</span>}
                 </Link>
               </div>
             </div>
@@ -347,10 +341,10 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="Reports & TBE Exports"
+                  title="Downloads"
                 >
                   <FileText className="w-4 h-4 shrink-0 text-zinc-500" />
-                  {sidebarOpen && <span>Reports & Exports</span>}
+                  {sidebarOpen && <span>Downloads</span>}
                 </Link>
               </div>
             </div>
@@ -370,10 +364,10 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="System Governance & Pint Math"
+                  title="How the checks work"
                 >
                   <ShieldCheck className="w-4 h-4 shrink-0 text-zinc-500" />
-                  {sidebarOpen && <span>Governance</span>}
+                  {sidebarOpen && <span>How the checks work</span>}
                 </Link>
 
                 <Link
@@ -383,7 +377,7 @@ function AppShellContent({
                       ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
-                  title="Settings & Tolerances"
+                  title="Settings"
                 >
                   <Settings className="w-4 h-4 shrink-0 text-zinc-500" />
                   {sidebarOpen && <span>Settings</span>}
@@ -441,12 +435,12 @@ function AppShellContent({
               {isVerified ? (
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>Verified & Sealed</span>
+                  <span>Signed off</span>
                 </span>
               ) : (
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="w-3 h-3" />
-                  <span>Draft ({openItemsCount} open items)</span>
+                  <span>Draft ({openItemsCount} open)</span>
                 </span>
               )}
             </div>
@@ -470,10 +464,10 @@ function AppShellContent({
                 onClick={handleQuickExport}
                 disabled={isExportingTbe}
                 className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
-                title="Download Technical Bid Evaluation (.xlsx)"
+                title="Download workbook (.xlsx)"
               >
                 <Download className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Export TBE</span>
+                <span>Download</span>
               </button>
 
               {/* Verified Seal / Unlock Toggle (if on audit page) */}
@@ -482,19 +476,19 @@ function AppShellContent({
                   <button
                     onClick={onWithdraw}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors shadow-2xs"
-                    title="Unlock draft for manual overrides"
+                    title="Reopen to change decisions or amounts"
                   >
                     <Unlock className="w-3 h-3" />
-                    <span>Unlock Draft</span>
+                    <span>Reopen</span>
                   </button>
                 ) : (
                   <button
                     onClick={onVerify}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-[#172536] dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs"
-                    title="Verify and seal brief for award"
+                    title="Sign off this tender"
                   >
                     <Lock className="w-3 h-3" />
-                    <span>Verify & Seal</span>
+                    <span>Sign off</span>
                   </button>
                 )
               )}
@@ -504,8 +498,8 @@ function AppShellContent({
                 href={`/print/${currentTenderId}`}
                 target="_blank"
                 className="p-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-white rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                title="Print Audit Report"
-                aria-label="Print Audit Report"
+                title="Print sign-off sheet"
+                aria-label="Print sign-off sheet"
               >
                 <Printer className="w-3.5 h-3.5" />
               </Link>
@@ -556,7 +550,7 @@ export function AppShell(props: AppShellProps) {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-[#F4F6F8] dark:bg-[#09090B] text-zinc-500 font-sans text-xs">
-          Loading workspace...
+          Loading...
         </div>
       }
     >

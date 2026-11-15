@@ -60,7 +60,7 @@ export function FindingsRegister({
               severity,
               message:
                 ext.conflict_note ||
-                `${param.name}: quoted ${ext.extracted_text || 'omitted'} vs requirement ${param.mr_requirement}`,
+                `${param.name}: bid says ${ext.extracted_text || 'nothing'}, spec requires ${param.mr_requirement}`,
               citations: ext.citation ? [ext.citation] : [],
               money: [
                 {
@@ -68,7 +68,7 @@ export function FindingsRegister({
                   kind: param.category,
                   amount: ext.cost_adder !== null ? ext.cost_adder.toString() : null,
                   formula: ext.adder_formula,
-                  reason: ext.pricing_status === 'UNPRICED' ? 'Unpriced under rate table' : undefined,
+                  reason: ext.pricing_status === 'UNPRICED' ? 'No price in the rate table' : undefined,
                   lines: (ext.cost_lines || []).map((l) => ({
                     label: l.label,
                     qty: l.qty,
@@ -119,10 +119,10 @@ export function FindingsRegister({
         <div className="flex items-center gap-2">
           <span className="font-bold uppercase tracking-wider text-zinc-900 dark:text-white flex items-center gap-1.5">
             <ShieldAlert className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
-            Audited Findings Register
+            Findings
           </span>
           <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 font-semibold text-zinc-700 dark:text-zinc-300">
-            {filteredFindings.length} of {allFindings.length} Items
+            {filteredFindings.length} of {allFindings.length} findings
           </span>
         </div>
 
@@ -135,7 +135,7 @@ export function FindingsRegister({
               onChange={(e) => setSelectedVendorFilter(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded text-xs outline-none cursor-pointer"
             >
-              <option value="ALL">All Bidders</option>
+              <option value="ALL">All bidders</option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
@@ -146,13 +146,13 @@ export function FindingsRegister({
 
           {/* Severity Filter */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[#767067] dark:text-[#A39A8D] text-[11px]">Severity:</span>
+            <span className="text-[#767067] dark:text-[#A39A8D] text-[11px]">Priority:</span>
             <select
               value={selectedSeverityFilter}
               onChange={(e) => setSelectedSeverityFilter(e.target.value)}
               className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded text-xs outline-none cursor-pointer"
             >
-              <option value="ALL">All Severities</option>
+              <option value="ALL">All priorities</option>
               <option value="critical">Critical</option>
               <option value="major">Major</option>
               <option value="minor">Minor</option>
@@ -164,7 +164,7 @@ export function FindingsRegister({
       {/* Findings List */}
       {filteredFindings.length === 0 ? (
         <div className="p-8 rounded-xl border border-dashed border-[#D9D4CC] dark:border-[#7A7266] text-center text-zinc-500 bg-white dark:bg-[#1C1916]">
-          No findings matching the selected filters.
+          No findings match these filters.
         </div>
       ) : (
         <div className="space-y-3">
@@ -232,10 +232,10 @@ export function FindingsRegister({
                               ? isAdder
                                 ? `+${formatEur(m.amount)}`
                                 : formatEur(m.amount)
-                              : 'Unpriced'}
+                              : 'No price'}
                           </span>
                           <span className="text-[10px] font-sans font-medium text-[#767067] dark:text-[#A39A8D]">
-                            ({isAdder ? 'Adder' : 'Exposure'})
+                            ({isAdder ? 'Added to total' : 'Risk only'})
                           </span>
                         </div>
                       );
@@ -253,7 +253,7 @@ export function FindingsRegister({
                   <div key={`m-details-${mIdx}`} className="space-y-1">
                     {m.amount === null && m.reason && (
                       <div className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-                        Unpriced gap: {m.reason} (Never defaulted to €0)
+                        No price yet. Not counted as €0. {m.reason}
                       </div>
                     )}
                     {m.formula && (
@@ -268,7 +268,7 @@ export function FindingsRegister({
                 {finding.citations.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <span className="text-[10px] font-bold uppercase text-[#767067] dark:text-[#A39A8D] tracking-wider">
-                      Citations:
+                      Sources:
                     </span>
                     {finding.citations.map((cite, cIdx) => (
                       <button

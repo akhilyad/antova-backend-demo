@@ -96,6 +96,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   const [cellReviewTarget, setCellReviewTarget] = useState<{
     paramId: string;
     vendorId: string;
+    initialAction?: 'approve' | 'override' | 'reject';
   } | null>(null);
 
   // Override drawer state
@@ -132,7 +133,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     } catch (err: any) {
       console.error(`Error fetching brief for ${tenderId}:`, err);
       // Defect D5: Never silently fall back on 402. Surface transparent error and actionable sample button.
-      setError(err.message || 'Failed to fetch tender audit brief from backend engine');
+      setError(err.message || "Couldn't load this tender.");
     } finally {
       setLoading(false);
     }
@@ -146,11 +147,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
         setSelectedVendorId(sample.tender.vendors[0].id);
       }
       setError(null);
-      setActionMsg('Loaded offline recorded package for TENDER-2026-402');
+      setActionMsg('Showing the saved sample for TENDER-2026-402.');
       setTimeout(() => setActionMsg(null), 4000);
     } catch (err: any) {
       console.error('Failed to load sample brief:', err);
-      setError('Failed to load local offline package');
+      setError("Couldn't load the saved sample.");
     }
   };
 
@@ -173,11 +174,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
         rates.freight_multiplier !== 1.0 ||
         (rates.site_labor_rate !== undefined && rates.site_labor_rate !== 60)
       );
-      setActionMsg('Scenario rates recalculated across all vendor bills of quantities.');
+      setActionMsg('Totals updated with the new rates.');
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
       console.error('Sensitivity evaluation error:', err);
-      setActionMsg(err.message || 'Sensitivity calculation failed');
+      setActionMsg(err.message || "Couldn't update the totals. Try again.");
       setTimeout(() => setActionMsg(null), 3500);
     } finally {
       setEvaluating(false);
@@ -190,9 +191,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       setError(null);
       setVerifyBlockerMsg(null);
       setIsVerifying(true);
-      setActionMsg('Sealing audit brief...');
+      setActionMsg('Signing off...');
       await verifyTender(tenderId, brief.ingest_stats?.run_id);
-      setActionMsg('Audit brief verified and sealed for award.');
+      setActionMsg('Signed off. Exports are now available.');
       await fetchBrief();
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
@@ -200,15 +201,15 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       // Defect D6: Typed ApiError handling
       if (err.open_items && err.open_items.length > 0) {
         setVerifyBlockerMsg(
-          `Verification blocked: ${err.open_items.length} open ${err.open_items.length === 1 ? 'item requires' : 'items require'} resolution in the Review Gate.`
+          `Can't sign off yet: ${err.open_items.length} open ${err.open_items.length === 1 ? 'item' : 'items'} to resolve.`
         );
       } else if (err.code === 'run_changed') {
         setRunChanged(true);
         setVerifyBlockerMsg(
-          'The tender was re-ingested or updated on the backend since you opened this brief. Please reload to review updated numbers.'
+          'This tender changed after you opened it. Reload to see the new numbers.'
         );
       } else {
-        setError(err.message || 'Verification failed. Resolve open items first.');
+        setError(err.message || "Couldn't sign off. Resolve the open items first.");
       }
     } finally {
       setIsVerifying(false);
@@ -218,14 +219,14 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   const handleWithdraw = async () => {
     try {
       setError(null);
-      setActionMsg('Unlocking audit brief...');
+      setActionMsg('Reopening for edits...');
       await withdrawTender(tenderId);
-      setActionMsg('Brief unlocked. Changes and overrides permitted.');
+      setActionMsg('Reopened. You can change decisions and amounts.');
       await fetchBrief();
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
       setActionMsg(null);
-      setError(err.message || 'Failed to unlock brief.');
+      setError(err.message || "Couldn't reopen. Try again.");
     }
   };
 
@@ -233,7 +234,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     try {
       setIsExportingTbe(true);
       await downloadTbeExport(tenderId);
-      setActionMsg('TBE master workbook (.xlsx) downloaded successfully.');
+      setActionMsg('Bid evaluation workbook downloaded.');
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
       setError(err.message);
@@ -247,7 +248,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       if (format === 'csv') setIsExportingCsv(true);
       if (format === 'xlsx') setIsExportingXlsx(true);
       await downloadClarificationsExport(tenderId, format);
-      setActionMsg(`Clarification register (.${format}) downloaded.`);
+      setActionMsg('Clarification list downloaded.');
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
       setError(err.message);
@@ -311,11 +312,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               <div className="flex items-center gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Operating in Read-Only Offline Replay:</strong> Displaying recorded package snapshot for {brief.tender?.id}. Live mutations, reviews, and overrides require an active backend engine.
+                  <strong>Sample data, read-only.</strong> You are viewing a saved copy of {brief.tender?.id}. Decisions and amount changes need a live connection.
                 </span>
               </div>
               <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 font-bold uppercase tracking-wider">
-                Replay Snapshot
+                Saved sample
               </span>
             </div>
           )}
@@ -326,7 +327,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>
-                  <strong>Audit Version Conflict:</strong> The backend tender was re-ingested. Your open brief is stale.
+                  <strong>Newer data available.</strong> This tender was processed again after you opened it.
                 </span>
               </div>
               <button
@@ -335,7 +336,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 className="px-3 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-2xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reload Brief</span>
+                <span>Reload</span>
               </button>
             </div>
           )}
@@ -349,7 +350,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 </span>
                 <span className="text-[#767067] dark:text-[#A39A8D]">·</span>
                 <h1 className="text-sm font-semibold text-zinc-900 dark:text-white tracking-tight">
-                  {brief.tender?.title || 'Tender Audit'}
+                  {brief.tender?.title || 'Bid evaluation'}
                 </h1>
                 <span className="text-[#767067] dark:text-[#A39A8D]">·</span>
                 <span
@@ -359,11 +360,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       : 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300'
                   }`}
                 >
-                  {isVerified ? 'VERIFIED & SEALED' : 'DRAFT REVIEW'}
+                  {isVerified ? 'Signed off' : 'Draft'}
                 </span>
               </div>
               <p className="text-xs text-[#767067] dark:text-[#A39A8D]">
-                Employer: <strong className="text-zinc-900 dark:text-zinc-100">{brief.tender?.client || 'Vogt-Grid EPC'}</strong> · Specification: <span className="font-mono text-zinc-800 dark:text-zinc-300">{brief.tender?.mr_doc || 'MR-33kV-GIS-Rev4.pdf'}</span> ({brief.tender?.pages_parsed || 26} pages parsed)
+                Client: <strong className="text-zinc-900 dark:text-zinc-100">{brief.tender?.client || 'Vogt-Grid EPC'}</strong> · Spec: <span className="font-mono text-zinc-800 dark:text-zinc-300">{brief.tender?.mr_doc || 'MR-33kV-GIS-Rev4.pdf'}</span> ({brief.tender?.pages_parsed || 26} pages read)
               </p>
             </div>
 
@@ -379,7 +380,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 ) : (
                   <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
                 )}
-                <span>Export TBE (.xlsx)</span>
+                <span>Download workbook (.xlsx)</span>
               </button>
 
               {brief.share_id && (
@@ -389,7 +390,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                   className="px-3 py-1.5 bg-[#FFFFFF] dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
                   <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Buyer Brief</span>
+                  <span>Shareable brief</span>
                 </Link>
               )}
 
@@ -399,7 +400,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 className="px-3 py-1.5 bg-[#FFFFFF] dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
               >
                 <Printer className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Print Brief</span>
+                <span>Print</span>
               </Link>
             </div>
           </div>
@@ -408,53 +409,53 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] shadow-2xs">
               <span className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase tracking-wider font-semibold">
-                Bidders Evaluated
+                Bids compared
               </span>
               <div className="text-xl font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
-                {safeVendors.length} Proposals
+                {safeVendors.length} bids
               </div>
               <span className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5 block">
-                {safeDocuments.length} source PDF documents indexed
+                {safeDocuments.length} documents read
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] shadow-2xs">
               <span className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase tracking-wider font-semibold">
-                Technical Clause Coverage
+                Requirements checked
               </span>
               <div className="text-xl font-bold text-zinc-900 dark:text-white font-mono mt-0.5">
-                {safeParameters.length} Clauses
+                {safeParameters.length} requirements
               </div>
               <span className="text-[11px] text-zinc-600 dark:text-zinc-300 mt-0.5 block font-medium">
-                Pint 0.26.2 unit dimensional engine
+                Units converted and checked by code
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] shadow-2xs">
               <span className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase tracking-wider font-semibold">
-                Recommended Bidder (L1)
+                Recommended award
               </span>
               <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 font-mono mt-0.5 truncate">
-                {recommendedVendor?.name || 'Awaiting Award'}
+                {recommendedVendor?.name || 'Not decided'}
               </div>
               <span className="text-[11px] text-zinc-700 dark:text-zinc-300 font-mono mt-0.5 block">
-                True Cost: {formatEur(recommendedVendor?.true_evaluated_price)}
+                Evaluated total: {formatEur(recommendedVendor?.true_evaluated_price)}
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] shadow-2xs">
               <span className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase tracking-wider font-semibold">
-                Open Items / Clarifications
+                Open items
               </span>
               <div
                 className={`text-xl font-bold font-mono mt-0.5 ${
                   safeOpenItems.length > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-zinc-800 dark:text-zinc-200'
                 }`}
               >
-                {safeOpenItems.length} Open Gaps
+                {safeOpenItems.length} open
               </div>
               <span className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5 block">
-                {safeOpenItems.length === 0 ? 'Ready for verified seal' : 'Audit sign-offs required'}
+                {safeOpenItems.length === 0 ? 'Ready to sign off' : 'Needs your review'}
               </span>
             </div>
           </div>
@@ -498,7 +499,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>True Job Cost Ledger</span>
+                <span>Evaluated totals</span>
                 <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                   {safeFinancials.length}
                 </span>
@@ -512,7 +513,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Compliance Matrix</span>
+                <span>Requirements check</span>
                 <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
                   {safeParameters.length}
                 </span>
@@ -526,7 +527,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Commercial Risks</span>
+                <span>Commercial terms</span>
               </button>
 
               <button
@@ -537,7 +538,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Findings Register</span>
+                <span>Findings</span>
               </button>
 
               <button
@@ -548,7 +549,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Rate Sensitivity</span>
+                <span>Rate scenarios</span>
                 {hasCustomRates && (
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
                 )}
@@ -562,7 +563,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Sign-Off & Clarifications</span>
+                <span>Sign-off and clarifications</span>
                 {safeOpenItems.length > 0 && (
                   <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300">
                     {safeOpenItems.length}
@@ -578,19 +579,19 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                 }`}
               >
-                <span>Reports & Exports</span>
+                <span>Downloads</span>
               </button>
             </div>
 
             {/* Vendor Selector Pill when Drilldown is displayed in Ledger view */}
             {activeTab === 'LEDGER' && selectedVendorId && (
               <div className="hidden sm:flex items-center gap-2 text-xs">
-                <span className="text-[#767067] dark:text-[#A39A8D]">Drilldown:</span>
+                <span className="text-[#767067] dark:text-[#A39A8D]">Line items:</span>
                 <select
                   value={selectedVendorId}
                   onChange={(e) => setSelectedVendorId(e.target.value)}
                   className="bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-200 px-2 py-1 rounded text-xs font-mono outline-none cursor-pointer shadow-2xs"
-                  aria-label="Select vendor for line item drilldown"
+                  aria-label="Select a bidder to see its line items"
                 >
                   {safeVendors.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -603,7 +604,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
           </div>
 
           {/* Workbench Tab Content Protected by ErrorBoundary */}
-          <ErrorBoundary fallbackTitle={`Error rendering ${activeTab} view`}>
+          <ErrorBoundary fallbackTitle="This tab couldn't load.">
             {activeTab === 'LEDGER' && (
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
                 {/* Main Evaluated Cost Ledger Table */}
@@ -613,7 +614,12 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     vendors={safeVendors}
                     onSelectVendor={(vId) => setSelectedVendorId(vId)}
                     onOpenOverride={(vendorId, paramId) => {
-                      setCellReviewTarget({ vendorId, paramId: paramId || 'PARAM-01' });
+                      if (paramId) {
+                        setCellReviewTarget({ vendorId, paramId, initialAction: 'override' });
+                      } else {
+                        // Open bidder's line-item panel instead (Decision 2)
+                        setSelectedVendorId(vendorId);
+                      }
                     }}
                     selectedVendorId={selectedVendorId}
                   />
@@ -642,6 +648,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                         setCellReviewTarget({
                           vendorId: selectedFinancials.vendor_id,
                           paramId,
+                          initialAction: 'override',
                         });
                       }}
                     />
@@ -712,10 +719,10 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                   <div>
                     <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
-                      <span>Procurement Committee Sign-Off & Clarifications</span>
+                      <span>Sign-off and clarifications</span>
                     </h2>
                     <p className="text-xs text-[#767067] dark:text-[#A39A8D] mt-1">
-                      Clear open verification items, export the Technical Bid Evaluation (TBE) master workbook, or print the official sign-off sheet.
+                      Resolve open items, then download the workbook or print the sign-off sheet.
                     </p>
                   </div>
 
@@ -726,7 +733,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
                     >
                       <Printer className="w-3.5 h-3.5 text-zinc-500" />
-                      <span>Print Sign-Off Sheet</span>
+                      <span>Print sign-off sheet</span>
                     </Link>
 
                     <button
@@ -737,12 +744,12 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       {isExportingTbe ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Exporting...</span>
+                          <span>Preparing download...</span>
                         </>
                       ) : (
                         <>
                           <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-300 dark:text-zinc-700" />
-                          <span>Export TBE (.xlsx)</span>
+                          <span>Download workbook (.xlsx)</span>
                         </>
                       )}
                     </button>
@@ -753,15 +760,15 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 <div className="p-4 rounded-lg bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                      Open Verification Items ({safeOpenItems.length})
+                      Open items ({safeOpenItems.length})
                     </span>
                     {safeOpenItems.length === 0 ? (
                       <span className="text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" /> Cleared for Award Verification
+                        <CheckCircle2 className="w-4 h-4" /> Ready to sign off
                       </span>
                     ) : (
                       <span className="text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4" /> Action Required Before Brief Sealing
+                        <AlertTriangle className="w-4 h-4" /> Resolve before sign-off
                       </span>
                     )}
                   </div>
@@ -794,9 +801,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                                 });
                               }}
                               className="px-2.5 py-1 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 rounded text-xs font-medium shrink-0 transition-colors shadow-2xs"
-                              aria-label={`Review ${item.vendor_id} clause ${item.param_id}`}
+                              aria-label={`Review ${item.vendor_id}, ${item.param_id}`}
                             >
-                              Review & Sign
+                              Review
                             </button>
                           )}
                         </div>
@@ -804,7 +811,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     </div>
                   ) : (
                     <p className="text-xs text-[#767067] dark:text-[#A39A8D]">
-                      Zero unpriced gaps remain. All technical and commercial deviations are fully leveled and priced in the evaluation ledger.
+                      No open items. Every gap has a price or a decision.
                     </p>
                   )}
                 </div>
@@ -813,10 +820,10 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 <div className="p-4 rounded-lg bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wide">
-                      Vendor Clarification Register
+                      Clarification questions for bidders
                     </h3>
                     <p className="text-xs text-[#767067] dark:text-[#A39A8D] mt-0.5">
-                      Formal clarification logs citing exact specification clauses and proposal quotations.
+                      One question per gap, with the spec page and the bidder's quote.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -830,7 +837,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       ) : (
                         <Download className="w-3.5 h-3.5 text-zinc-500" />
                       )}
-                      <span>Download (.csv)</span>
+                      <span>Download CSV</span>
                     </button>
                     <button
                       onClick={() => handleExportClarifications('xlsx')}
@@ -842,7 +849,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       ) : (
                         <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-500" />
                       )}
-                      <span>Download (.xlsx)</span>
+                      <span>Download Excel</span>
                     </button>
                   </div>
                 </div>
@@ -853,10 +860,10 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               <div className="border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] rounded-xl p-6 space-y-6 text-xs shadow-2xs">
                 <div>
                   <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                    Procurement Exports & Audit Dossier
+                    Downloads
                   </h2>
                   <p className="text-xs text-[#767067] dark:text-[#A39A8D] mt-0.5">
-                    Download verified commercial workbooks and committee packages for {tenderId}.
+                    Files for {tenderId}. Available after sign-off.
                   </p>
                 </div>
 
@@ -866,11 +873,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     <div className="flex items-center gap-2">
                       <FileSpreadsheet className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
                       <div className="font-bold text-zinc-900 dark:text-white text-xs">
-                        TBE Master Workbook (.xlsx)
+                        Bid evaluation workbook (.xlsx)
                       </div>
                     </div>
                     <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] leading-relaxed">
-                      Complete multi-tab Technical Bid Evaluation with verified Pint evaluation formulas, vendor rankings, and cell-by-cell price adders.
+                      Rankings, evaluated totals and every cost adjustment with its formula.
                     </p>
                     <button
                       onClick={handleExportTbeWorkbook}
@@ -878,7 +885,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       className="w-full py-2 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-800 dark:hover:bg-white transition-colors shadow-2xs disabled:opacity-50"
                     >
                       {isExportingTbe ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                      <span>Download TBE Workbook</span>
+                      <span>Download workbook</span>
                     </button>
                   </div>
 
@@ -887,11 +894,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     <div className="flex items-center gap-2">
                       <FileText className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
                       <div className="font-bold text-zinc-900 dark:text-white text-xs">
-                        Clarification Register (.xlsx)
+                        Clarification questions (.xlsx)
                       </div>
                     </div>
                     <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] leading-relaxed">
-                      Clause-by-clause vendor queries citing exact specification paragraphs and proposal deviations for formal procurement letters.
+                      One question per gap, ready to send to each bidder.
                     </p>
                     <button
                       onClick={() => handleExportClarifications('xlsx')}
@@ -899,7 +906,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       className="w-full py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs disabled:opacity-50"
                     >
                       {isExportingXlsx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                      <span>Download Register (.xlsx)</span>
+                      <span>Download questions (.xlsx)</span>
                     </button>
                   </div>
 
@@ -908,11 +915,11 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     <div className="flex items-center gap-2">
                       <Printer className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
                       <div className="font-bold text-zinc-900 dark:text-white text-xs">
-                        Printable Executive Dossier
+                        Sign-off sheet
                       </div>
                     </div>
                     <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] leading-relaxed">
-                      Clean print-optimized layout ready for paper sign-off, committee signatures, and formal EPC board submission.
+                      A printable summary with signature lines for the award committee.
                     </p>
                     <Link
                       href={`/print?tender=${tenderId}`}
@@ -920,7 +927,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                       className="w-full py-2 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
                     >
                       <Printer className="w-3.5 h-3.5" />
-                      <span>Open Print Sheet</span>
+                      <span>Open sign-off sheet</span>
                     </Link>
                   </div>
                 </div>
@@ -948,6 +955,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               onClose={() => setCellReviewTarget(null)}
               tenderId={tenderId}
               paramId={cellReviewTarget.paramId}
+              initialAction={cellReviewTarget.initialAction}
               paramName={safeParameters.find((p) => p.id === cellReviewTarget.paramId)?.name || cellReviewTarget.paramId}
               mrRequirement={safeParameters.find((p) => p.id === cellReviewTarget.paramId)?.mr_requirement || ''}
               vendorId={cellReviewTarget.vendorId}
@@ -971,7 +979,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               isVerified={isVerified}
               onDecisionSuccess={() => {
                 fetchBrief();
-                setActionMsg('Audit decision successfully recorded in verification log.');
+                setActionMsg('Decision saved.');
                 setTimeout(() => setActionMsg(null), 3500);
               }}
               onOpenEvidence={(paramId, which) => {
@@ -1013,7 +1021,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 </div>
                 <div>
                   <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
-                    Tender Package Unavailable from Backend
+                    Can't load this tender
                   </h2>
                   <p className="text-xs text-[#767067] dark:text-[#A39A8D] mt-0.5">
                     Target: <code className="text-zinc-700 dark:text-zinc-300 font-mono">{API_BASE ? `${API_BASE}/api/review/tenders/${tenderId}` : `/api/review/tenders/${tenderId}`}</code>
@@ -1021,18 +1029,21 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-rose-950/60 border border-rose-900 text-rose-300 font-bold">
-                Connection Status: Offline / 500
+                Server not responding
               </span>
             </div>
 
             <div className="p-3.5 rounded bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] text-xs text-zinc-700 dark:text-zinc-300 space-y-2">
               <div className="text-rose-600 dark:text-rose-400 font-medium">Diagnostic Error:</div>
               <p className="font-mono text-[11px] text-[#767067] dark:text-[#A39A8D] break-all">
-                {error || 'The remote backend returned HTTP 500 or is currently booting up.'}
+                {error || "The server didn't respond. It may be starting up. Try again in a minute."}
               </p>
-              <div className="pt-2 text-[11px] text-[#767067] dark:text-[#A39A8D] border-t border-[#D9D4CC] dark:border-[#7A7266]">
-                Ensure <code className="text-zinc-900 dark:text-zinc-100 font-mono">NEXT_PUBLIC_API_URL</code> is set in Vercel project environment variables pointing to your hosted <code className="text-zinc-900 dark:text-zinc-100 font-mono">antova-yc</code> backend instance, and CORS is enabled for your Vercel domain.
-              </div>
+              <details className="pt-2 text-[11px] text-[#767067] dark:text-[#A39A8D] border-t border-[#D9D4CC] dark:border-[#7A7266]">
+                <summary className="cursor-pointer hover:underline">Technical details</summary>
+                <div className="mt-1">
+                  Ensure <code className="text-zinc-900 dark:text-zinc-100 font-mono">NEXT_PUBLIC_API_URL</code> is set in Vercel project environment variables pointing to your hosted <code className="text-zinc-900 dark:text-zinc-100 font-mono">antova-yc</code> backend instance, and CORS is enabled for your Vercel domain.
+                </div>
+              </details>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
@@ -1042,22 +1053,22 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                   className="px-4 py-2 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-semibold rounded text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Retry Connection</span>
+                  <span>Try again</span>
                 </button>
                 <button
                   onClick={handleLoadOfflineSample}
                   className="px-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold rounded text-xs flex items-center gap-1.5 transition-colors shadow-2xs hover:bg-zinc-50"
                 >
                   <Database className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>Open Offline Recorded Sample (TENDER-2026-402)</span>
+                  <span>Open the sample tender</span>
                 </button>
               </div>
 
               <Link
                 href="/ingest"
-                className="px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded text-xs transition-colors"
+                className="px-3.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:white rounded text-xs transition-colors"
               >
-                Go to Ingest Pipeline &rarr;
+                Upload a new tender
               </Link>
             </div>
           </div>
@@ -1069,7 +1080,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
 
 function AuditWorkbenchSkeleton({ tenderId }: { tenderId: string }) {
   return (
-    <div className="space-y-4 font-sans animate-pulse" aria-busy="true" aria-label="Loading tender audit data">
+    <div className="space-y-4 font-sans animate-pulse" aria-busy="true" aria-label="Loading tender...">
       <div className="p-4 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] flex flex-wrap items-center justify-between gap-4 shadow-2xs">
         <div className="space-y-2">
           <div className="flex items-center gap-2.5">
@@ -1108,7 +1119,7 @@ export default function AuditWorkbenchPage(props: PageProps) {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] dark:bg-[#141210] text-zinc-500 font-sans text-xs">
-          Loading audit workbench...
+          Loading tender...
         </div>
       }
     >

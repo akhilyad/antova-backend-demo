@@ -58,14 +58,14 @@ export function ComplianceMatrix({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
-              Clause-by-Clause Compliance Matrix (Pint 0.26.2 Engine)
+              Requirements check
             </h2>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono font-medium">
-              Deterministic Dimensional Precedence
+              Checked by code
             </span>
           </div>
           <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
-            Technical specification parameters evaluated with mathematical unit conversions and clause-by-clause grounding.
+            Each requirement compared with each bid, with units converted before comparing.
           </p>
         </div>
 
@@ -78,7 +78,7 @@ export function ComplianceMatrix({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search clause ID or name..."
+              placeholder="Search requirements"
               className="pl-8 pr-7 py-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md text-xs text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 w-44 shadow-2xs"
             />
             {searchQuery && (
@@ -94,18 +94,18 @@ export function ComplianceMatrix({
           {/* Criticality Selector */}
           <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-md px-2.5 py-1 shadow-2xs">
             <Filter className="w-3.5 h-3.5 text-zinc-400" />
-            <span className="text-[#767067] dark:text-[#A39A8D] text-[11px]">Severity:</span>
+            <span className="text-[#767067] dark:text-[#A39A8D] text-[11px]">Priority:</span>
             <select
               value={filterCriticality}
               onChange={(e) => setFilterCriticality(e.target.value)}
               className="bg-transparent text-zinc-800 dark:text-zinc-200 font-medium text-xs outline-none cursor-pointer"
-              aria-label="Filter by criticality"
+              aria-label="Filter by priority"
             >
-              <option value="ALL">All Clauses ({safeParameters.length})</option>
-              <option value="MANDATORY">Mandatory Only</option>
-              <option value="HIGH">High Criticality</option>
-              <option value="MEDIUM">Medium Criticality</option>
-              <option value="COMMERCIAL">Commercial Only</option>
+              <option value="ALL">All ({safeParameters.length})</option>
+              <option value="MANDATORY">Mandatory</option>
+              <option value="HIGH">High priority</option>
+              <option value="MEDIUM">Medium priority</option>
+              <option value="COMMERCIAL">Commercial</option>
             </select>
           </div>
 
@@ -117,24 +117,24 @@ export function ComplianceMatrix({
               onChange={(e) => setShowGapsOnly(e.target.checked)}
               className="rounded bg-zinc-100 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-white focus:ring-0"
             />
-            <span className="font-medium">Gaps Only</span>
+            <span className="font-medium">Gaps only</span>
           </label>
         </div>
       </div>
 
       {/* Grid Table */}
       <div className="overflow-x-auto max-h-[750px]">
-        <table className="w-full text-left border-collapse" aria-label="Technical Compliance Matrix">
+        <table className="w-full text-left border-collapse" aria-label="Requirements check">
           <thead className="sticky top-0 z-10">
             <tr className="border-b border-[#D9D4CC] dark:border-[#7A7266] bg-[#FAF8F5] dark:bg-[#141210] text-[#767067] dark:text-[#A39A8D] text-[10px] tracking-wider uppercase font-semibold">
               <th scope="col" className="py-3 px-3.5 min-w-[280px] max-w-[340px] bg-[#FAF8F5] dark:bg-[#141210]">
-                Specification Clause & Requirement
+                Requirement
               </th>
               {safeVendors.map((vendor) => (
                 <th key={vendor.id} scope="col" className="py-3 px-3.5 min-w-[260px] border-l border-[#D9D4CC] dark:border-[#7A7266]/40 bg-[#FAF8F5] dark:bg-[#141210]">
                   <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs">{vendor.name || vendor.id}</div>
                   <div className="text-[11px] text-[#767067] dark:text-[#A39A8D] font-mono font-normal">
-                    {vendor.country || 'N/A'} · {formatEur(vendor.headline_price)}
+                    {vendor.country || 'n/a'} · {formatEur(vendor.headline_price)}
                   </div>
                 </th>
               ))}
@@ -144,7 +144,7 @@ export function ComplianceMatrix({
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={safeVendors.length + 1} className="py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
-                  No technical parameters match the selected filter criteria.
+                  No requirements match these filters.
                 </td>
               </tr>
             ) : (
@@ -213,7 +213,7 @@ export function ComplianceMatrix({
                                 <span className="text-zinc-600 dark:text-zinc-400 font-medium">€0</span>
                               ) : (
                                 <span className="text-amber-700 dark:text-amber-400 font-mono text-[11px]">
-                                  {ext?.pricing_status === 'UNPRICED' ? '€? Unpriced' : '—'}
+                                  {ext?.pricing_status === 'UNPRICED' ? 'No price yet' : 'n/a'}
                                 </span>
                               )}
                             </span>
@@ -225,20 +225,20 @@ export function ComplianceMatrix({
                               checks.map((chk, cIdx) => (
                                 <div key={cIdx} className="flex items-center justify-between gap-1">
                                   <span className="text-zinc-600 dark:text-zinc-400 truncate max-w-[170px]" title={chk.offered}>
-                                    {chk.offered || 'Not indicated'}
+                                    {chk.offered || 'Not stated'}
                                   </span>
                                   {chk.passed ? (
                                     <span className="text-zinc-800 dark:text-zinc-200 font-bold text-[10px]">✓</span>
                                   ) : (
                                     <span className="text-[#9E2B1F] dark:text-[#E07A6A] font-bold text-[10px]">
-                                      ✗ (Req: {chk.required})
+                                      Required: {chk.required}
                                     </span>
                                   )}
                                 </div>
                               ))
                             ) : (
                               <div className="text-[11px] text-zinc-700 dark:text-zinc-300 font-sans line-clamp-2">
-                                {ext?.extracted_text || <span className="text-zinc-400 italic">No offer data</span>}
+                                {ext?.extracted_text || <span className="text-zinc-400 italic">Not in the bid</span>}
                               </div>
                             )}
                           </div>
@@ -254,7 +254,7 @@ export function ComplianceMatrix({
                                 <ExternalLink className="w-2.5 h-2.5" />
                               </button>
                             ) : (
-                              <span className="text-zinc-400 font-mono">—</span>
+                              <span className="text-zinc-400 font-mono">n/a</span>
                             )}
 
                             <button

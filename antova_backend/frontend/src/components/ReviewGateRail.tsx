@@ -54,7 +54,7 @@ export function ReviewGateRail({
             ) : (
               <CheckCircle2 className="w-4 h-4 text-zinc-800 dark:text-zinc-200" />
             )}
-            Audit Verification Gate
+            Before sign-off
           </span>
           <span
             className={`font-mono text-[10px] px-2 py-0.5 rounded-full font-bold border ${
@@ -65,7 +65,7 @@ export function ReviewGateRail({
                 : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200'
             }`}
           >
-            {isVerified ? 'SEALED' : openCount > 0 ? `${openCount} BLOCKING` : 'CLEARED'}
+            {isVerified ? 'Signed off' : openCount > 0 ? `${openCount} open` : 'Ready'}
           </span>
         </div>
 
@@ -73,9 +73,9 @@ export function ReviewGateRail({
           <div className="hidden sm:flex items-center gap-2 font-mono text-[10px] text-[#767067] dark:text-[#A39A8D]">
             <span>Reviewed: {review.reviewed}</span>
             <span>·</span>
-            <span>Flags: {review.open_flags}</span>
+            <span>Flagged: {review.open_flags}</span>
             <span>·</span>
-            <span>Stale: {review.stale}</span>
+            <span>Changed since review: {review.stale}</span>
           </div>
         )}
       </div>
@@ -84,7 +84,7 @@ export function ReviewGateRail({
       {!isVerified && openCount > 0 && (
         <div className="space-y-2">
           <p className="text-[#767067] dark:text-[#A39A8D] text-[11px]">
-            Every unpriced gap, review flag, and manual inspection item must be audited before the brief can be verified.
+            Price or decide every open item before you sign off.
           </p>
 
           <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -99,7 +99,7 @@ export function ReviewGateRail({
                 <div className="flex items-center gap-2 truncate">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span className="font-mono text-[10px] font-bold text-amber-900 dark:text-amber-200">
-                    {item.param_id || 'FLAG'}
+                    {item.param_id || 'Check'}
                   </span>
                   <span className="text-zinc-700 dark:text-zinc-300 truncate">{item.message}</span>
                 </div>
@@ -120,7 +120,7 @@ export function ReviewGateRail({
               >
                 <div className="flex items-center gap-2 truncate">
                   <span className="font-mono text-[10px] font-bold text-[#9E2B1F] dark:text-[#E07A6A] px-1 py-0.2 rounded bg-white dark:bg-zinc-900 border border-[#E8C5C1] dark:border-[#7A2B22]">
-                    €? UNPRICED
+                    No price yet
                   </span>
                   <span className="font-mono text-[10px] font-bold text-zinc-900 dark:text-zinc-100">
                     {item.param_id}
@@ -128,7 +128,7 @@ export function ReviewGateRail({
                   <span className="text-zinc-700 dark:text-zinc-300 truncate">{item.message}</span>
                 </div>
                 <span className="font-semibold text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform shrink-0">
-                  <span>Price / Accept</span>
+                  <span>Set price or accept</span>
                   <ArrowRight className="w-3 h-3" />
                 </span>
               </button>
@@ -150,7 +150,7 @@ export function ReviewGateRail({
                   <span className="text-zinc-700 dark:text-zinc-300 truncate">{item.message}</span>
                 </div>
                 <span className="font-semibold text-zinc-700 dark:text-zinc-300 text-[10px] flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform shrink-0">
-                  <span>Inspect</span>
+                  <span>View</span>
                   <ArrowRight className="w-3 h-3" />
                 </span>
               </button>
@@ -195,15 +195,15 @@ export function ReviewGateRail({
           {isVerified ? (
             <span className="flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
               <Lock className="w-3.5 h-3.5" />
-              <span>Audit sealed · TBE workbook & commercial exports unlocked</span>
+              <span>Signed off. Downloads are available.</span>
             </span>
           ) : openCount > 0 ? (
             <span className="text-amber-700 dark:text-amber-400 font-medium">
-              {openCount} unresolved {openCount === 1 ? 'item blocks' : 'items block'} verification
+              {openCount} {openCount === 1 ? 'open item' : 'open items'}
             </span>
           ) : (
             <span className="text-zinc-800 dark:text-zinc-200 font-medium">
-              Zero blockers remaining · Ready for verified seal
+              No open items. Ready to sign off.
             </span>
           )}
         </div>
@@ -224,7 +224,7 @@ export function ReviewGateRail({
             ) : (
               <ShieldCheck className="w-3.5 h-3.5" />
             )}
-            <span>Verify & Seal Audit</span>
+            <span>Sign off</span>
           </button>
         )}
       </div>

@@ -172,7 +172,7 @@
         "headline_price": 418000.0,
         "doc_name": "Bid_vendor-b_VoltSwitch.pdf (30 pages)",
         "cover_claim": "We confirm our offer is 100% compliant with Material Requisition MR-33kV-GIS-Rev4.",
-        "badge": "Apparent Low Bidder",
+        "badge": "Lowest base bid",
         "headline_citation": {
           "bbox": [
             56.0,
@@ -4586,7 +4586,7 @@
       "vendor_id": "vendor-b",
       "name": "VoltSwitch Industrial",
       "country": "Turkey / EU",
-      "badge": "Apparent Low Bidder",
+      "badge": "Lowest base bid",
       "headline_price": 418000.0,
       "currency": "EUR",
       "total_tech_penalty": 49000.0,

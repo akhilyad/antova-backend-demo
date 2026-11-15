@@ -38,10 +38,10 @@ export default function ReportsPage() {
     try {
       setIsExportingTbe(true);
       await downloadTbeExport(selectedTenderId);
-      setActionMsg('TBE master workbook downloaded successfully.');
+      setActionMsg('Workbook downloaded.');
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
-      alert(err.message || 'Failed to export TBE');
+      alert(err.message || 'Couldn\'t download the workbook.');
     } finally {
       setIsExportingTbe(false);
     }
@@ -52,10 +52,10 @@ export default function ReportsPage() {
       if (format === 'csv') setIsExportingCsv(true);
       if (format === 'xlsx') setIsExportingXlsx(true);
       await downloadClarificationsExport(selectedTenderId, format);
-      setActionMsg(`Clarification register (.${format}) downloaded.`);
+      setActionMsg('Clarification questions downloaded.');
       setTimeout(() => setActionMsg(null), 3500);
     } catch (err: any) {
-      alert(err.message || 'Failed to export clarifications');
+      alert(err.message || 'Couldn\'t download the questions.');
     } finally {
       setIsExportingCsv(false);
       setIsExportingXlsx(false);
@@ -69,10 +69,10 @@ export default function ReportsPage() {
         <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
-              Procurement Reports & TBE Export Center
+              Downloads
             </h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Generate audited Technical Bid Evaluation (TBE) workbooks, vendor clarification matrices, and executive sign-off sheets.
+              The workbook, the clarification questions and the sign-off sheet for each tender.
             </p>
           </div>
 
@@ -106,13 +106,13 @@ export default function ReportsPage() {
               </div>
               <div>
                 <h3 className="font-bold text-zinc-900 dark:text-white text-xs">
-                  TBE Master Workbook (.xlsx)
+                  Bid evaluation workbook (.xlsx)
                 </h3>
-                <span className="text-[10px] text-zinc-500 font-mono">Formal evaluation matrix</span>
+                <span className="text-[10px] text-zinc-500 font-mono">Excel</span>
               </div>
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Complete multi-sheet workbook including True Job Cost Ledger, clause-by-clause unit compliance, commercial omissions, and formula-backed rate adders.
+              Rankings, evaluated totals, the requirements check and every cost adjustment with its formula.
             </p>
             <button
               onClick={handleExportTbe}
@@ -120,7 +120,7 @@ export default function ReportsPage() {
               className="w-full py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs disabled:opacity-50"
             >
               {isExportingTbe ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              <span>Download TBE Workbook</span>
+              <span>Download workbook</span>
             </button>
           </div>
 
@@ -132,13 +132,13 @@ export default function ReportsPage() {
               </div>
               <div>
                 <h3 className="font-bold text-zinc-900 dark:text-white text-xs">
-                  Vendor Clarifications Register
+                  Clarification questions
                 </h3>
-                <span className="text-[10px] text-zinc-500 font-mono">Export format: CSV / XLSX</span>
+                <span className="text-[10px] text-zinc-500 font-mono">CSV or Excel</span>
               </div>
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Structured logs of all commercial deviations, scope omissions, and technical clarifications citing exact specification paragraphs and vendor quotations.
+              One question per gap, with the spec page and the bidder's quote.
             </p>
             <div className="flex gap-2">
               <button
@@ -155,7 +155,7 @@ export default function ReportsPage() {
                 className="flex-1 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs disabled:opacity-50"
               >
                 {isExportingXlsx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                <span>Excel (.xlsx)</span>
+                <span>Excel</span>
               </button>
             </div>
           </div>
@@ -168,13 +168,13 @@ export default function ReportsPage() {
               </div>
               <div>
                 <h3 className="font-bold text-zinc-900 dark:text-white text-xs">
-                  Executive Sign-Off Sheet
+                  Sign-off sheet
                 </h3>
-                <span className="text-[10px] text-zinc-500 font-mono">Print-optimized layout</span>
+                <span className="text-[10px] text-zinc-500 font-mono">For printing</span>
               </div>
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              Clean committee sign-off summary with executive financial comparisons, commercial risk disclaimers, and signature blocks.
+              A one-page summary with evaluated totals and signature lines.
             </p>
             <Link
               href={`/print/${selectedTenderId}`}
@@ -182,7 +182,7 @@ export default function ReportsPage() {
               className="w-full py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold rounded-md text-xs flex items-center justify-center gap-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Open Print Sheet</span>
+              <span>Open sign-off sheet</span>
             </Link>
           </div>
         </div>
@@ -192,10 +192,10 @@ export default function ReportsPage() {
           <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <div className="font-semibold text-zinc-800 dark:text-zinc-200">
-              Audit Provenance & Cryptographic Traceability
+              Where every number comes from
             </div>
             <p className="leading-relaxed">
-              Every exported document includes deterministic run checksums, PyMuPDF bounding coordinates, and Pint 0.26.2 unit math logs. Certified for submission to commercial lending syndicates and institutional EPC boards.
+              Every file shows the source page for each quote and the formula for each cost adjustment.
             </p>
           </div>
         </div>

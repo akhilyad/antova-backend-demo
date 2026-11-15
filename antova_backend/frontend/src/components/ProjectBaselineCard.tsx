@@ -42,13 +42,13 @@ export function ProjectBaselineCard({
         tenderId,
         fieldName,
         'approve',
-        note.trim() || 'Confirmed baseline project constraint'
+        note.trim() || 'Project value confirmed'
       );
       setReviewingField(null);
       setNote('');
       onRefresh();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to record project baseline review');
+      setErrorMsg(err.message || "Couldn't save. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -60,14 +60,14 @@ export function ProjectBaselineCard({
         <div className="flex items-center gap-2">
           <FileQuestion className="w-4 h-4 text-cyan-600" />
           <span className="font-bold uppercase tracking-wider text-zinc-900 dark:text-white">
-            Project Baseline Constraints
+            Project values you entered
           </span>
           <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-300 font-semibold">
-            {Object.keys(project).length} Parameters
+            {Object.keys(project).length} values
           </span>
         </div>
         <span className="text-[11px] text-[#767067] dark:text-[#A39A8D]">
-          Must be audited before verified seal
+          Confirm these before sign-off
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export function ProjectBaselineCard({
                       type="text"
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Audit note / confirmation basis..."
+                      placeholder="Example: Contract value from the board approval of 3 Nov."
                       className="w-full p-1.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs outline-none"
                     />
                     {errorMsg && (
@@ -122,7 +122,7 @@ export function ProjectBaselineCard({
                         className="px-2.5 py-0.5 rounded bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-[11px] font-semibold flex items-center gap-1"
                       >
                         {submitting && <Loader2 className="w-3 h-3 animate-spin" />}
-                        <span>Confirm Baseline</span>
+                        <span>Confirm</span>
                       </button>
                     </div>
                   </div>
@@ -137,7 +137,7 @@ export function ProjectBaselineCard({
                     className="w-full py-1 rounded bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                   >
                     <CheckCircle2 className="w-3 h-3 text-cyan-600" />
-                    <span>Confirm Baseline</span>
+                    <span>Confirm</span>
                   </button>
                 )}
               </div>
