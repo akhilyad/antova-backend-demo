@@ -1,5 +1,2 @@
-import { Example } from "@/components/ui/dashboard-with-collapsible-sidebar";
-
-export default function DemoOne() {
-  return <Example />;
-}
+export * from "../src/components/ui/demo";
+export { default } from "../src/components/ui/demo";

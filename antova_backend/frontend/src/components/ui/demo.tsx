@@ -1,5 +1,9 @@
-import { Example } from "@/components/ui/dashboard-with-collapsible-sidebar";
+import { SignIn1 } from "@/components/ui/modern-stunning-sign-in";
 
-export default function DemoOne() {
-  return <Example />;
+function Demo() {
+  return <SignIn1 />;
 }
+
+export { Demo };
+
+export default Demo;
