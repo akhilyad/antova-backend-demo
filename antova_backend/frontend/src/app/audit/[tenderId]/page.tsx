@@ -718,6 +718,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 onEvaluate={handleSensitivityEvaluate}
                 isLoading={evaluating}
                 currentRates={currentRates}
+                financials={safeFinancials}
+                vendors={safeVendors}
+                parameters={safeParameters}
               />
             )}
 
