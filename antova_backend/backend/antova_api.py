@@ -14,15 +14,18 @@ from typing import Dict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
+from sqlalchemy import text
 
 import antova_engine as engine
 from antova_auth import REVIEW_HEADER, require_review_token
 from antova_briefs_api import router as briefs_router
-from antova_db import init_db
+from antova_db import engine as db_engine, init_db
 from antova_ingest import config
 from antova_ingest.pipeline import UnknownTender
 from antova_models import IngestJobRequest, JobStatusResponse
+from antova_observability import REQUEST_ID_HEADER, RequestIdFilter, RequestIdMiddleware
+from antova_ratelimit import RateLimitMiddleware, SlidingWindow
 from antova_review_api import router as review_router
 from antova_upload_api import router as upload_router
 from antova_workers import job_manager
@@ -31,12 +34,26 @@ from fastapi import Depends
 
 
 def configure_logging() -> None:
-    """Log to stderr at ANTOVA_LOG_LEVEL (default INFO), unless the host already set logging up."""
-    if logging.getLogger().handlers:
+    """Log to stderr at ANTOVA_LOG_LEVEL (default INFO), unless the host already set logging up.
+
+    Every line carries the request ID of the request it was written for ("-" outside one), so a
+    reference shown to a user finds the matching lines (see antova_observability.py).
+    """
+    root = logging.getLogger()
+    if root.handlers:
+        for handler in root.handlers:
+            handler.addFilter(RequestIdFilter())
         return
     level = (os.environ.get("ANTOVA_LOG_LEVEL") or "INFO").upper()
     logging.basicConfig(level=level if level in logging.getLevelNamesMapping() else "INFO",
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+                        format="%(asctime)s %(levelname)s %(name)s [%(request_id)s]: %(message)s")
+    for handler in root.handlers:
+        handler.addFilter(RequestIdFilter())
+
+
+def public_docs() -> bool:
+    """/docs and /redoc describe every route; they are served only when ANTOVA_PUBLIC_DOCS is on."""
+    return (os.environ.get("ANTOVA_PUBLIC_DOCS") or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 @asynccontextmanager
@@ -53,24 +70,34 @@ app = FastAPI(
     title="Antova: tender bid evaluation",
     description="Reads each bid against the spec, prices every gap from a rate table, cites every euro.",
     version="3.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if public_docs() else None,
+    redoc_url="/redoc" if public_docs() else None,
+    openapi_url="/openapi.json" if public_docs() else None,
     lifespan=lifespan,
 )
 
+# Exact origins only. The Next.js proxy calls the engine server to server, so a deployment that
+# routes the browser through it needs none; set ANTOVA_ALLOWED_ORIGINS only for direct browser calls.
+# (A pattern such as *.vercel.app would admit every Vercel project, not just this one.)
 configured_origins = [o.strip() for o in os.environ.get("ANTOVA_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 if not configured_origins:
-    configured_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "https://antova-backend-demo.vercel.app"]
+    configured_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+# Per-client limits on recalculation, page images and exports (antova_ratelimit.py).
+rate_limiter = SlidingWindow()
+app.add_middleware(RateLimitMiddleware, window=rate_limiter)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=configured_origins,
-    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["x-antova-source", REVIEW_HEADER],
+    expose_headers=["x-antova-source", REVIEW_HEADER, REQUEST_ID_HEADER],
 )
+
+# Outermost, so every response (a 429 or a CORS answer included) carries its request ID.
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(briefs_router)
 app.include_router(review_router)
@@ -85,7 +112,16 @@ def serve_favicon():
 
 @app.get("/api/health", tags=["System"])
 def health_check():
-    return {"status": "healthy", "version": app.version, "pint_version": engine.pint.__version__}
+    """200 when the database answers; 503 with status "degraded" when it does not."""
+    body = {"status": "healthy", "version": app.version, "pint_version": engine.pint.__version__,
+            "mode": "live", "database": "ok"}
+    try:
+        with db_engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        logging.getLogger(__name__).exception("health check: database unreachable")
+        return JSONResponse({**body, "status": "degraded", "database": "unreachable"}, status_code=503)
+    return body
 
 
 # --- INGEST JOBS ---

@@ -219,8 +219,21 @@ Vercel functions cannot run the engine: it keeps an in-process job queue, writes
 ```bash
 cd antova_backend/backend
 docker build -t antova-engine .
-docker run -p 8000:8000 -v antova-data:/data   -e ANTOVA_REVIEW_TOKEN="$(openssl rand -hex 32)"   -e ANTOVA_ALLOWED_ORIGINS="https://your-site.vercel.app"   -e EXPLABS_API_KEY=... antova-engine
+docker run -p 8000:8000 -v antova-data:/data \
+  -e ANTOVA_REVIEW_TOKEN="$(openssl rand -hex 32)" \
+  -e ANTOVA_ALLOWED_ORIGINS="https://your-site.vercel.app" \
+  -e ANTOVA_CLIENT_IP_HEADER=x-forwarded-for \
+  -e EXPLABS_API_KEY=... antova-engine
 ```
+
+Engine settings worth knowing for a public deployment:
+
+- `ANTOVA_ALLOWED_ORIGINS`: exact browser origins allowed to call the engine directly. Calls through the Next.js proxy are same-origin and need none. There is no wildcard for `*.vercel.app`.
+- Rate limits per client and minute: `ANTOVA_RATE_LIMIT_EVALUATE` (30), `ANTOVA_RATE_LIMIT_EVIDENCE` (240), `ANTOVA_RATE_LIMIT_EXPORT` (20); `ANTOVA_RATE_LIMIT=off` disables them. Behind the proxy, set `ANTOVA_CLIENT_IP_HEADER=x-forwarded-for` so clients are told apart (only when the engine is reachable through that proxy alone, since a client can forge the header).
+- `ANTOVA_PUBLIC_DOCS=1` serves `/docs`, `/redoc` and `/openapi.json`. They are off by default because they list every route; `start-backend.sh` turns them on locally.
+- `GET /api/health` answers 503 with `"status": "degraded"` when the database is unreachable, so the container health check and an uptime monitor see it.
+- Every response carries `X-Request-ID`. The Next.js proxy creates one per call and the engine echoes it, logs it on every line, and writes one JSON access line per request (`antova.access` logger). Server errors in the UI show it as a reference.
+- A failed ingest job reports document problems (bad manifest, unreadable PDF, model refusal) in full. Provider and internal errors report only a job reference; the details are in the server log.
 
 The image stores the database at `/data/antova.db` and uploads under `/data/tenders` (seeded from `samples/` on first start). Point `ANTOVA_DATABASE_URL` at Postgres instead of SQLite when you outgrow one instance's disk.
 
