@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { replayResponse, SAMPLE_TENDER_IDS } from '../src/lib/replay.ts';
-import { buildUpstreamHeaders, resolveBackendBase, REVIEW_HEADER, upstreamTimeoutMs, isTimeout } from '../src/lib/proxy-policy.ts';
+import { buildUpstreamHeaders, resolveBackendBase, REVIEW_HEADER, upstreamTimeoutMs, isTimeout, resolveRequestId } from '../src/lib/proxy-policy.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sample = JSON.parse(fs.readFileSync(path.resolve(here, '../src/lib/sample402.json'), 'utf8'));
@@ -142,4 +142,14 @@ test('an aborted request counts as a timeout, a refused connection does not', ()
   const abort = new Error('aborted'); abort.name = 'AbortError';
   assert.equal(isTimeout(abort), true);
   assert.equal(isTimeout(new TypeError('fetch failed')), false);
+});
+
+// --- P2: request IDs ------------------------------------------------------------------------
+
+test('a plain incoming request id is kept, anything else is replaced', () => {
+  const make = () => 'generated';
+  assert.equal(resolveRequestId('proxy-abc.123', make), 'proxy-abc.123');
+  assert.equal(resolveRequestId(null, make), 'generated');
+  assert.equal(resolveRequestId('has space', make), 'generated');
+  assert.equal(resolveRequestId('x'.repeat(65), make), 'generated');
 });

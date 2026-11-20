@@ -1,4 +1,4 @@
-"""P1 hardening: what job errors tell a client, CORS origins, and rate limits."""
+"""Hardening: job errors, CORS origins, rate limits, request IDs, health and API docs."""
 
 from fastapi.testclient import TestClient
 
@@ -106,3 +106,53 @@ def test_evaluate_answers_429_over_the_limit(client, monkeypatch):
         assert client.get("/api/health").status_code == 200
     finally:
         rate_limiter.reset()
+
+
+# --- request IDs ------------------------------------------------------------------------------
+
+def test_every_response_carries_a_request_id(client):
+    response = client.get("/api/health")
+    assert len(response.headers["x-request-id"]) == 32
+
+
+def test_a_plain_incoming_request_id_is_kept_and_a_strange_one_replaced(client):
+    assert client.get("/api/health", headers={"X-Request-ID": "proxy-abc.123"}).headers["x-request-id"] == "proxy-abc.123"
+    replaced = client.get("/api/health", headers={"X-Request-ID": "bad id\nwith newline"}).headers["x-request-id"]
+    assert replaced != "bad id\nwith newline" and len(replaced) == 32
+
+
+def test_access_log_line_is_json_with_the_request_id(client, caplog):
+    import json
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="antova.access"):
+        response = client.get("/api/review/tenders", headers={"X-Request-ID": "trace-1"})
+    lines = [json.loads(r.getMessage()) for r in caplog.records if r.name == "antova.access"]
+    assert {"event": "request", "request_id": "trace-1", "method": "GET", "path": "/api/review/tenders",
+            "status": response.status_code} == {k: v for k, v in lines[-1].items() if k != "ms"}
+
+
+# --- health and docs --------------------------------------------------------------------------
+
+def test_health_reports_the_database(client):
+    body = client.get("/api/health").json()
+    assert body["status"] == "healthy" and body["database"] == "ok"
+
+
+def test_health_is_503_when_the_database_is_down(client, monkeypatch):
+    import antova_api
+
+    class _Broken:
+        def connect(self):
+            raise RuntimeError("db down")
+
+    monkeypatch.setattr(antova_api, "db_engine", _Broken())
+    response = client.get("/api/health")
+    assert response.status_code == 503
+    assert response.json()["status"] == "degraded"
+
+
+def test_api_docs_are_off_unless_asked_for(client):
+    # conftest does not set ANTOVA_PUBLIC_DOCS
+    assert client.get("/docs").status_code == 404
+    assert client.get("/openapi.json").status_code == 404

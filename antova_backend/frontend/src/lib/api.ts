@@ -56,6 +56,8 @@ export class ApiError extends Error {
   code?: string;
   open_items?: OpenItem[];
   detail?: string;
+  /** The request's X-Request-ID, to match a report against the proxy and engine logs. */
+  requestId?: string;
 
   constructor(
     message: string,
@@ -117,7 +119,18 @@ async function errorFrom(res: Response, fallback: string): Promise<ApiError> {
   const data = await res.json().catch(() => ({} as Record<string, unknown>));
   const detail = typeof data.detail === 'string' ? data.detail : undefined;
   const code = typeof data.code === 'string' ? data.code : undefined;
-  return new ApiError(detail || fallback, res.status, detail, code);
+  const requestId = res.headers.get('x-request-id') || undefined;
+  // Server-side failures carry a reference the operator can find in the logs; a 4xx is the user's
+  // to fix and its message says how.
+  const message = detail || fallback;
+  const err = new ApiError(
+    res.status >= 500 && requestId ? `${message} (reference ${requestId})` : message,
+    res.status,
+    detail,
+    code
+  );
+  err.requestId = requestId;
+  return err;
 }
 
 /**

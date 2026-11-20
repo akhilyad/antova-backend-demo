@@ -37,7 +37,7 @@ MESSAGES = {
 }
 _REVIEW_MESSAGES = {
     "open": "Flag not reviewed yet.",
-    "stale": "Evidence changed since it was approved; review again",
+    "stale": "The source page changed after you accepted it. Review it again.",
     "rejected": "You rejected this quote. Correct the bid file and process it again.",
 }
 

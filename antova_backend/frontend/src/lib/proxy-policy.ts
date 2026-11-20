@@ -71,3 +71,15 @@ export function isTimeout(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   return err.name === 'AbortError' || err.name === 'TimeoutError';
 }
+
+export const REQUEST_ID_HEADER = 'x-request-id';
+const VALID_REQUEST_ID = /^[A-Za-z0-9._-]{1,64}$/;
+
+/**
+ * The ID that ties a browser request to the proxy's and the engine's log lines: the caller's own
+ * when it is a plain token, else a new one. The engine accepts the same format and echoes it back.
+ */
+export function resolveRequestId(incoming: string | null | undefined, make: () => string): string {
+  const value = (incoming || '').trim();
+  return VALID_REQUEST_ID.test(value) ? value : make();
+}
