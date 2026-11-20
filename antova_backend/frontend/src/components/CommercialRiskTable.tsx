@@ -1,9 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Parameter, Vendor, VendorFinancials } from '../lib/types';
+import { Check, Parameter, Vendor, VendorFinancials } from '../lib/types';
 import { formatEur, formatAdderEur } from '../lib/domain/money';
-import { Truck, ShieldAlert, Wrench, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface CommercialRiskTableProps {
   parameters?: Parameter[];
@@ -11,11 +10,8 @@ interface CommercialRiskTableProps {
   financials?: VendorFinancials[];
 }
 
-export function CommercialRiskTable({
-  parameters = [],
-  vendors = [],
-  financials = [],
-}: CommercialRiskTableProps) {
+/** Delivery terms, warranty and witnessed FAT per bidder, as one term x bidder table. */
+export function CommercialRiskTable({ parameters = [], vendors = [], financials = [] }: CommercialRiskTableProps) {
   const safeParameters = Array.isArray(parameters) ? parameters : [];
   const safeVendors = Array.isArray(vendors) ? vendors : [];
   const safeFinancials = Array.isArray(financials) ? financials : [];
@@ -25,168 +21,100 @@ export function CommercialRiskTable({
     (p) => p && (p.id === 'PARAM-05' || p.name?.toLowerCase().includes('fat') || p.name?.toLowerCase().includes('acceptance'))
   );
   const paramComm = safeParameters.find(
-    (p) => p && (p.id === 'PARAM-06' || p.name?.toLowerCase().includes('incoterm') || p.name?.toLowerCase().includes('delivery') || p.name?.toLowerCase().includes('commercial'))
+    (p) =>
+      p &&
+      (p.id === 'PARAM-06' ||
+        p.name?.toLowerCase().includes('incoterm') ||
+        p.name?.toLowerCase().includes('delivery') ||
+        p.name?.toLowerCase().includes('commercial'))
   );
 
+  const checkFor = (param: Parameter | undefined, vendorId: string, field: string): Check | undefined => {
+    const checks = param?.vendors?.[vendorId]?.checks;
+    return Array.isArray(checks) ? checks.find((c) => c?.field === field) : undefined;
+  };
+
+  const rows: { label: string; param?: Parameter; field: string; fallback: (vendorId: string) => string }[] = [
+    {
+      label: 'Delivery terms (Incoterms 2020)',
+      param: paramComm,
+      field: 'incoterm',
+      fallback: (vid) => paramComm?.vendors?.[vid]?.extracted_text || 'Not stated',
+    },
+    { label: 'Warranty period', param: paramComm, field: 'warranty_months', fallback: () => 'Not stated' },
+    { label: 'Witnessed FAT days', param: paramFat, field: 'witnessed_fat_days_included', fallback: () => 'Not stated' },
+  ];
+
+  if (safeVendors.length === 0) {
+    return <p className="py-10 text-center text-[13px] text-muted">No bids to compare.</p>;
+  }
+
   return (
-    <div className="border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] rounded-xl overflow-hidden text-xs shadow-2xs font-sans">
-      <div className="px-5 py-3.5 border-b border-[#D9D4CC] dark:border-[#7A7266] flex items-center justify-between bg-[#FAF8F5] dark:bg-[#141210]">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xs font-bold text-zinc-900 dark:text-white tracking-wider uppercase">
-              Commercial terms
-            </h2>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-[#D9D4CC] dark:border-[#7A7266] bg-white dark:bg-zinc-800 text-amber-800 dark:text-amber-300 font-mono font-medium">
-              Delivery, warranty and testing
-            </span>
-          </div>
-          <p className="text-[11px] text-[#767067] dark:text-[#A39A8D] mt-0.5">
-            Delivery terms, warranty period and witnessed factory tests, compared with your spec.
-          </p>
-        </div>
-      </div>
-
-      <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-white dark:bg-[#1C1916]">
-        {safeVendors.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-zinc-500 dark:text-zinc-400 font-sans">
-            No bids to compare yet.
-          </div>
-        ) : (
-          safeVendors.map((vendor) => {
-            const fin = safeFinancials.find((f) => f && f.vendor_id === vendor.id);
-            const fatExt = paramFat?.vendors?.[vendor.id];
-            const commExt = paramComm?.vendors?.[vendor.id];
-
-            const commercialAdder = typeof fin?.total_commercial_adder === 'number' ? fin.total_commercial_adder : 0;
-            const isUnpricedItems = fin?.price_status === 'UNPRICED_ITEMS';
-
-            // Find check values
-            const commChecks = Array.isArray(commExt?.checks) ? commExt.checks : [];
-            const fatChecks = Array.isArray(fatExt?.checks) ? fatExt.checks : [];
-
-            const incotermCheck = commChecks.find((c) => c?.field === 'incoterm');
-            const warrantyCheck = commChecks.find((c) => c?.field === 'warranty_months');
-            const fatCheck = fatChecks.find((c) => c?.field === 'witnessed_fat_days_included');
-
-            return (
-              <div
-                key={vendor.id}
-                className={`p-4 rounded-xl border flex flex-col justify-between transition-all shadow-2xs ${
-                  commercialAdder > 0
-                    ? 'border-amber-300 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-950/20'
-                    : 'border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916]'
-                }`}
-              >
-                <div>
-                  {/* Vendor Header */}
-                  <div className="flex items-start justify-between pb-3 border-b border-[#D9D4CC] dark:border-[#7A7266]">
-                    <div>
-                      <div className="text-zinc-900 dark:text-zinc-100 font-bold text-xs">{vendor.name || vendor.id}</div>
-                      <div className="text-[#767067] dark:text-[#A39A8D] text-[10px] font-mono mt-0.5">{vendor.country || 'n/a'}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase font-semibold">Commercial cost adjustments</div>
-                      <div className={`text-xs font-bold font-mono tabular-nums ${commercialAdder > 0 ? 'text-amber-800 dark:text-amber-300' : 'text-zinc-500 dark:text-zinc-400'}`}>
-                        {commercialAdder > 0 ? `+${formatEur(commercialAdder)}` : '€0'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Risk Factors */}
-                  <div className="space-y-3 mt-3 text-xs">
-                    {/* Delivery & Incoterm */}
-                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                        <Truck className="w-3.5 h-3.5 text-zinc-500" />
-                        <span>Delivery terms (Incoterms 2020)</span>
-                      </div>
-                      <div className="text-zinc-800 dark:text-zinc-200">
-                        {incotermCheck ? (
-                          <div className="flex items-center justify-between font-mono text-[11px]">
-                            <span>Offered: <strong className="text-zinc-900 dark:text-white">{incotermCheck.offered}</strong></span>
-                            {incotermCheck.passed ? (
-                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
-                            ) : (
-                              <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
-                                Required: {incotermCheck.required}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-500">{commExt?.extracted_text || 'See the bid'}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Warranty & Defect Liability */}
-                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Warranty period</span>
-                      </div>
-                      <div className="text-zinc-800 dark:text-zinc-200">
-                        {warrantyCheck ? (
-                          <div>
-                            <div className="flex items-center justify-between font-mono text-[11px]">
-                              <span>Offered: <strong className="text-zinc-900 dark:text-white">{warrantyCheck.offered}</strong></span>
-                              {warrantyCheck.passed ? (
-                                <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
-                              ) : (
-                                <span className="text-amber-800 dark:text-amber-300 text-[10px] font-semibold font-sans">
-                                  Required: {warrantyCheck.required}
-                                </span>
-                              )}
-                            </div>
-                            {warrantyCheck.offered_basis && (
-                              <div className="text-[10px] text-[#767067] dark:text-[#A39A8D] mt-1 font-sans">
-                                Starts at: {warrantyCheck.offered_basis}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-500">Standard warranty</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Factory Testing (I-FAT) */}
-                    <div className="p-3 rounded-md bg-[#FAF8F5] dark:bg-[#141210] border border-[#D9D4CC] dark:border-[#7A7266] shadow-2xs">
-                      <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300 text-[10px] font-bold uppercase tracking-wider mb-1.5">
-                        <Wrench className="w-3.5 h-3.5 text-zinc-500" />
-                        <span>Witnessed factory test (FAT)</span>
-                      </div>
-                      <div className="text-zinc-800 dark:text-zinc-200">
-                        {fatCheck ? (
-                          <div className="flex items-center justify-between font-mono text-[11px]">
-                            <span>Offered: <strong className="text-zinc-900 dark:text-white">{fatCheck.offered}</strong></span>
-                            {fatCheck.passed ? (
-                              <span className="text-zinc-700 dark:text-zinc-300 text-[10px] font-semibold font-sans">Meets spec</span>
-                            ) : (
-                              <span className="text-[#9E2B1F] dark:text-[#E07A6A] text-[10px] font-semibold font-sans">
-                                Short by: required {fatCheck.required}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-zinc-500">Included in the bid</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Footprint */}
-                <div className="pt-3 mt-3 border-t border-[#D9D4CC] dark:border-[#7A7266] flex items-center justify-between text-[11px]">
-                  <span className="text-[#767067] dark:text-[#A39A8D]">Evaluated total:</span>
-                  <span className="font-bold font-mono text-zinc-900 dark:text-white tabular-nums">
-                    {formatEur(fin?.true_evaluated_price, { isLowerBound: isUnpricedItems })}
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] table-fixed border-collapse text-[13px]" aria-label="Commercial terms">
+        <colgroup>
+          <col className="w-[28%]" />
+          {safeVendors.map((v) => (
+            <col key={v.id} />
+          ))}
+        </colgroup>
+        <thead>
+          <tr className="border-b border-rule-strong text-[11px] text-muted">
+            <th scope="col" className="py-2 pr-4 text-left font-normal">Term</th>
+            {safeVendors.map((v) => (
+              <th key={v.id} scope="col" className="truncate px-3 py-2 text-left font-normal" title={v.name}>
+                {v.name || v.id}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} className="border-b border-rule">
+              <th scope="row" className="py-2.5 pr-4 text-left font-normal text-ink">{row.label}</th>
+              {safeVendors.map((v) => {
+                const chk = checkFor(row.param, v.id, row.field);
+                return (
+                  <td key={v.id} className="px-3 py-2.5 align-baseline">
+                    {chk ? (
+                      <>
+                        <span className={chk.passed ? 'text-ink-2' : 'text-gap'}>{chk.offered || 'Not stated'}</span>
+                        {!chk.passed && <span className="ml-2 text-xs text-muted">need {chk.required}</span>}
+                        {chk.offered_basis && <span className="block text-[11px] text-faint">from {chk.offered_basis}</span>}
+                      </>
+                    ) : (
+                      <span className="text-faint">{row.fallback(v.id)}</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          <tr className="border-b border-rule">
+            <th scope="row" className="py-2.5 pr-4 text-left font-normal text-muted">Commercial adders</th>
+            {safeVendors.map((v) => {
+              const fin = safeFinancials.find((f) => f?.vendor_id === v.id);
+              const adder = fin?.total_commercial_adder ?? 0;
+              return (
+                <td key={v.id} className={`px-3 py-2.5 tabular-nums ${adder > 0 ? 'text-gap' : 'text-faint'}`}>
+                  {adder > 0 ? formatAdderEur(adder) : '€0'}
+                </td>
+              );
+            })}
+          </tr>
+          <tr>
+            <th scope="row" className="py-2.5 pr-4 text-left font-medium text-ink">True job cost</th>
+            {safeVendors.map((v) => {
+              const fin = safeFinancials.find((f) => f?.vendor_id === v.id);
+              return (
+                <td key={v.id} className="px-3 py-2.5 font-semibold tabular-nums text-ink">
+                  {formatEur(fin?.true_evaluated_price, { isLowerBound: fin?.price_status === 'UNPRICED_ITEMS' })}
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

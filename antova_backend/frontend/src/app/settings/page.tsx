@@ -3,7 +3,21 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from '../../components/layout/AppShell';
 import { API_BASE, getReviewToken, setReviewToken } from '../../lib/api';
-import { Settings, Save, CheckCircle2, Shield, Sliders, Database } from 'lucide-react';
+
+const field =
+  'w-full rounded border border-rule-strong bg-paper px-2.5 py-1.5 text-[13px] tabular-nums text-ink outline-none focus:border-ink';
+
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-2 border-b border-rule py-4 md:grid-cols-[16rem_minmax(0,1fr)] md:gap-8">
+      <div>
+        <p className="text-[13px] text-ink">{label}</p>
+        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const [copperBaseline, setCopperBaseline] = useState(1.0);
@@ -25,124 +39,70 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-4xl mx-auto font-sans">
-        <div className="pb-3 border-b border-zinc-200 dark:border-zinc-800">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
-            Settings
-          </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Default rates for new rate scenarios.
-          </p>
-        </div>
+      <div className="max-w-3xl text-ink">
+        <h1 className="text-xl font-semibold leading-7 tracking-tight">Settings</h1>
+        <p className="mt-1 text-xs text-muted">Default rates, server and reviewer access.</p>
 
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* Section 1: Default Sensitivity Baseline */}
-          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111113] space-y-4 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-zinc-500" />
-              <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                Default rates
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div>
-                <label className="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">
-                  Copper price multiplier
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  value={copperBaseline}
-                  onChange={(e) => setCopperBaseline(parseFloat(e.target.value) || 1.0)}
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-xs font-mono text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">
-                  Site labour rate (€/h)
-                </label>
-                <input
-                  type="number"
-                  step="5"
-                  value={laborBaseline}
-                  onChange={(e) => setLaborBaseline(parseInt(e.target.value) || 60)}
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-xs font-mono text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-700 dark:text-zinc-300 font-medium mb-1">
-                  Freight multiplier
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  value={freightBaseline}
-                  onChange={(e) => setFreightBaseline(parseFloat(e.target.value) || 1.0)}
-                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-xs font-mono text-zinc-900 dark:text-white"
-                />
-              </div>
-            </div>
+        <form onSubmit={handleSave} className="mt-8">
+          <h2 className="text-[13px] font-medium">Default rates</h2>
+          <div className="mt-2 border-t border-rule">
+            <Row label="Copper price" hint="Multiplier on the rate table">
+              <input
+                type="number"
+                step="0.05"
+                value={copperBaseline}
+                onChange={(e) => setCopperBaseline(parseFloat(e.target.value) || 1.0)}
+                className={`${field} max-w-[8rem]`}
+                aria-label="Copper price multiplier"
+              />
+            </Row>
+            <Row label="Site labour rate" hint="€ per hour">
+              <input
+                type="number"
+                step="5"
+                value={laborBaseline}
+                onChange={(e) => setLaborBaseline(parseInt(e.target.value) || 60)}
+                className={`${field} max-w-[8rem]`}
+                aria-label="Site labour rate"
+              />
+            </Row>
+            <Row label="Freight" hint="Multiplier on the rate table">
+              <input
+                type="number"
+                step="0.05"
+                value={freightBaseline}
+                onChange={(e) => setFreightBaseline(parseFloat(e.target.value) || 1.0)}
+                className={`${field} max-w-[8rem]`}
+                aria-label="Freight multiplier"
+              />
+            </Row>
           </div>
 
-          {/* Section 2: Environment API Endpoint */}
-          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111113] space-y-3 shadow-2xs text-xs">
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-zinc-500" />
-              <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                Server connection
-              </h2>
-            </div>
-            <div>
-              <span className="text-zinc-500">Server address:</span>
-              <code className="block mt-1 p-2 bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded font-mono text-cyan-600 dark:text-cyan-400">
-                {API_BASE || '(this site)'}
-              </code>
-            </div>
-            <details className="text-[11px] text-zinc-500 cursor-pointer">
-              <summary>Technical details</summary>
-              <p className="mt-1">
-                To point to a different hosted backend instance on Vercel, set <code className="text-zinc-700 dark:text-zinc-300">NEXT_PUBLIC_API_URL</code> in your project environment variables.
-              </p>
-            </details>
-          </div>
-
-          {/* Section 3: Reviewer token */}
-          <div className="p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111113] space-y-3 shadow-2xs text-xs">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-zinc-500" />
-              <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                Reviewer token
-              </h2>
-            </div>
-            <p className="text-zinc-500">
-              Needed to upload documents, record decisions and sign off. Kept in this browser tab only and cleared when the tab closes. Leave empty to browse read-only.
-            </p>
-            <input
-              type="password"
-              autoComplete="off"
-              value={reviewToken}
-              onChange={(e) => setReviewTokenInput(e.target.value)}
-              placeholder="Paste the token your administrator gave you"
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-xs font-mono text-zinc-900 dark:text-white"
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            {saved ? (
-              <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4" /> Saved
-              </span>
-            ) : <div />}
-
-            <button
-              type="submit"
-              className="px-4 py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold text-xs rounded-md flex items-center gap-1.5 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs"
+          <h2 className="mt-10 text-[13px] font-medium">Access</h2>
+          <div className="mt-2 border-t border-rule">
+            <Row label="Server" hint="Set NEXT_PUBLIC_API_URL to point at another engine.">
+              <code className="font-mono text-xs text-ink-2">{API_BASE || 'This site'}</code>
+            </Row>
+            <Row
+              label="Reviewer token"
+              hint="Needed to upload, record decisions and sign off. Kept in this tab only. Leave empty to browse read-only."
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={reviewToken}
+                onChange={(e) => setReviewTokenInput(e.target.value)}
+                placeholder="Token from your administrator"
+                className={`${field} font-mono`}
+                aria-label="Reviewer token"
+              />
+            </Row>
+          </div>
+
+          <div className="mt-6 flex items-center justify-end gap-4 text-xs">
+            {saved && <span className="text-muted" role="status">Saved</span>}
+            <button type="submit" className="rounded bg-ink px-3.5 py-1.5 font-medium text-paper hover:opacity-90">
+              Save
             </button>
           </div>
         </form>
