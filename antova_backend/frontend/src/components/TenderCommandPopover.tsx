@@ -33,29 +33,9 @@ export function TenderCommandPopover({
   const popoverRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const defaultTenders: ReviewTenderRow[] = [
-    {
-      tender_id: 'TENDER-2026-402',
-      title: '350 MWp Solar + BESS Substation — 33kV GIS Switchgear Package',
-      status: 'VERIFIED',
-      share_id: 'XmlZsvxPn-QxV260E0ZmPg',
-      ingested_at: '2026-11-14T23:40:04.593260+00:00',
-      verified_at: '2026-11-15T00:08:13.053137+00:00',
-      open_items: 0,
-    },
-    {
-      tender_id: 'TENDER-2026-417',
-      title: '120 MW Wind Farm Collector Substation — 33kV GIS Switchgear Package',
-      status: 'DRAFT',
-      share_id: 'bBBTOjH8naxHZHrJbSmxew',
-      ingested_at: '2026-11-14T23:53:51.128575+00:00',
-      verified_at: null,
-      open_items: 18,
-    },
-  ];
-
-  const effectiveTenders = tenders && tenders.length > 0 ? tenders : defaultTenders;
-  const activeTender = effectiveTenders.find((t) => t.tender_id === activeTenderId) || effectiveTenders[0];
+  // Only real rows from the server (or the replay sample). Never invented tenders.
+  const effectiveTenders = tenders ?? [];
+  const activeTender = effectiveTenders.find((t) => t.tender_id === activeTenderId);
 
   // Filtered list
   const filteredTenders = query.trim()

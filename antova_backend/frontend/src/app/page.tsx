@@ -28,7 +28,7 @@ export default function OverviewPage() {
   const router = useRouter();
   const [tenders, setTenders] = useState<ReviewTenderRow[]>([]);
   const [brief, setBrief] = useState<Brief | null>(null);
-  const [health, setHealth] = useState<{ status: string; version: string; pint_version: string } | null>(null);
+  const [health, setHealth] = useState<{ status: string; version: string; pint_version?: string; mode?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function OverviewPage() {
         setLoading(true);
         const [tendersData, healthData] = await Promise.all([
           listTenders().catch(() => []),
-          fetchHealth().catch(() => ({ status: 'healthy', version: '2.1.0', pint_version: '0.26.2' })),
+          fetchHealth().catch(() => null),
         ]);
         setTenders(tendersData);
         setHealth(healthData);
@@ -77,19 +77,20 @@ export default function OverviewPage() {
       .sort((a, b) => (a.headline_price ?? 0) - (b.headline_price ?? 0));
     const lowestBase = sortedByBase[0];
 
+    // Every figure comes from the loaded brief (live or the saved sample). No invented fallbacks.
     return {
-      evaluatedVolume: recommended?.true_evaluated_price ?? 452000,
-      exposureAvoided: totalOmissionsExposure || 80400,
+      evaluatedVolume: recommended?.true_evaluated_price ?? null,
+      exposureAvoided: totalOmissionsExposure,
       openItems: defaultBrief.open_items?.length || 0,
+      // Same version the engine pins in antova_requirements.txt.
       pintEngineVersion: health?.pint_version || '0.26.2',
-      recommendedVendor: recommended?.name || 'Nordwerk Schaltanlagen GmbH',
-      activeTendersCount: tenders.length || 2,
-      lowestBaseName: lowestBase?.name || 'VoltSwitch Industrial',
-      lowestBaseAmount: lowestBase?.headline_price ?? 418000,
-      lowestBaseAdj: lowestBase?.total_adders ?? 61650,
-      lowestBaseEval: lowestBase?.true_evaluated_price ?? 479650,
-      bestName: recommended?.name || 'Nordwerk Schaltanlagen GmbH',
-      bestEval: recommended?.true_evaluated_price ?? 452000,
+      recommendedVendor: recommended?.name || 'Not decided',
+      lowestBaseName: lowestBase?.name ?? null,
+      lowestBaseAmount: lowestBase?.headline_price ?? null,
+      lowestBaseAdj: lowestBase?.total_adders ?? null,
+      lowestBaseEval: lowestBase?.true_evaluated_price ?? null,
+      bestName: recommended?.name ?? null,
+      bestEval: recommended?.true_evaluated_price ?? null,
     };
   }, [brief, health, tenders]);
 
@@ -204,6 +205,7 @@ export default function OverviewPage() {
           </div>
 
           {/* Material Anomaly & Rank Reversal Attention Banner */}
+          {stats.lowestBaseName && stats.bestName && stats.lowestBaseName !== stats.bestName && (
           <div className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0 mt-0.5">
@@ -227,6 +229,7 @@ export default function OverviewPage() {
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+          )}
 
           {/* Active Tenders Table */}
           <div className="rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] overflow-hidden shadow-2xs">
@@ -296,9 +299,6 @@ export default function OverviewPage() {
                             <div className="font-medium text-zinc-900 dark:text-zinc-100">
                               {tender.title}
                             </div>
-                            <div className="text-[10px] text-zinc-400">
-                              33kV Gas-Insulated Switchgear + Protection Relay Architecture
-                            </div>
                           </td>
                           <td className="py-3 px-4">
                             {isVer ? (
@@ -317,11 +317,11 @@ export default function OverviewPage() {
                             {tender.open_items === 0 ? (
                               <span className="text-emerald-600 dark:text-emerald-400">0</span>
                             ) : (
-                              <span className="text-amber-600 dark:text-amber-400">{tender.open_items ?? 18}</span>
+                              <span className="text-amber-600 dark:text-amber-400">{tender.open_items ?? 'n/a'}</span>
                             )}
                           </td>
                           <td className="py-3 px-4 text-zinc-500 font-mono text-[11px]">
-                            {tender.ingested_at ? formatIsoDate(tender.ingested_at) : '2026-11-14'}
+                            {tender.ingested_at ? formatIsoDate(tender.ingested_at) : 'n/a'}
                           </td>
                           <td className="py-3 px-4 text-right">
                             <Link

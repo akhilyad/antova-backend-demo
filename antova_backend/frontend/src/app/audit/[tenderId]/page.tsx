@@ -26,6 +26,7 @@ import {
   ApiError,
   API_BASE,
 } from '../../../lib/api';
+import { AUDIT_REQUEST_URL, REPLAY_NOTICE } from '../../../lib/site';
 import { Brief, Citation, RatesSettings, OpenItem } from '../../../lib/types';
 import { formatEur } from '../../../lib/domain/money';
 import {
@@ -42,8 +43,9 @@ import {
   Download,
   RefreshCw,
   Database,
-  ExternalLink,
   Info,
+  UploadCloud,
+  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -167,6 +169,16 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     fetchBrief();
   }, [tenderId]);
 
+  // The public demo runs on a saved sample. Actions that need the live engine explain themselves
+  // instead of failing with a server error.
+  const replayOnly = (notice: string): boolean => {
+    if (brief?._source !== 'replay') return false;
+    setError(null);
+    setActionMsg(notice);
+    setTimeout(() => setActionMsg(null), 6000);
+    return true;
+  };
+
   const handleSensitivityEvaluate = async (rates: RatesSettings): Promise<boolean> => {
     if (!brief) return false;
     try {
@@ -197,6 +209,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
 
   const handleVerify = async () => {
     if (!brief) return;
+    if (replayOnly(REPLAY_NOTICE.signOff)) return;
     try {
       setError(null);
       setVerifyBlockerMsg(null);
@@ -227,6 +240,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   };
 
   const handleWithdraw = async () => {
+    if (replayOnly(REPLAY_NOTICE.signOff)) return;
     try {
       setError(null);
       setActionMsg('Reopening for edits...');
@@ -241,6 +255,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   };
 
   const handleExportTbeWorkbook = async () => {
+    if (replayOnly(REPLAY_NOTICE.export)) return;
     try {
       setIsExportingTbe(true);
       await downloadTbeExport(tenderId);
@@ -254,6 +269,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   };
 
   const handleExportClarifications = async (format: 'csv' | 'xlsx') => {
+    if (replayOnly(REPLAY_NOTICE.export)) return;
     try {
       if (format === 'csv') setIsExportingCsv(true);
       if (format === 'xlsx') setIsExportingXlsx(true);
@@ -288,6 +304,13 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
 
   const recommendedVendor = rankedFinancials[0] || null;
 
+  // The bid with the lowest sticker price, to show what pricing the gaps did to it.
+  const lowestQuote = useMemo(() => {
+    const quoted = safeFinancials.filter((f) => f.headline_price != null && f.true_evaluated_price != null);
+    quoted.sort((a, b) => (a.headline_price ?? 0) - (b.headline_price ?? 0));
+    return quoted[0] || null;
+  }, [safeFinancials]);
+
   // Selected vendor financial details
   const selectedFinancials = useMemo(() => {
     if (!selectedVendorId) return rankedFinancials[0] || null;
@@ -296,6 +319,25 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
 
   const isVerified = brief?.status === 'VERIFIED';
   const isReplayMode = brief?._source === 'replay';
+
+  const gateRail = brief ? (
+    <ReviewGateRail
+      openItems={safeOpenItems}
+      review={brief.review}
+      isVerified={isVerified}
+      onSelectOpenItem={(item) => {
+        if (item.param_id) {
+          setCellReviewTarget({
+            paramId: item.param_id,
+            vendorId: item.vendor_id === '-' ? safeVendors[0]?.id || '' : item.vendor_id,
+          });
+        }
+      }}
+      onVerify={handleVerify}
+      isVerifying={isVerifying}
+      blockingMessage={verifyBlockerMsg}
+    />
+  ) : null;
 
   return (
     <AppShell
@@ -316,18 +358,39 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
         <AuditWorkbenchSkeleton tenderId={tenderId} />
       ) : brief ? (
         <div className="space-y-4 font-sans text-xs">
-          {/* Transparent Replay Mode Banner (Defect D4) */}
+          {/* Sample banner (Defect D4): says plainly this is a saved run, and offers the visitor's own tender */}
           {isReplayMode && (
-            <div className="p-3.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-              <div className="flex items-center gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  <strong>Sample data, read-only.</strong> You are viewing a saved copy of {brief.tender?.id}. Decisions and amount changes need a live connection.
+            <div className="p-3.5 rounded-xl border border-[#E7CDBF] dark:border-[#5A3A2C] bg-[#FBF4EF] dark:bg-[#211B17] text-[#3B2A21] dark:text-[#F1F0EF] flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <span className="font-mono text-[10px] px-2 py-0.5 mt-px rounded bg-[#C4552D] text-white font-bold uppercase tracking-wider shrink-0">
+                  Sample audit
+                </span>
+                <span className="leading-relaxed">
+                  {lowestQuote && recommendedVendor && lowestQuote.vendor_id !== recommendedVendor.vendor_id ? (
+                    <>
+                      <strong>{lowestQuote.name}</strong> quoted lowest at {formatEur(lowestQuote.headline_price)}. Priced against the spec, it really costs{' '}
+                      <strong>{formatEur(lowestQuote.true_evaluated_price)}</strong>. <strong>{recommendedVendor.name}</strong> is the cheapest real bid.{' '}
+                    </>
+                  ) : null}
+                  {safeVendors.length} bids, {brief.tender?.pages_parsed || safeDocuments.length} pages read, every gap cited to its page. Saved run of a real 33 kV switchgear tender; read-only.
                 </span>
               </div>
-              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/60 font-bold uppercase tracking-wider">
-                Saved sample
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/ingest"
+                  className="px-3 py-1.5 rounded-md border border-[#D9B5A2] dark:border-[#5A3A2C] bg-white dark:bg-transparent text-[#3B2A21] dark:text-[#F1F0EF] font-semibold text-xs flex items-center gap-1.5 hover:bg-[#F6E9E1] dark:hover:bg-[#2A221D] transition-colors"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Upload your tender</span>
+                </Link>
+                <a
+                  href={AUDIT_REQUEST_URL}
+                  className="px-3 py-1.5 rounded-md bg-[#9C5137] hover:bg-[#C4552D] text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                >
+                  <span>Get your tender audited free</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
           )}
 
@@ -353,8 +416,8 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
 
           {/* Executive Tender Summary Banner */}
           <div className="p-4 rounded-xl border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] flex flex-wrap items-center justify-between gap-4 shadow-2xs">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
+            <div className="space-y-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <span className="font-mono text-xs font-bold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-2 py-0.5 rounded tracking-wide">
                   {brief.tender?.id || tenderId}
                 </span>
@@ -393,16 +456,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 <span>Download workbook (.xlsx)</span>
               </button>
 
-              {brief.share_id && (
-                <Link
-                  href={`/b/${brief.share_id}`}
-                  target="_blank"
-                  className="px-3 py-1.5 bg-[#FFFFFF] dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Shareable brief</span>
-                </Link>
-              )}
+              {/* Shareable brief link returns once /b/[shareId] exists in this app (consolidation plan, Phase 2). */}
 
               <Link
                 href={`/print?tender=${tenderId}`}
@@ -445,7 +499,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               <span className="text-[10px] text-[#767067] dark:text-[#A39A8D] uppercase tracking-wider font-semibold">
                 Recommended award
               </span>
-              <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 font-mono mt-0.5 truncate">
+              <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 font-sans tracking-tight mt-0.5 truncate" title={recommendedVendor?.name || undefined}>
                 {recommendedVendor?.name || 'Not decided'}
               </div>
               <span className="text-[11px] text-zinc-700 dark:text-zinc-300 font-mono mt-0.5 block">
@@ -470,23 +524,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Review Gate Rail (Section 4 P1) */}
-          <ReviewGateRail
-            openItems={safeOpenItems}
-            review={brief.review}
-            isVerified={isVerified}
-            onSelectOpenItem={(item) => {
-              if (item.param_id) {
-                setCellReviewTarget({
-                  paramId: item.param_id,
-                  vendorId: item.vendor_id === '-' ? safeVendors[0]?.id || '' : item.vendor_id,
-                });
-              }
-            }}
-            onVerify={handleVerify}
-            isVerifying={isVerifying}
-            blockingMessage={verifyBlockerMsg}
-          />
+          {/* Review Gate Rail (Section 4 P1). For a live reviewer it sits on top; in the saved sample it
+              moves into the Sign-off tab so a visitor reaches the evaluated totals first. */}
+          {!isReplayMode && gateRail}
 
           {/* Project Baseline Card if project constraints exist */}
           {brief.tender?.project && Object.keys(brief.tender.project).length > 0 && (
@@ -726,6 +766,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               />
             )}
 
+            {isReplayMode && activeTab === 'SIGNOFF' && gateRail}
             {activeTab === 'SIGNOFF' && (
               <div className="border border-[#D9D4CC] dark:border-[#7A7266] bg-[#FFFFFF] dark:bg-[#1C1916] rounded-xl p-5 space-y-5 text-xs shadow-2xs">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D9D4CC] dark:border-[#7A7266] pb-4">

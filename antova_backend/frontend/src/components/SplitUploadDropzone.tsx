@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { uploadTenderFile, putManifest, startIngestJob, getJobStatus } from '../lib/api';
+import { uploadTenderFile, putManifest, startIngestJob, getJobStatus, fetchHealth } from '../lib/api';
+import { AUDIT_REQUEST_URL, REPLAY_NOTICE, SAMPLE_TENDER_ID } from '../lib/site';
 import { SAMPLE_TENDER_IDS } from '../lib/replay';
 import { Job } from '../lib/types';
 import { FileUp, CheckCircle, AlertCircle, Loader2, ArrowRight, UploadCloud, FileCheck, Layers } from 'lucide-react';
@@ -10,10 +11,19 @@ import { useRouter } from 'next/navigation';
 export function SplitUploadDropzone() {
   const router = useRouter();
 
+  // With no live engine (replay mode) new files can't be processed. Say so before anyone fills
+  // in the form, and send them to the real intake instead.
+  const [isReplay, setIsReplay] = useState(false);
+  useEffect(() => {
+    fetchHealth()
+      .then((h) => setIsReplay(h?.mode === 'replay'))
+      .catch(() => setIsReplay(true));
+  }, []);
+
   // Ingestion form state
-  const [tenderId, setTenderId] = useState('TENDER-2026-402');
-  const [tenderTitle, setTenderTitle] = useState('350 MWp Solar + BESS Substation: 33 kV GIS Switchgear Package');
-  const [clientName, setClientName] = useState('Vogt-Grid EPC Consortium GmbH');
+  const [tenderId, setTenderId] = useState('');
+  const [tenderTitle, setTenderTitle] = useState('');
+  const [clientName, setClientName] = useState('');
   const [equipmentClass, setEquipmentClass] = useState('mv_gis_switchgear');
   const [rateTable, setRateTable] = useState('mv_gis_switchgear_v2');
   // Engineering estimates feed quantity-priced gaps. Blank means unknown: those gaps stay UNPRICED
@@ -72,6 +82,12 @@ export function SplitUploadDropzone() {
       setIsProcessing(true);
       setError(null);
       setStatusMessage(`Starting ${presetId}...`);
+
+      // No live engine: play the saved run directly instead of asking a server that will refuse.
+      if (isReplay && SAMPLE_TENDER_IDS.has(presetId)) {
+        simulateJobProgression(presetId);
+        return;
+      }
 
       const res = await startIngestJob(presetId, 'replay');
       if (res && res.job_id) {
@@ -221,42 +237,81 @@ export function SplitUploadDropzone() {
 
   return (
     <div className="space-y-6 text-xs max-w-5xl mx-auto font-sans">
-      {/* Quick Launch Pre-Staged Tenders Ribbon */}
-      <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs">
+      {/* Sample tender: the one-click path to a full result */}
+      <div className="p-4 rounded-xl border border-[#E7CDBF] dark:border-[#5A3A2C] bg-[#FBF4EF] dark:bg-[#211B17] shadow-2xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <h3 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider">
-                Try a sample tender
+              <span className="w-2 h-2 rounded-full bg-[#C4552D]" />
+              <h3 className="text-xs font-bold text-[#3B2A21] dark:text-white uppercase tracking-wider">
+                Run the sample audit
               </h3>
             </div>
-            <p className="text-[#667487] dark:text-zinc-400 text-xs mt-1">
-              Run a saved sample to see a full result:
+            <p className="text-[#6B5A50] dark:text-zinc-400 text-xs mt-1">
+              {SAMPLE_TENDER_ID}: a real 33 kV switchgear tender with 3 bids. Opens the full result.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleQuickLoadPreset('TENDER-2026-402')}
-              disabled={isProcessing}
-              className="px-3.5 py-1.5 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 shadow-2xs"
-            >
-              Open sample 402
-            </button>
-            <button
-              onClick={() => handleQuickLoadPreset('TENDER-2026-417')}
-              disabled={isProcessing}
-              className="px-3.5 py-1.5 border border-[#DCE2E8] dark:border-zinc-700 bg-zinc-50 dark:bg-[#111113] text-zinc-900 dark:text-white font-medium rounded-md text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50 shadow-2xs"
-            >
-              Open sample 417
-            </button>
-          </div>
+          <button
+            onClick={() => handleQuickLoadPreset(SAMPLE_TENDER_ID)}
+            disabled={isProcessing}
+            className="px-4 py-2 bg-[#9C5137] hover:bg-[#C4552D] text-white font-semibold rounded-md text-xs transition-colors disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
+          >
+            <span>Run sample audit</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
+      {/* Live Pipeline Monitor Modal */}
+      {isProcessing && currentJob && (
+        <div className="p-4 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
+              <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
+                Progress: {currentJob.job_id}
+              </span>
+            </div>
+            <span className="text-cyan-600 dark:text-cyan-400 font-mono font-bold text-xs tabular-nums">
+              {currentJob.progress_pct}%
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-zinc-200 dark:bg-zinc-900 h-1.5 rounded overflow-hidden">
+            <div
+              className="bg-zinc-900 dark:bg-white h-full transition-all duration-300"
+              style={{ width: `${currentJob.progress_pct}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-sans">
+            <div>
+              Step: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
+            </div>
+            <div className="text-zinc-800 dark:text-zinc-300">{statusMessage}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Replay mode: the honest route for a real tender */}
+      {isReplay && (
+        <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <p className="text-zinc-700 dark:text-zinc-300 text-xs max-w-2xl leading-relaxed">{REPLAY_NOTICE.upload}</p>
+          <a
+            href={AUDIT_REQUEST_URL}
+            className="shrink-0 px-4 py-2 rounded-md bg-[#1A1512] dark:bg-white text-[#F1F0EF] dark:text-black font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:opacity-90"
+          >
+            <span>Send us your tender</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
+
       {/* Main Split Ingestion Form */}
-      <form onSubmit={handleCustomSubmit} className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 space-y-5 shadow-2xs">
+      <form onSubmit={handleCustomSubmit} className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 shadow-2xs">
+        <fieldset disabled={isReplay} aria-describedby={isReplay ? 'replay-upload-note' : undefined} className={`space-y-5 min-w-0 ${isReplay ? 'opacity-55' : ''}`}>
         <div className="border-b border-[#DCE2E8] dark:border-zinc-800 pb-3">
           <h2 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider flex items-center gap-2">
             <UploadCloud className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
@@ -293,6 +348,7 @@ export function SplitUploadDropzone() {
               type="text"
               value={tenderTitle}
               onChange={(e) => setTenderTitle(e.target.value)}
+              placeholder="e.g. 33 kV GIS switchgear package"
               className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
               required
             />
@@ -307,6 +363,7 @@ export function SplitUploadDropzone() {
               type="text"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
+              placeholder="e.g. your EPC or utility"
               className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
               required
             />
@@ -469,39 +526,12 @@ export function SplitUploadDropzone() {
             )}
           </button>
         </div>
+        </fieldset>
+        {isReplay && (
+          <p id="replay-upload-note" className="sr-only">{REPLAY_NOTICE.upload}</p>
+        )}
       </form>
 
-      {/* Live Pipeline Monitor Modal */}
-      {isProcessing && currentJob && (
-        <div className="p-4 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl space-y-3 shadow-2xs">
-          <div className="flex items-center justify-between pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
-              <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
-                Progress: {currentJob.job_id}
-              </span>
-            </div>
-            <span className="text-cyan-600 dark:text-cyan-400 font-mono font-bold text-xs tabular-nums">
-              {currentJob.progress_pct}%
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div className="w-full bg-zinc-200 dark:bg-zinc-900 h-1.5 rounded overflow-hidden">
-            <div
-              className="bg-zinc-900 dark:bg-white h-full transition-all duration-300"
-              style={{ width: `${currentJob.progress_pct}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-            <div>
-              Step: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
-            </div>
-            <div className="text-zinc-800 dark:text-zinc-300">{statusMessage}</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
