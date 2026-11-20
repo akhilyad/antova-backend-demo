@@ -19,6 +19,9 @@ export const REPLAY_HEADERS: Readonly<Record<string, string>> = { 'x-antova-sour
 export const READ_ONLY_DETAIL =
   "This deployment shows saved sample data and can't save anything. Connect a live server to upload documents, run ingests or record decisions.";
 
+export const RECALC_DETAIL =
+  "Recalculating totals needs a live server. The preview shows the change using the engine's formula.";
+
 export interface ReplayResult {
   status: number;
   /** JSON-serialisable body, or a string for non-JSON content. */
@@ -32,7 +35,6 @@ export interface SampleBrief {
   verified_at?: string | null;
   tender?: { id?: string; title?: string; client?: string };
   financials?: unknown;
-  sensitivity_ranges?: unknown;
   open_items?: unknown[];
   documents?: { file?: string; filename?: string; size_bytes?: number }[];
 }
@@ -93,14 +95,11 @@ export function replayResponse(method: string, subPath: string, sample: SampleBr
   const tenderPath = parseTenderPath(subPath);
   const isSample = tenderPath !== null && SAMPLE_TENDER_IDS.has(tenderPath.tenderId);
 
-  // Evaluate is a read: it recomputes nothing here, it returns the saved financials.
+  // Recalculating needs the engine. Returning the saved totals here would show them as if they
+  // had been computed at the new rates.
   if (tenderPath && tenderPath.rest === 'evaluate' && verb === 'POST') {
     if (!isSample) return notFound(subPath);
-    return json(200, {
-      financials: sample.financials ?? [],
-      sensitivity_ranges: sample.sensitivity_ranges ?? {},
-      rank_flip: null,
-    });
+    return json(405, { detail: RECALC_DETAIL, code: 'replay_no_recalc' });
   }
 
   if (WRITE_METHODS.has(verb)) {

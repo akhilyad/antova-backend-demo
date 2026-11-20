@@ -23,6 +23,7 @@ from antova_db import init_db
 from antova_ingest import config
 from antova_ingest.pipeline import UnknownTender
 from antova_models import IngestJobRequest, JobStatusResponse
+from antova_ratelimit import RateLimitMiddleware, SlidingWindow
 from antova_review_api import router as review_router
 from antova_upload_api import router as upload_router
 from antova_workers import job_manager
@@ -58,14 +59,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Exact origins only. The Next.js proxy calls the engine server to server, so a deployment that
+# routes the browser through it needs none; set ANTOVA_ALLOWED_ORIGINS only for direct browser calls.
+# (A pattern such as *.vercel.app would admit every Vercel project, not just this one.)
 configured_origins = [o.strip() for o in os.environ.get("ANTOVA_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 if not configured_origins:
-    configured_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "https://antova-backend-demo.vercel.app"]
+    configured_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+# Per-client limits on recalculation, page images and exports (antova_ratelimit.py).
+rate_limiter = SlidingWindow()
+app.add_middleware(RateLimitMiddleware, window=rate_limiter)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=configured_origins,
-    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

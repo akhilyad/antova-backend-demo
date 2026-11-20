@@ -23,6 +23,8 @@ os.environ["ANTOVA_ENV_FILE"] = str(_TEST_DB_DIR / "no-such.env")
 # CORS origins are read when antova_api is imported, so set them first.
 os.environ["ANTOVA_REVIEW_TOKEN"] = "test-review-token"
 os.environ["ANTOVA_ALLOWED_ORIGINS"] = "http://localhost:5173"
+# Rate limits are tested on their own (test_antova_hardening.py); the rest of the suite runs unthrottled.
+os.environ["ANTOVA_RATE_LIMIT"] = "off"
 
 import pytest  # noqa: E402
 

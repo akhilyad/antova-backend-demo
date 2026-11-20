@@ -167,8 +167,8 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     fetchBrief();
   }, [tenderId]);
 
-  const handleSensitivityEvaluate = async (rates: RatesSettings) => {
-    if (!brief) return;
+  const handleSensitivityEvaluate = async (rates: RatesSettings): Promise<boolean> => {
+    if (!brief) return false;
     try {
       setEvaluating(true);
       const res = await evaluateTender(tenderId, rates);
@@ -184,10 +184,12 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       );
       setActionMsg('Totals updated with the new rates.');
       setTimeout(() => setActionMsg(null), 3500);
+      return true;
     } catch (err: any) {
       console.error('Sensitivity evaluation error:', err);
       setActionMsg(err.message || "Couldn't update the totals. Try again.");
       setTimeout(() => setActionMsg(null), 3500);
+      return false;
     } finally {
       setEvaluating(false);
     }

@@ -216,8 +216,8 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
   }, [activeTenderId]);
 
   // Handle sensitivity evaluate
-  const handleSensitivity = async (rates: RatesSettings) => {
-    if (!brief) return;
+  const handleSensitivity = async (rates: RatesSettings): Promise<boolean> => {
+    if (!brief) return false;
     try {
       const res = await evaluateTender(activeTenderId, rates);
       setBrief({
@@ -226,8 +226,10 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
       });
       setActionNotice("Recalculated true evaluated costs using live rate sensitivity.");
       setTimeout(() => setActionNotice(null), 3000);
+      return true;
     } catch (err: any) {
       setErrorNotice(err.message || "Failed to recalculate rates");
+      return false;
     }
   };
 
@@ -1186,7 +1188,11 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                   </button>
                 </div>
 
-                <SensitivityPanel onEvaluate={handleSensitivity} />
+                <SensitivityPanel
+                  onEvaluate={handleSensitivity}
+                  financials={brief?.financials ?? []}
+                  parameters={brief?.tender?.parameters ?? []}
+                />
 
                 {brief && (
                   <div className="p-4 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#09090B] space-y-3">

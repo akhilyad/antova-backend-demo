@@ -20,6 +20,7 @@ from fastapi.encoders import jsonable_encoder
 
 from antova_db import SessionLocal, TenderRepository
 from antova_ingest import extract, pipeline
+from antova_ingest.chat_locator import LocateApiError
 from antova_ingest.extract import ExtractError
 from antova_models import JobStatus, JobStatusResponse
 from antova_service import persist
@@ -27,6 +28,25 @@ from antova_service import persist
 log = logging.getLogger(__name__)
 
 INTERRUPTED = "Interrupted: the service restarted before this job finished. Submit it again."
+
+# Failures about the documents themselves: their message is written for the person who uploaded them.
+DOCUMENT_FAILURES = (pipeline.IngestFailed, pipeline.UnknownTender, ExtractError)
+
+
+def job_error_message(exc: BaseException, job_id: str) -> str:
+    """What GET /api/jobs/{id} tells the client about a failed job.
+
+    A document failure (bad manifest, unreadable PDF, model refusal) keeps its message. A model
+    provider error would quote the provider's URL and response, and anything else is a bug whose
+    text may name files or internals: those get a reference to the job, and the full story stays
+    in the server log.
+    """
+    if isinstance(exc, LocateApiError):
+        return (f"The model provider could not be reached or answered with an error. Try again later "
+                f"(reference {job_id}; details are in the server log).")
+    if isinstance(exc, DOCUMENT_FAILURES):
+        return f"{type(exc).__name__}: {exc}"
+    return f"Processing failed because of an internal error (reference {job_id}; details are in the server log)."
 
 
 def _repo_call(fn: Callable[[TenderRepository], object]):
@@ -146,12 +166,12 @@ class JobQueueManager:
         except Exception as e:
             # An ingest that fails for a reason about the documents (a bad manifest, an unreadable MR, a
             # model refusal) is an outcome, not a bug: a warning. Anything else is logged with its traceback.
-            if isinstance(e, (pipeline.IngestFailed, pipeline.UnknownTender, ExtractError)):
+            if isinstance(e, DOCUMENT_FAILURES):
                 log.warning("ingest job %s failed: tender=%s: %s", job_id, tender_id, e)
             else:
                 log.exception("ingest job %s crashed: tender=%s", job_id, tender_id)
             _repo_call(lambda repo: repo.update_job(
-                job_id, status="FAILED", finished=True, error=f"{type(e).__name__}: {e}"))
+                job_id, status="FAILED", finished=True, error=job_error_message(e, job_id)))
         finally:
             if self._active.get(tender_id) == job_id:
                 del self._active[tender_id]
