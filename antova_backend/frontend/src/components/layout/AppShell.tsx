@@ -34,7 +34,8 @@ import {
 } from 'lucide-react';
 import { TenderCommandPopover } from '../TenderCommandPopover';
 import { ReviewTenderRow, Brief } from '../../lib/types';
-import { listTenders, downloadTbeExport } from '../../lib/api';
+import { listTenders, downloadTbeExport, fetchHealth } from '../../lib/api';
+import { LANDING_URL, SAMPLE_TENDER_ID } from '../../lib/site';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -71,6 +72,11 @@ function AppShellContent({
   const [tenders, setTenders] = useState<ReviewTenderRow[]>([]);
   const [isExportingTbe, setIsExportingTbe] = useState<boolean>(false);
 
+  // Phones and small tablets start with the sidebar collapsed to icons, so the audit gets the width.
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 1023px)').matches) setSidebarOpen(false);
+  }, []);
+
   // Initialize theme from HTML or localStorage
   useEffect(() => {
     const isDarkClass = document.documentElement.classList.contains('dark');
@@ -91,6 +97,15 @@ function AppShellContent({
     });
   };
 
+  // Live engine or saved sample? Health answers mode: 'replay' when no engine is connected.
+  const [engineMode, setEngineMode] = useState<'live' | 'replay' | 'unknown'>('unknown');
+  useEffect(() => {
+    fetchHealth()
+      .then((h) => setEngineMode(h?.mode === 'replay' ? 'replay' : 'live'))
+      .catch(() => setEngineMode('replay'));
+  }, []);
+  const isReplay = brief?._source === 'replay' || engineMode === 'replay';
+
   // Load tender registry for switcher
   useEffect(() => {
     listTenders()
@@ -103,7 +118,7 @@ function AppShellContent({
     ? pathname.split('/audit/')[1]?.split('/')[0]?.split('?')[0]
     : undefined;
 
-  const currentTenderId = propActiveTenderId || routeTenderId || tenders[0]?.tender_id || 'TENDER-2026-402';
+  const currentTenderId = propActiveTenderId || routeTenderId || tenders[0]?.tender_id || SAMPLE_TENDER_ID;
   const activeTenderData = tenders.find((t) => t.tender_id === currentTenderId);
   const isVerified = brief?.status === 'VERIFIED' || activeTenderData?.status === 'VERIFIED';
   const openItemsCount = brief?.open_items?.length ?? activeTenderData?.open_items ?? 0;
@@ -156,18 +171,18 @@ function AppShellContent({
         >
           {/* Brand Header */}
           <div className="h-14 px-4 flex items-center justify-between border-b border-[#DCE2E8] dark:border-zinc-800">
-            <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-7 h-7 rounded-md bg-[#172536] text-white flex items-center justify-center font-bold text-xs tracking-tight shrink-0 shadow-2xs">
-                A
-              </div>
+            <Link href="/" className="flex items-center gap-2 overflow-hidden" aria-label="Antova workbench home">
+              {/* Same wordmark as the landing page: brand dot + serif name */}
+              <span aria-hidden="true" className="inline-flex h-2 w-2 rounded-full bg-[#C4552D] shrink-0 ml-1" />
               {sidebarOpen && (
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-xs tracking-wider text-[#182433] dark:text-white uppercase font-mono">
-                      ANTOVA
-                    </span>
-                  </div>
-                </div>
+                <span className="flex items-baseline gap-1.5 min-w-0">
+                  <span className="font-serif text-xl tracking-tight text-[#1A1512] dark:text-[#F1F0EF] leading-none">
+                    Antova
+                  </span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-[#9C5137] dark:text-[#D49672]">
+                    Workbench
+                  </span>
+                </span>
               )}
             </Link>
 
@@ -389,15 +404,20 @@ function AppShellContent({
           {/* Sidebar Footer */}
           <div className="p-3 border-t border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-700 dark:text-zinc-200 shrink-0">
-                EP
-              </div>
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  isReplay ? 'bg-amber-500' : engineMode === 'live' ? 'bg-emerald-500' : 'bg-zinc-300'
+                }`}
+                aria-hidden="true"
+              />
               {sidebarOpen && (
                 <div className="truncate text-[11px]">
                   <div className="font-semibold text-zinc-900 dark:text-white truncate">
-                    Procurement Lead
+                    {isReplay ? 'Saved sample' : engineMode === 'live' ? 'Live engine' : 'Connecting...'}
                   </div>
-                  <div className="text-[10px] text-zinc-400 truncate">Vogt-Grid EPC</div>
+                  <a href={LANDING_URL} className="text-[10px] text-zinc-400 hover:text-[#C4552D] truncate block">
+                    Back to antova
+                  </a>
                 </div>
               )}
             </div>
@@ -459,7 +479,8 @@ function AppShellContent({
                 </button>
               )}
 
-              {/* Quick TBE Export Button */}
+              {/* Quick TBE Export Button (needs the live engine) */}
+              {!isReplay && (
               <button
                 onClick={handleQuickExport}
                 disabled={isExportingTbe}
@@ -469,6 +490,7 @@ function AppShellContent({
                 <Download className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Download</span>
               </button>
+              )}
 
               {/* Verified Seal / Unlock Toggle (if on audit page) */}
               {pathname.startsWith('/audit') && onVerify && onWithdraw && (

@@ -61,6 +61,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
+          "var(--font-geist)",
           "-apple-system",
           "BlinkMacSystemFont",
           "Inter",
@@ -70,7 +71,9 @@ const config: Config = {
           "Arial",
           "sans-serif",
         ],
+        serif: ["var(--font-source-serif)", "Georgia", "Cambria", "serif"],
         mono: [
+          "var(--font-geist-mono)",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",
