@@ -21,6 +21,13 @@ import { Brief as BriefSchema } from './schemas';
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 /**
+ * Optional: the engine's public origin for PDF uploads only. Vercel functions accept request bodies
+ * up to 4.5 MB, so a 50 MB spec can't pass through the /api proxy. When this is set, file PUTs go
+ * straight to the engine (it must list this site in ANTOVA_ALLOWED_ORIGINS, and the reviewer's own
+ * token is sent). Every other call stays on the same-origin proxy.
+ */
+export const DIRECT_UPLOAD_BASE = (process.env.NEXT_PUBLIC_DIRECT_UPLOAD_URL || '').replace(/\/$/, '');
+/**
  * The reviewer's own token, entered on the Settings page and kept for this browser tab only.
  * There is deliberately no built-in default: without a token the browser sends none, reads go
  * through the same-origin proxy, and writes are refused by the backend (or by replay mode).
@@ -295,6 +302,56 @@ export async function fetchHealth() {
   return res.json();
 }
 
+/**
+ * What the workbench is connected to, read from the same-origin proxy's /api/health (never a
+ * direct, CORS-dependent call, so a browser block can't be mistaken for "no engine").
+ * - live:     the engine answered healthy.
+ * - degraded: the engine answered, but not healthy (e.g. 503, database unreachable).
+ * - replay:   the proxy is serving the saved sample, because no engine is configured or it is down.
+ * - unknown:  the health check itself failed (network, proxy error). Not treated as replay.
+ */
+export type EngineState =
+  | { kind: 'checking' }
+  | { kind: 'live'; version?: string }
+  | { kind: 'degraded'; status: number; detail: string }
+  | { kind: 'replay'; reason: 'not_configured' | 'unreachable'; backend?: string; error?: string }
+  | { kind: 'unknown'; detail: string };
+
+export async function probeEngine(timeoutMs = 8000): Promise<EngineState> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch('/api/health', { cache: 'no-store', signal: controller.signal });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (body.mode === 'replay') {
+      return {
+        kind: 'replay',
+        reason: body.reason === 'unreachable' ? 'unreachable' : 'not_configured',
+        backend: typeof body.backend === 'string' ? body.backend : undefined,
+        error: typeof body.error === 'string' ? body.error : undefined,
+      };
+    }
+    if (res.ok && body.status === 'healthy') {
+      return { kind: 'live', version: typeof body.version === 'string' ? body.version : undefined };
+    }
+    const detail =
+      typeof body.detail === 'string'
+        ? body.detail
+        : body.database === 'unreachable'
+        ? 'The engine is up but its database is unreachable.'
+        : `The engine answered ${res.status}${body.status ? ` (${String(body.status)})` : ''}.`;
+    return { kind: 'degraded', status: res.status, detail };
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    return {
+      kind: 'unknown',
+      detail: aborted ? `No answer from /api/health within ${timeoutMs / 1000} s.` : "The health check could not reach this site's /api proxy.",
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function listTenders(token: string | undefined = getReviewToken()): Promise<ReviewTenderRow[]> {
   let res: Response;
   try {
@@ -365,8 +422,14 @@ export async function uploadTenderFile(
   fileBytes: Blob | ArrayBuffer,
   token: string | undefined = getReviewToken()
 ): Promise<{ filename: string; size_bytes: number; sha256: string; pages: number }> {
-  const res = await smartFetch(
-    `/api/review/tenders/${encodeURIComponent(tenderId)}/files/${encodeURIComponent(filename)}`,
+  const path = `/api/review/tenders/${encodeURIComponent(tenderId)}/files/${encodeURIComponent(filename)}`;
+  // Large PDFs bypass the proxy's body limit when a direct upload origin is configured.
+  const res = await (DIRECT_UPLOAD_BASE ? fetch(`${DIRECT_UPLOAD_BASE}${path}`, {
+      method: 'PUT',
+      headers: { ...tokenHeader(token), 'Content-Type': 'application/pdf' },
+      body: fileBytes,
+    }) : smartFetch(
+    path,
     {
       method: 'PUT',
       headers: {
@@ -375,8 +438,14 @@ export async function uploadTenderFile(
       },
       body: fileBytes,
     }
-  );
+  ));
   if (!res.ok) {
+    if (res.status === 413) {
+      throw new Error(
+        'This PDF is larger than the proxy accepts (4.5 MB on Vercel). Set NEXT_PUBLIC_DIRECT_UPLOAD_URL to upload straight to the engine.'
+      );
+    }
+    if (res.status === 401) throw new Error('Uploading needs your reviewer token. Add it under Settings.');
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Upload failed. Try again.");
   }
@@ -658,6 +727,61 @@ export function getEvidenceUrl(
 ): string {
   const base = API_BASE || '';
   return `${base}/api/review/tenders/${encodeURIComponent(tenderId)}/evidence/${encodeURIComponent(paramId)}/${encodeURIComponent(source)}/${which}.png`;
+}
+
+/**
+ * The source PDF behind a citation. Always same-origin: the proxy streams it from the engine, or in
+ * replay mode redirects to the sample's static copy under /samples.
+ */
+export function getDocumentUrl(tenderId: string, filename: string): string {
+  return `/api/review/tenders/${encodeURIComponent(tenderId)}/documents/${encodeURIComponent(filename)}`;
+}
+
+/** The source PDF's bytes, with the reviewer's token when one is set. */
+export async function fetchDocumentBytes(
+  tenderId: string,
+  filename: string,
+  token: string | undefined = getReviewToken()
+): Promise<ArrayBuffer> {
+  const res = await fetch(getDocumentUrl(tenderId, filename), { headers: tokenHeader(token) });
+  if (!res.ok) {
+    throw await errorFrom(
+      res,
+      res.status === 404 ? `${filename} isn't stored for this tender.` : `Couldn't load ${filename}.`
+    );
+  }
+  return res.arrayBuffer();
+}
+
+/** Whether the server has a Q&A model wired up (ANTOVA_QA_URL), and the question endpoint. */
+export async function getAskStatus(): Promise<{ enabled: boolean; requires?: string }> {
+  try {
+    const res = await fetch('/api/ask', { cache: 'no-store' });
+    if (!res.ok) return { enabled: false, requires: 'ANTOVA_QA_URL' };
+    return res.json();
+  } catch {
+    return { enabled: false, requires: 'ANTOVA_QA_URL' };
+  }
+}
+
+export interface AskContext {
+  tender_id: string;
+  param_id?: string;
+  vendor_id?: string;
+  filename?: string;
+  page?: number;
+  quote?: string;
+  requirement?: string;
+}
+
+export async function askQuestion(question: string, context: AskContext): Promise<{ answer: string }> {
+  const res = await fetch('/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...tokenHeader(getReviewToken()) },
+    body: JSON.stringify({ question, context }),
+  });
+  if (!res.ok) throw await errorFrom(res, "Couldn't get an answer. Try again.");
+  return res.json();
 }
 
 export function getTbeExportUrl(tenderId: string): string {

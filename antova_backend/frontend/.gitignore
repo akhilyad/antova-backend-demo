@@ -8,3 +8,6 @@ dist/
 .env.*.local
 .DS_Store
 *.log
+
+# pdf.js worker, copied from node_modules at build time (scripts/copy-pdf-worker.mjs)
+public/pdfjs/

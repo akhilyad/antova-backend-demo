@@ -204,6 +204,21 @@ def test_review_detail_evaluate_and_evidence_for_draft(review, ingested, share_i
     assert review.post("/api/review/tenders/TENDER-NOPE/evaluate", json={}).status_code == 404
 
 
+def test_review_serves_source_pdf_for_the_viewer(review, public, share_id):
+    """The full-page viewer reads the cited PDF itself; only files the brief lists are served."""
+    response = review.get(f"{REVIEW}/documents/MR-33kV-GIS-Rev4.pdf")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.content.startswith(b"%PDF-")
+    for unknown in ("documents/manifest.json", "documents/expected.json", "documents/nope.pdf",
+                    "documents/..%2Fmanifest.json"):
+        assert review.get(f"{REVIEW}/{unknown}").status_code == 404, unknown
+    assert review.get("/api/review/tenders/TENDER-NOPE/documents/MR-33kV-GIS-Rev4.pdf").status_code == 404
+    # Token-gated like the rest of the review API.
+    assert public.get(f"{REVIEW}/documents/MR-33kV-GIS-Rev4.pdf").status_code == 401
+
+
 def test_tender_migrated_from_v2_is_served(public, review, share_id):
     """R27: the v2 → v3 migration only adds tender columns, filling ingest_stats with {} and
     stage_log with []; the other tables are unchanged. Such a tender is served in full."""

@@ -22,6 +22,19 @@ export const READ_ONLY_DETAIL =
 export const RECALC_DETAIL =
   "Recalculating totals needs a live server. The preview shows the change using the engine's formula.";
 
+/** Why the proxy is answering from the saved sample instead of a live engine. */
+export interface ReplayDiagnostic {
+  /** not_configured: no BACKEND_URL. unreachable: BACKEND_URL is set but the engine did not answer. */
+  reason: 'not_configured' | 'unreachable';
+  /** The engine host the proxy tried (origin only, never a path or credentials). */
+  backend?: string;
+  /** The network error, when the engine was unreachable. */
+  error?: string;
+}
+
+/** Where the sample's source PDFs are served from as static files (frontend/public/samples). */
+export const SAMPLE_PDF_ROOT = '/samples';
+
 export interface ReplayResult {
   status: number;
   /** JSON-serialisable body, or a string for non-JSON content. */
@@ -80,12 +93,25 @@ function parseTenderPath(subPath: string): { tenderId: string; rest: string } | 
   return { tenderId, rest: m[2] ?? '' };
 }
 
-export function replayResponse(method: string, subPath: string, sample: SampleBrief): ReplayResult {
+export function replayResponse(
+  method: string,
+  subPath: string,
+  sample: SampleBrief,
+  diagnostic: ReplayDiagnostic = { reason: 'not_configured' }
+): ReplayResult {
   const verb = method.toUpperCase();
 
   if (subPath === 'health' && (verb === 'GET' || verb === 'HEAD')) {
-    // Not "healthy": the engine is not connected. The UI reads `mode` to say so.
-    return json(200, { status: 'degraded', mode: 'replay', engine: 'not connected', version: '3.0.0' });
+    // Not "healthy": the engine is not connected. The UI reads `mode` to say so and `reason` to say why.
+    return json(200, {
+      status: 'degraded',
+      mode: 'replay',
+      engine: 'not connected',
+      version: '3.0.0',
+      reason: diagnostic.reason,
+      ...(diagnostic.backend ? { backend: diagnostic.backend } : {}),
+      ...(diagnostic.error ? { error: diagnostic.error } : {}),
+    });
   }
 
   if (subPath === 'review/tenders' && verb === 'GET') {
@@ -128,8 +154,26 @@ export function replayResponse(method: string, subPath: string, sample: SampleBr
         manifest: true,
       });
     }
-    default:
-      // Evidence crops, exports and anything else were never saved in the sample.
+    default: {
+      // The sample's own source PDFs ship as static files; the viewer is sent there.
+      const doc = tenderPath.rest.match(/^documents\/([^/]+)$/);
+      if (doc) {
+        let filename = doc[1];
+        try {
+          filename = decodeURIComponent(filename);
+        } catch {
+          return notFound(subPath);
+        }
+        const listed = (Array.isArray(sample.documents) ? sample.documents : []).some(
+          (d) => (d.filename ?? d.file) === filename
+        );
+        if (!listed) return notFound(subPath);
+        const location = `${SAMPLE_PDF_ROOT}/${encodeURIComponent(tenderPath.tenderId)}/${encodeURIComponent(filename)}`;
+        return { status: 307, body: '', headers: { ...REPLAY_HEADERS, location, 'cache-control': 'public, max-age=300' } };
+      }
+      // Evidence crops, exports and anything else were never saved in the sample. The viewer
+      // cuts crops from the PDF itself when the engine's PNG is missing.
       return notFound(subPath);
+    }
   }
 }

@@ -14,7 +14,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ from antova_briefs_api import (
     LoadedTender, RatesBody, brief, evaluate, evidence_png, load_tender, not_found,
 )
 from antova_db import TenderRepository, get_db
+from antova_evidence import EvidenceNotFound, document_path
 from antova_models import (
     BriefResponse, ConflictResponse, EvaluateResponse, ReviewPutResponse, ReviewRow, ReviewTenderRow,
     VerifyResponse, WithdrawResponse,
@@ -118,6 +119,30 @@ def evaluate_tender(tender_id: str, rates: RatesBody, db: Session = Depends(get_
 @router.get("/tenders/{tender_id}/evidence/{param_id}/{source}/{which}.png")
 def get_evidence(tender_id: str, param_id: str, source: str, which: str, db: Session = Depends(get_db)):
     return evidence_png(_loaded(db, tender_id), param_id, source, which, REVIEW_CACHE)
+
+
+@router.get("/tenders/{tender_id}/documents/{filename}")
+def get_document(tender_id: str, filename: str, db: Session = Depends(get_db)):
+    """The source PDF behind a tender's citations, for the workbench's full-page viewer.
+
+    Only a file the stored brief lists is served, and only from inside the tender's own folder
+    (antova_evidence.document_path refuses unknown names, absolute paths and `..`).
+    """
+    loaded = _loaded(db, tender_id)
+    known = {d["filename"] for d in loaded.documents}
+    try:
+        path = document_path(loaded.meta.tender_id, filename, known)
+    except EvidenceNotFound:
+        raise not_found() from None
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": REVIEW_CACHE,
+            "Content-Disposition": f'inline; filename="{path.name}"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.put("/tenders/{tender_id}/overrides/{param_id}/{vendor_id}", status_code=204)

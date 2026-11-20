@@ -19,6 +19,4 @@ export const REPLAY_NOTICE = {
     'Sign-off records a named reviewer, so it needs a live engine. This saved sample stays a draft.',
   export:
     'Downloads are produced by the live engine. This public demo runs on a saved sample. Send us a tender to get the full pack.',
-  upload:
-    'This public demo has no live engine attached, so it can’t process new files. Send us your spec and bids instead: a draft audit comes back within 24 hours, under NDA.',
 } as const;
