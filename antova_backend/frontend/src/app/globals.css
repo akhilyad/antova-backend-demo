@@ -30,6 +30,11 @@
   --gap: #9E2B1F;
   --open: #8A5A00;
   --brand: #9C5137;
+
+  /* Sensitivity bands, cheapest to dearest. Muted, so the chart reads as ink on paper. */
+  --band-optimistic: #3F6B57;
+  --band-realistic: #6B5B8C;
+  --band-conservative: #9E2B1F;
 }
 
 .dark {
@@ -56,6 +61,10 @@
   --gap: #E07A6A;
   --open: #E0B055;
   --brand: #D49672;
+
+  --band-optimistic: #7FB49B;
+  --band-realistic: #A898CC;
+  --band-conservative: #E07A6A;
 }
 
 body {

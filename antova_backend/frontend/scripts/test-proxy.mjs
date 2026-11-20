@@ -62,6 +62,48 @@ test('health says the engine is not connected', () => {
   assert.notEqual(r.body.status, 'healthy');
 });
 
+test('health says why it is in replay: not configured, or configured but unreachable', () => {
+  assert.equal(replay('GET', 'health').body.reason, 'not_configured');
+  const r = replayResponse('GET', 'health', sample, {
+    reason: 'unreachable',
+    backend: 'https://engine.example.com',
+    error: 'fetch failed (ECONNREFUSED)',
+  });
+  assert.equal(r.body.mode, 'replay');
+  assert.equal(r.body.reason, 'unreachable');
+  assert.equal(r.body.backend, 'https://engine.example.com');
+  assert.match(r.body.error, /ECONNREFUSED/);
+});
+
+test("the sample's own source PDFs redirect to the static copies; nothing else does", () => {
+  const r = replay('GET', 'review/tenders/TENDER-2026-402/documents/MR-33kV-GIS-Rev4.pdf');
+  assert.equal(r.status, 307);
+  assert.equal(r.headers.location, '/samples/TENDER-2026-402/MR-33kV-GIS-Rev4.pdf');
+  assert.equal(r.headers['x-antova-source'], 'replay');
+  for (const p of [
+    'review/tenders/TENDER-2026-402/documents/manifest.json',
+    'review/tenders/TENDER-2026-402/documents/nope.pdf',
+    'review/tenders/TENDER-2026-402/documents/%E0%A4%A.pdf',
+    'review/tenders/TENDER-2026-999/documents/MR-33kV-GIS-Rev4.pdf',
+  ]) {
+    assert.equal(replay('GET', p).status, 404, p);
+  }
+  assert.equal(replay('PUT', 'review/tenders/TENDER-2026-402/documents/MR-33kV-GIS-Rev4.pdf').status, 405);
+});
+
+test('every PDF the sample lists ships in public/samples', () => {
+  for (const d of sample.documents) {
+    const file = path.resolve(here, '../public/samples/TENDER-2026-402', d.filename);
+    assert.ok(fs.existsSync(file), file);
+    assert.equal(fs.readFileSync(file).subarray(0, 5).toString(), '%PDF-');
+  }
+});
+
+test('the source PDF gets the export timeout, still under 60 s', () => {
+  const t = upstreamTimeoutMs('GET', 'review/tenders/T-1/documents/bid.pdf');
+  assert.ok(t > upstreamTimeoutMs('GET', 'review/tenders/T-1') && t < 60_000);
+});
+
 // --- P0-2: no fake writes -------------------------------------------------------------------
 
 test('uploads, manifests, ingests and decisions are refused with 405', () => {

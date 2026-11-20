@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sample402Raw from "@/lib/sample402.json";
-import { replayResponse, type SampleBrief } from "@/lib/replay";
+import { replayResponse, type ReplayDiagnostic, type SampleBrief } from "@/lib/replay";
 import {
   REQUEST_ID_HEADER,
   buildUpstreamHeaders,
@@ -22,8 +22,8 @@ function newRequestId(): string {
   return crypto.randomUUID().replace(/-/g, "");
 }
 
-function serveReplay(method: string, subPath: string, requestId: string): NextResponse {
-  const result = replayResponse(method, subPath, sample402Raw as SampleBrief);
+function serveReplay(method: string, subPath: string, requestId: string, diagnostic?: ReplayDiagnostic): NextResponse {
+  const result = replayResponse(method, subPath, sample402Raw as SampleBrief, diagnostic);
   const headers = { ...result.headers, [REQUEST_ID_HEADER]: requestId };
   if (typeof result.body === "string") {
     return new NextResponse(result.body, { status: result.status, headers });
@@ -49,7 +49,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const backendBase = resolveBackendBase(process.env);
   if (!backendBase) {
     // No backend configured: replay mode, without a doomed request to localhost first.
-    return serveReplay(method, subPath, requestId);
+    return serveReplay(method, subPath, requestId, { reason: "not_configured" });
   }
 
   const targetUrl = new URL(`/api/${subPath}${request.nextUrl.search}`, backendBase);
@@ -86,7 +86,11 @@ async function proxy(request: NextRequest, context: RouteContext) {
     const cause = err instanceof Error && err.cause instanceof Error ? ` (${err.cause.message})` : "";
     const message = (err instanceof Error ? err.message : "Server not responding") + cause;
     console.warn(JSON.stringify({ event: "upstream_unreachable", request_id: requestId, method, path: `/api/${subPath}`, error: message }));
-    return serveReplay(method, subPath, requestId);
+    return serveReplay(method, subPath, requestId, {
+      reason: "unreachable",
+      backend: new URL(backendBase).origin,
+      error: message.slice(0, 200),
+    });
   }
   clearTimeout(timeoutId);
 

@@ -1,0 +1,2 @@
+# Sample PDFs are byte-exact: line-ending conversion would break their xref offsets.
+*.pdf binary

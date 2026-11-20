@@ -58,6 +58,7 @@ export function upstreamTimeoutMs(method: string, subPath: string): number {
   const verb = method.toUpperCase();
   if (verb === 'PUT' && /^review\/tenders\/[^/]+\/files\/[^/]+$/.test(subPath)) return 55_000;
   if (/\.(xlsx|csv)$/.test(subPath)) return 30_000;
+  if (/^review\/tenders\/[^/]+\/documents\/[^/]+$/.test(subPath)) return 30_000;
   if (/\/evidence\/.+\.png$/.test(subPath)) return 20_000;
   if (/\/evaluate$/.test(subPath) || /\/verify$/.test(subPath)) return 20_000;
   return 10_000;

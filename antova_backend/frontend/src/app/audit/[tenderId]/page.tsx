@@ -6,7 +6,7 @@ import { AppShell } from '../../../components/layout/AppShell';
 import { TrueJobCostTable } from '../../../components/TrueJobCostTable';
 import { ComplianceMatrix } from '../../../components/ComplianceMatrix';
 import { CommercialRiskTable } from '../../../components/CommercialRiskTable';
-import { SensitivityPanel } from '../../../components/SensitivityPanel';
+import { SensitivityWorkbench } from '../../../components/sensitivity/SensitivityWorkbench';
 import { FindingsRegister } from '../../../components/FindingsRegister';
 import { ProjectBaselineCard } from '../../../components/ProjectBaselineCard';
 import { ReviewGateRail } from '../../../components/ReviewGateRail';
@@ -514,16 +514,20 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                   vendors={safeVendors}
                   parameters={safeParameters}
                   onOpenEvidence={(paramId, which, citation) => {
-                    setEvidenceTarget({ paramId, source: safeVendors[0]?.id || '', which, citation });
+                    // The finding's citation names its document; the source follows from it, not from the first bidder.
+                    const doc = safeDocuments.find((d) => d.filename === citation?.filename);
+                    const source = doc ? (doc.role === 'mr_spec' ? 'mr' : doc.vendor_id || '') : safeVendors[0]?.id || '';
+                    setEvidenceTarget({ paramId, source, which, citation });
                   }}
                 />
               )}
 
               {activeTab === 'SENSITIVITY' && (
-                <SensitivityPanel
+                <SensitivityWorkbench
                   onEvaluate={handleSensitivityEvaluate}
                   isLoading={evaluating}
-                  currentRates={currentRates}
+                  // Until rates are applied, the brief's figures are at the rate table's own rates.
+                  currentRates={hasCustomRates ? currentRates : undefined}
                   financials={safeFinancials}
                   vendors={safeVendors}
                   parameters={safeParameters}
@@ -595,6 +599,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
               citation={evidenceTarget.citation}
               secondaryCitation={evidenceTarget.secondaryCitation}
               onClose={() => setEvidenceTarget(null)}
+              parameters={safeParameters}
+              vendors={safeVendors}
+              documents={safeDocuments}
             />
           )}
 

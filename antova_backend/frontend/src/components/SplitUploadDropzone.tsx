@@ -1,31 +1,47 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { uploadTenderFile, putManifest, startIngestJob, getJobStatus, fetchHealth } from '../lib/api';
-import { AUDIT_REQUEST_URL, REPLAY_NOTICE, SAMPLE_TENDER_ID } from '../lib/site';
+import { uploadTenderFile, putManifest, startIngestJob, getJobStatus, probeEngine, type EngineState } from '../lib/api';
+import { AUDIT_REQUEST_URL, SAMPLE_TENDER_ID } from '../lib/site';
 import { SAMPLE_TENDER_IDS } from '../lib/replay';
+import { INGEST_PHASES, phaseFor, phaseIndex, type IngestPhase } from '../lib/ingest-phase';
 import { Job } from '../lib/types';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+const ENGINE_COPY = {
+  replayShort:
+    'No engine is attached to this deployment, so new files can’t be processed. The sample audit still opens, and we can run your tender under NDA.',
+} as const;
+
 export function SplitUploadDropzone() {
   const router = useRouter();
 
-  // With no live engine (replay mode) new files can't be processed. Say so before anyone fills
-  // in the form, and send them to the real intake instead.
-  const [isReplay, setIsReplay] = useState(false);
+  // What this deployment is connected to. Only replay mode (no engine behind the proxy) locks the
+  // form. A degraded or unknown answer is reported, but the form stays usable: the engine may be
+  // there, and a real error from it says more than a guess.
+  const [engine, setEngine] = useState<EngineState>({ kind: 'checking' });
+  const recheckEngine = () => {
+    setEngine({ kind: 'checking' });
+    probeEngine().then(setEngine);
+  };
   useEffect(() => {
-    fetchHealth()
-      .then((h) => setIsReplay(h?.mode === 'replay'))
-      .catch(() => setIsReplay(true));
+    let mounted = true;
+    probeEngine().then((state) => {
+      if (mounted) setEngine(state);
+    });
+    return () => {
+      mounted = false;
+    };
   }, []);
+  const isReplay = engine.kind === 'replay';
 
   // Ingestion form state
   const [tenderId, setTenderId] = useState('');
   const [tenderTitle, setTenderTitle] = useState('');
   const [clientName, setClientName] = useState('');
-  const [equipmentClass, setEquipmentClass] = useState('mv_gis_switchgear');
-  const [rateTable, setRateTable] = useState('mv_gis_switchgear_v2');
+  const [equipmentClass] = useState('mv_gis_switchgear');
+  const [rateTable] = useState('mv_gis_switchgear_v2');
   // Engineering estimates feed quantity-priced gaps. Blank means unknown: those gaps stay UNPRICED
   // instead of being priced on another tender's numbers.
   const [busbarCuKg, setBusbarCuKg] = useState('');
@@ -38,6 +54,7 @@ export function SplitUploadDropzone() {
   // Job progress state
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
+  const [phase, setPhase] = useState<IngestPhase | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,26 +63,35 @@ export function SplitUploadDropzone() {
     if (pollTimer.current) clearTimeout(pollTimer.current);
   }, []);
 
+  const fail = (message: string) => {
+    setIsProcessing(false);
+    setPhase((p) => (p ? 'failed' : p));
+    setError(message);
+  };
+
   const simulateJobProgression = (targetTenderId: string) => {
     const stages = [
-      { msg: 'Sample run: reading the documents...', pct: 15 },
-      { msg: 'Sample run: finding each quote...', pct: 40 },
-      { msg: 'Sample run: checking each quote is on its page...', pct: 65 },
-      { msg: 'Sample run: reading the values...', pct: 85 },
-      { msg: 'Sample run: pricing the gaps...', pct: 95 },
-      { msg: 'Sample run: done. Opening the tender...', pct: 100 },
+      { msg: 'Sample run: reading the documents...', stage: 'Parse', pct: 15 },
+      { msg: 'Sample run: finding each quote...', stage: 'Locate', pct: 40 },
+      { msg: 'Sample run: checking each quote is on its page...', stage: 'Check each quote is on its page', pct: 65 },
+      { msg: 'Sample run: reading the values...', stage: 'Read values', pct: 85 },
+      { msg: 'Sample run: pricing the gaps...', stage: 'Price', pct: 95 },
+      { msg: 'Sample run: done. Opening the tender...', stage: 'Persist', pct: 100 },
     ];
     let i = 0;
     const interval = setInterval(() => {
       if (i < stages.length) {
-        setStatusMessage(stages[i].msg);
-        setCurrentJob({
+        const job = {
           job_id: `replay-${targetTenderId}`,
           status: i === stages.length - 1 ? 'COMPLETED' : 'PROCESSING',
           progress_pct: stages[i].pct,
-          stage: stages[i].msg.split(':')[0],
-          tender_id: targetTenderId,
-        } as any);
+          stage: stages[i].stage,
+          created_at: new Date().toISOString(),
+          completed_at: null,
+        } as Job;
+        setStatusMessage(stages[i].msg);
+        setCurrentJob(job);
+        setPhase(phaseFor(job));
         i++;
       } else {
         clearInterval(interval);
@@ -82,6 +108,7 @@ export function SplitUploadDropzone() {
       setIsProcessing(true);
       setError(null);
       setStatusMessage(`Starting ${presetId}...`);
+      setPhase('queued');
 
       // No live engine: play the saved run directly instead of asking a server that will refuse.
       if (isReplay && SAMPLE_TENDER_IDS.has(presetId)) {
@@ -101,8 +128,7 @@ export function SplitUploadDropzone() {
         setStatusMessage(`Loading the saved sample for ${presetId}...`);
         simulateJobProgression(presetId);
       } else {
-        setIsProcessing(false);
-        setError(err?.message || `No saved sample for ${presetId}. Connect a live server to process it.`);
+        fail(err?.message || `No saved sample for ${presetId}. Connect a live server to process it.`);
       }
     }
   };
@@ -118,29 +144,28 @@ export function SplitUploadDropzone() {
     const tick = async () => {
       pollTimer.current = null;
       if (Date.now() - started > POLL_LIMIT_MS) {
-        setIsProcessing(false);
-        setError(`Still processing after 20 minutes. Check the tender list later; job ${jobId} keeps running on the server.`);
+        fail(`Still processing after 20 minutes. Check the tender list later; job ${jobId} keeps running on the server.`);
         return;
       }
       try {
         const job = await getJobStatus(jobId);
         failedAttempts = 0;
         setCurrentJob(job);
+        setPhase(phaseFor(job));
         if (job.status === 'COMPLETED') {
           setStatusMessage('Done. Opening the tender...');
           setTimeout(() => router.push(`/audit/${targetTenderId}`), 800);
           return;
         }
         if (job.status === 'FAILED') {
-          setIsProcessing(false);
-          setError(job.error || 'Processing stopped. Nothing was saved. Try again.');
+          fail(job.error || 'Processing stopped. Nothing was saved. Try again.');
           return;
         }
+        setStatusMessage(job.status === 'PENDING' ? 'Queued. Waiting for a worker...' : 'Processing on the engine...');
       } catch {
         failedAttempts++;
         if (failedAttempts > 3) {
-          setIsProcessing(false);
-          setError(`Lost contact with the server. Check the tender list in a minute.`);
+          fail('Lost contact with the server. Check the tender list in a minute.');
           return;
         }
       }
@@ -162,6 +187,8 @@ export function SplitUploadDropzone() {
 
     try {
       setIsProcessing(true);
+      setCurrentJob(null);
+      setPhase('uploading');
       setStatusMessage('Uploading...');
 
       const estimates: Record<string, number> = {};
@@ -170,6 +197,7 @@ export function SplitUploadDropzone() {
         const value = Number(raw);
         if (!Number.isFinite(value) || value < 0) {
           setIsProcessing(false);
+          setPhase(null);
           setError(`${name === 'busbar_cu_kg' ? 'Busbar copper' : 'Heavy-haul loads'} must be a number of 0 or more.`);
           return;
         }
@@ -183,8 +211,8 @@ export function SplitUploadDropzone() {
       }
 
       // 2. Upload Vendor Proposals
-      for (const v of vendorFiles) {
-        setStatusMessage(`Uploading bid: ${v.file.name}...`);
+      for (const [i, v] of vendorFiles.entries()) {
+        setStatusMessage(`Uploading bid ${i + 1} of ${vendorFiles.length}: ${v.file.name}...`);
         await uploadTenderFile(tenderId, v.file.name, v.file);
       }
 
@@ -218,6 +246,7 @@ export function SplitUploadDropzone() {
       }
 
       // 4. Start Ingestion Job
+      setPhase('queued');
       setStatusMessage('Queued. Processing starts shortly.');
       // 'auto': reuse saved model answers where they exist, ask the model for the rest. 'replay' would
       // fail on a new tender, which has no saved answers.
@@ -225,13 +254,11 @@ export function SplitUploadDropzone() {
       if (res && res.job_id) {
         pollJob(res.job_id, tenderId);
       } else {
-        setIsProcessing(false);
-        setError('The server didn\'t start processing. Try again.');
+        fail("The server didn't start processing. Try again.");
       }
     } catch (err: any) {
       console.error('Custom document ingestion error:', err);
-      setIsProcessing(false);
-      setError(err.message || 'Upload failed. Try again.');
+      fail(err?.message || 'Upload failed. Try again.');
     }
   };
 
@@ -260,30 +287,11 @@ export function SplitUploadDropzone() {
         </button>
       </div>
 
-      {isProcessing && currentJob && (
-        <div className="border-b border-rule pb-4" role="status">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="flex items-center gap-2 text-ink-2">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {currentJob.stage}
-              <span className="text-faint">{statusMessage}</span>
-            </span>
-            <span className="tabular-nums text-ink">{currentJob.progress_pct}%</span>
-          </div>
-          <div className="mt-2 h-px w-full bg-rule">
-            <div className="h-px bg-ink transition-all duration-300" style={{ width: `${currentJob.progress_pct}%` }} />
-          </div>
-        </div>
+      {phase && (isProcessing || phase === 'failed') && (
+        <IngestProgress phase={phase} job={currentJob} message={statusMessage} />
       )}
 
-      {isReplay && (
-        <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
-          <p className="max-w-2xl leading-relaxed text-muted">{REPLAY_NOTICE.upload}</p>
-          <a href={AUDIT_REQUEST_URL} className="shrink-0 font-medium text-ink underline decoration-rule-strong underline-offset-2 hover:decoration-ink">
-            Send us your tender
-          </a>
-        </div>
-      )}
+      <EngineNote engine={engine} onRecheck={recheckEngine} />
 
       <form onSubmit={handleCustomSubmit}>
         <fieldset
@@ -355,7 +363,7 @@ export function SplitUploadDropzone() {
                     const newItems = files.map((file, idx) => ({
                       file,
                       vendorId: `vendor-${String.fromCharCode(97 + vendorFiles.length + idx)}`,
-                      vendorName: file.name.replace('.pdf', ''),
+                      vendorName: file.name.replace(/\.pdf$/i, ''),
                       country: 'EU',
                     }));
                     setVendorFiles([...vendorFiles, ...newItems]);
@@ -395,8 +403,104 @@ export function SplitUploadDropzone() {
             </button>
           </div>
         </fieldset>
-        {isReplay && <p id="replay-upload-note" className="sr-only">{REPLAY_NOTICE.upload}</p>}
+        {isReplay && <p id="replay-upload-note" className="sr-only">{ENGINE_COPY.replayShort}</p>}
       </form>
+    </div>
+  );
+}
+
+/** Upload → Queued → Parsing → Extracting → Pricing → Complete, from the engine's own job stage. */
+function IngestProgress({ phase, job, message }: { phase: IngestPhase; job: Job | null; message: string }) {
+  const current = phaseIndex(phase);
+  const failed = phase === 'failed';
+  return (
+    <div className="border-b border-rule pb-4" role="status" aria-live="polite">
+      <ol className="grid grid-cols-6 gap-2 text-[11px]">
+        {INGEST_PHASES.map((p, i) => {
+          const done = !failed && (i < current || phase === 'complete');
+          const active = !failed && i === current && phase !== 'complete';
+          return (
+            <li key={p.id} className="min-w-0">
+              <div className={`h-0.5 ${done ? 'bg-ink' : active ? 'bg-brand' : 'bg-rule'}`} />
+              <p className={`mt-1.5 flex items-center gap-1 truncate ${done || active ? 'text-ink' : 'text-faint'}`}>
+                {active && <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />}
+                {p.label}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="mt-2 flex items-baseline justify-between gap-4 text-xs">
+        <span className={failed ? 'text-gap' : 'text-muted'}>
+          {failed ? 'Processing stopped. The reason is below.' : message}
+          {job?.stage && !failed && <span className="text-faint"> · engine stage: {job.stage}</span>}
+        </span>
+        {job && <span className="tabular-nums text-ink">{job.progress_pct}%</span>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Says what the workbench is connected to: silent when the engine is live and healthy, a specific
+ * diagnosis otherwise, with the engineering detail behind a disclosure.
+ */
+function EngineNote({ engine, onRecheck }: { engine: EngineState; onRecheck: () => void }) {
+  if (engine.kind === 'checking') {
+    return (
+      <p className="flex items-center gap-2 text-xs text-faint">
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Checking the engine connection...
+      </p>
+    );
+  }
+  if (engine.kind === 'live') {
+    return (
+      <p className="text-xs text-faint">
+        Connected to the live engine{engine.version ? ` (v${engine.version})` : ''}. New files are processed for real.
+      </p>
+    );
+  }
+
+  let headline: string;
+  let detail: string;
+  let tone = 'text-muted';
+  if (engine.kind === 'replay' && engine.reason === 'unreachable') {
+    headline = `The engine at ${engine.backend ?? 'BACKEND_URL'} isn’t answering, so this page shows the saved sample and can’t process new files.`;
+    detail = `Proxy error: ${engine.error ?? 'no answer'}. Check that the engine is running and that BACKEND_URL is its origin, without /api.`;
+    tone = 'text-gap';
+  } else if (engine.kind === 'replay') {
+    headline = ENGINE_COPY.replayShort;
+    detail =
+      'BACKEND_URL is not set on this deployment, so /api answers from the saved sample (replay mode). Set BACKEND_URL to the engine origin and redeploy.';
+  } else if (engine.kind === 'degraded') {
+    headline = 'The engine is reachable but not healthy. Uploads may fail until it recovers.';
+    detail = `${engine.detail} /api/health returned ${engine.status}.`;
+    tone = 'text-open';
+  } else {
+    headline = 'Couldn’t confirm the engine connection. You can still try: any error will say what went wrong.';
+    detail = engine.detail;
+    tone = 'text-open';
+  }
+
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4 text-xs">
+      <div className="max-w-2xl space-y-1 leading-relaxed">
+        <p className={tone}>{headline}</p>
+        <details className="text-faint">
+          <summary className="cursor-pointer select-none hover:text-ink">Diagnostic</summary>
+          <p className="mt-1 font-mono text-[11px] leading-relaxed">{detail}</p>
+        </details>
+      </div>
+      <div className="flex shrink-0 items-center gap-4">
+        <button type="button" onClick={onRecheck} className="text-muted hover:text-ink">
+          Check again
+        </button>
+        {engine.kind === 'replay' && (
+          <a href={AUDIT_REQUEST_URL} className="font-medium text-ink underline decoration-rule-strong underline-offset-2 hover:decoration-ink">
+            Send us your tender
+          </a>
+        )}
+      </div>
     </div>
   );
 }
