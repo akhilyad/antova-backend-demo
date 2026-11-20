@@ -275,7 +275,7 @@ export function SplitUploadDropzone() {
         <div>
           <p className="font-medium">Run the sample audit</p>
           <p className="mt-0.5 text-xs text-muted">
-            <span className="font-mono">{SAMPLE_TENDER_ID}</span>: a real 33 kV switchgear tender with 3 bids.
+            <span className="font-mono">{SAMPLE_TENDER_ID}</span>: a synthetic 33 kV switchgear tender with 3 bids.
           </p>
         </div>
         <button

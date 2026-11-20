@@ -376,7 +376,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
           {isReplayMode && (
             <div className="mb-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-rule pb-3 text-xs text-muted">
               <p>
-                <span className="font-medium text-ink-2">Sample audit.</span> Saved run of a real 33 kV switchgear tender. Read-only.
+                <span className="font-medium text-ink-2">Sample audit.</span> Synthetic 33 kV switchgear tender, saved engine run. Read-only.
               </p>
               <div className="flex items-center gap-4">
                 <Link href="/ingest" className="text-ink-2 underline decoration-rule-strong underline-offset-2 hover:decoration-ink">
