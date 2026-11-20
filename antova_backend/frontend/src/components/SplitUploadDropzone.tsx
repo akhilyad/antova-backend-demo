@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { uploadTenderFile, putManifest, startIngestJob, getJobStatus } from '../lib/api';
+import { SAMPLE_TENDER_IDS } from '../lib/replay';
 import { Job } from '../lib/types';
 import { FileUp, CheckCircle, AlertCircle, Loader2, ArrowRight, UploadCloud, FileCheck, Layers } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -70,9 +71,14 @@ export function SplitUploadDropzone() {
         simulateJobProgression(presetId);
       }
     } catch (err: any) {
-      console.warn('Backend startIngestJob offline, starting demo replay:', err);
-      setStatusMessage(`Loading the saved sample for ${presetId}...`);
-      simulateJobProgression(presetId);
+      // No live server: only a tender with saved sample data can be opened.
+      if (SAMPLE_TENDER_IDS.has(presetId)) {
+        setStatusMessage(`Loading the saved sample for ${presetId}...`);
+        simulateJobProgression(presetId);
+      } else {
+        setIsProcessing(false);
+        setError(err?.message || `No saved sample for ${presetId}. Connect a live server to process it.`);
+      }
     }
   };
 

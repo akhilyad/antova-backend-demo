@@ -205,7 +205,7 @@ Open **`http://localhost:3000`** in your browser.
 
 ## 6. API Contract & Endpoint Reference
 
-All endpoints requiring reviewer access expect the `X-Antova-Review-Token: dev-review-token-antova` header.
+All endpoints requiring reviewer access expect an `X-Antova-Review-Token` header carrying a token configured on the server (`ANTOVA_REVIEW_TOKEN` or `ANTOVA_REVIEWERS`). There is no default token.
 
 | Method | Endpoint Path | Description | Expected Payload / Response |
 | :--- | :--- | :--- | :--- |

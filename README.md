@@ -209,9 +209,20 @@ Open **`http://localhost:3000`** in your browser.
    - `frontend` (Next.js 15) receives all main application traffic (`/(.*)`).
    - `web` (Vite) handles internal assets and legacy review routes (`/b/(.*)`, `/review/(.*)`).
 3. Set the following Environment Variables in the Vercel Project Settings:
-   - `NEXT_PUBLIC_API_URL`: Your hosted FastAPI backend URL (e.g. `https://antova-yc-api.yourdomain.com`).
-   - `BACKEND_URL`: Internal backend URL for server-side Next.js proxying (e.g. `https://antova-yc-api.yourdomain.com`).
-   - `NEXT_PUBLIC_REVIEW_TOKEN`: `dev-review-token-antova` (or your production reviewer token).
+   - `BACKEND_URL`: the hosted FastAPI engine (see "Hosting the FastAPI engine" below), e.g. `https://api.example.com`. Unset means **replay mode**: the site serves the saved `TENDER-2026-402` sample read-only.
+   - `REVIEW_TOKEN` (optional, server-only): a token the proxy adds to **read** requests only, so visitors can browse a live backend. Writes always need the reviewer's own token, entered on the Settings page.
+   - Leave `NEXT_PUBLIC_API_URL` unset so the browser talks to the same-origin proxy. There is no `NEXT_PUBLIC_REVIEW_TOKEN`: anything `NEXT_PUBLIC_*` ships in the browser bundle.
+
+#### Hosting the FastAPI engine
+Vercel functions cannot run the engine: it keeps an in-process job queue, writes SQLite and tender PDFs to disk, and an ingest calls the LLM for minutes. Run `antova_backend/backend/Dockerfile` on a host with a persistent volume and **one** instance (Fly.io, Render, Railway, or Cloud Run with min and max instances set to 1):
+
+```bash
+cd antova_backend/backend
+docker build -t antova-engine .
+docker run -p 8000:8000 -v antova-data:/data   -e ANTOVA_REVIEW_TOKEN="$(openssl rand -hex 32)"   -e ANTOVA_ALLOWED_ORIGINS="https://your-site.vercel.app"   -e EXPLABS_API_KEY=... antova-engine
+```
+
+The image stores the database at `/data/antova.db` and uploads under `/data/tenders` (seeded from `samples/` on first start). Point `ANTOVA_DATABASE_URL` at Postgres instead of SQLite when you outgrow one instance's disk.
 
 #### Option B: Standalone Next.js Project on Vercel
 1. Set Vercel Root Directory directly to `antova_backend/frontend`.
@@ -220,14 +231,14 @@ Open **`http://localhost:3000`** in your browser.
 
 #### Built-in High-Availability & Demo-Day Safeguards
 - **Smart CORS Failover:** The API client attempts direct calls to `NEXT_PUBLIC_API_URL`; if blocked by browser CORS preflight or network restrictions, it automatically retries via the serverless internal proxy.
-- **Offline Verified Snapshot:** If the backend engine experiences a cold boot or returns HTTP 500, the audit workbench automatically recovers with the verified offline snapshot for `TENDER-2026-402`, ensuring zero blank screens and allowing complete interactive tab exploration during live presentations.
+- **Replay mode:** If no backend is configured or it cannot be reached, the proxy serves the saved snapshot of `TENDER-2026-402`, read-only and marked `x-antova-source: replay`. Any other tender ID is a 404, and every write (upload, manifest, ingest, decision) is refused with 405. When the backend does answer, its response (including 404 and 5xx) is passed through unchanged.
 - **React ErrorBoundary:** All workbench tabs are encapsulated in localized Error Boundaries with 1-click retry cards, ensuring isolated component issues never unmount the application shell.
 
 ---
 
 ## 6. API Contract & Endpoint Reference
 
-All endpoints requiring reviewer access expect the `X-Antova-Review-Token: dev-review-token-antova` header.
+All endpoints requiring reviewer access expect an `X-Antova-Review-Token` header carrying a token configured on the server (`ANTOVA_REVIEW_TOKEN` or `ANTOVA_REVIEWERS`). There is no default token.
 
 | Method | Endpoint Path | Description | Expected Payload / Response |
 | :--- | :--- | :--- | :--- |

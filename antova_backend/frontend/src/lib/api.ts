@@ -16,9 +16,39 @@ import {
   Criticality,
 } from './types';
 import sample402Raw from './sample402.json';
+import { replayResponse, type SampleBrief } from './replay';
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
-export const DEFAULT_REVIEW_TOKEN = process.env.NEXT_PUBLIC_REVIEW_TOKEN || 'dev-review-token-antova';
+/**
+ * The reviewer's own token, entered on the Settings page and kept for this browser tab only.
+ * There is deliberately no built-in default: without a token the browser sends none, reads go
+ * through the same-origin proxy, and writes are refused by the backend (or by replay mode).
+ */
+const REVIEW_TOKEN_KEY = 'antova.reviewToken';
+
+export function getReviewToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return window.sessionStorage.getItem(REVIEW_TOKEN_KEY)?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function setReviewToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const value = token?.trim();
+    if (value) window.sessionStorage.setItem(REVIEW_TOKEN_KEY, value);
+    else window.sessionStorage.removeItem(REVIEW_TOKEN_KEY);
+  } catch {
+    // storage blocked (private mode): the token simply isn't remembered
+  }
+}
+
+function tokenHeader(token: string | undefined): Record<string, string> {
+  return token ? { 'X-Antova-Review-Token': token } : {};
+}
 
 export class ApiError extends Error {
   status: number;
@@ -42,10 +72,8 @@ export class ApiError extends Error {
   }
 }
 
-function getHeaders(token: string = DEFAULT_REVIEW_TOKEN, isJson: boolean = true) {
-  const headers: Record<string, string> = {
-    'X-Antova-Review-Token': token,
-  };
+function getHeaders(token: string | undefined = getReviewToken(), isJson: boolean = true) {
+  const headers: Record<string, string> = tokenHeader(token);
   if (isJson) {
     headers['Content-Type'] = 'application/json';
   }
@@ -240,7 +268,7 @@ export async function fetchHealth() {
   return res.json();
 }
 
-export async function listTenders(token: string = DEFAULT_REVIEW_TOKEN): Promise<ReviewTenderRow[]> {
+export async function listTenders(token: string | undefined = getReviewToken()): Promise<ReviewTenderRow[]> {
   try {
     const res = await smartFetch('/api/review/tenders', {
       headers: getHeaders(token),
@@ -252,29 +280,11 @@ export async function listTenders(token: string = DEFAULT_REVIEW_TOKEN): Promise
   } catch (err) {
     console.warn("Direct fetch for listTenders failed:", err);
   }
-  return [
-    {
-      tender_id: 'TENDER-2026-402',
-      title: '350 MWp Solar + BESS Substation — 33kV GIS Switchgear Package',
-      status: 'VERIFIED' as const,
-      share_id: 'XmlZsvxPn-QxV260E0ZmPg',
-      ingested_at: '2026-11-14T23:40:04.593260+00:00',
-      verified_at: '2026-11-15T00:08:13.053137+00:00',
-      open_items: 0,
-    },
-    {
-      tender_id: 'TENDER-2026-417',
-      title: '120 MW Wind Farm Collector Substation — 33kV GIS Switchgear Package',
-      status: 'DRAFT' as const,
-      share_id: 'bBBTOjH8naxHZHrJbSmxew',
-      ingested_at: '2026-11-14T23:53:51.128575+00:00',
-      verified_at: null,
-      open_items: 18,
-    },
-  ];
+  // Replay: the same single sample row the proxy serves, so the two never disagree.
+  return replayResponse('GET', 'review/tenders', sample402Raw as SampleBrief).body as ReviewTenderRow[];
 }
 
-export async function getTenderBrief(tenderId: string, token: string = DEFAULT_REVIEW_TOKEN): Promise<Brief> {
+export async function getTenderBrief(tenderId: string, token: string | undefined = getReviewToken()): Promise<Brief> {
   try {
     const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}`, {
       headers: getHeaders(token),
@@ -298,7 +308,7 @@ export async function getTenderBrief(tenderId: string, token: string = DEFAULT_R
 
 export async function listReviewHistory(
   tenderId: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<ReviewRow[]> {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/reviews`, {
     headers: getHeaders(token),
@@ -314,14 +324,14 @@ export async function uploadTenderFile(
   tenderId: string,
   filename: string,
   fileBytes: Blob | ArrayBuffer,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<{ filename: string; size_bytes: number; sha256: string; pages: number }> {
   const res = await smartFetch(
     `/api/review/tenders/${encodeURIComponent(tenderId)}/files/${encodeURIComponent(filename)}`,
     {
       method: 'PUT',
       headers: {
-        'X-Antova-Review-Token': token,
+        ...tokenHeader(token),
         'Content-Type': 'application/pdf',
       },
       body: fileBytes,
@@ -336,7 +346,7 @@ export async function uploadTenderFile(
 
 export async function listTenderFiles(
   tenderId: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<{ files: Array<{ filename: string; size_bytes: number }>; manifest: boolean }> {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/files`, {
     headers: getHeaders(token),
@@ -351,7 +361,7 @@ export async function listTenderFiles(
 export async function putManifest(
   tenderId: string,
   manifest: Record<string, any>,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ) {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/manifest`, {
     method: 'PUT',
@@ -368,7 +378,7 @@ export async function putManifest(
 export async function startIngestJob(
   tenderId: string,
   mode: 'replay' | 'auto' | 'live' = 'replay',
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<{ job_id: string; status: string }> {
   const res = await smartFetch('/api/jobs/ingest', {
     method: 'POST',
@@ -382,7 +392,7 @@ export async function startIngestJob(
   return res.json();
 }
 
-export async function getJobStatus(jobId: string, token: string = DEFAULT_REVIEW_TOKEN): Promise<Job> {
+export async function getJobStatus(jobId: string, token: string | undefined = getReviewToken()): Promise<Job> {
   const res = await smartFetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
     headers: getHeaders(token),
     cache: 'no-store',
@@ -396,7 +406,7 @@ export async function getJobStatus(jobId: string, token: string = DEFAULT_REVIEW
 export async function evaluateTender(
   tenderId: string,
   rates: RatesSettings,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<EvaluateResponse> {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/evaluate`, {
     method: 'POST',
@@ -416,7 +426,7 @@ export async function putOverride(
   vendorId: string,
   adderEur: number | string,
   note: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<void> {
   const formattedAdder = typeof adderEur === 'number' ? adderEur.toFixed(2) : adderEur;
   const res = await smartFetch(
@@ -440,7 +450,7 @@ export async function deleteOverride(
   tenderId: string,
   paramId: string,
   vendorId: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<void> {
   const res = await smartFetch(
     `/api/review/tenders/${encodeURIComponent(tenderId)}/overrides/${encodeURIComponent(paramId)}/${encodeURIComponent(vendorId)}`,
@@ -461,7 +471,7 @@ export async function submitReviewDecision(
   vendorId: string,
   action: 'approve' | 'override' | 'reject',
   note: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<ReviewPutResponse> {
   const res = await smartFetch(
     `/api/review/tenders/${encodeURIComponent(tenderId)}/reviews/${encodeURIComponent(paramId)}/${encodeURIComponent(vendorId)}`,
@@ -483,7 +493,7 @@ export async function submitProjectBaselineReview(
   fieldName: string,
   action: 'approve' | 'override' | 'reject',
   note: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<ReviewPutResponse> {
   return submitReviewDecision(tenderId, `PROJECT.${fieldName}`, '-', action, note, token);
 }
@@ -493,11 +503,11 @@ export async function fetchEvidenceImageBlob(
   paramId: string,
   source: string,
   which: 'primary' | 'secondary' = 'primary',
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<string> {
   const res = await smartFetch(getEvidenceUrl(tenderId, paramId, source, which), {
     headers: {
-      'X-Antova-Review-Token': token,
+      ...tokenHeader(token),
     },
   });
   if (!res.ok) {
@@ -510,11 +520,11 @@ export async function fetchEvidenceImageBlob(
 
 export async function downloadTbeExport(
   tenderId: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<void> {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/export-tbe.xlsx`, {
     headers: {
-      'X-Antova-Review-Token': token,
+      ...tokenHeader(token),
     },
   });
   if (!res.ok) {
@@ -540,14 +550,14 @@ export async function downloadClarificationsExport(
   tenderId: string,
   format: 'csv' | 'xlsx' = 'csv',
   vendorId?: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ): Promise<void> {
   const query = vendorId ? `?vendor=${encodeURIComponent(vendorId)}` : '';
   const res = await smartFetch(
     `/api/review/tenders/${encodeURIComponent(tenderId)}/clarifications.${format}${query}`,
     {
       headers: {
-        'X-Antova-Review-Token': token,
+        ...tokenHeader(token),
       },
     }
   );
@@ -569,7 +579,7 @@ export async function downloadClarificationsExport(
 export async function verifyTender(
   tenderId: string,
   runId?: string,
-  token: string = DEFAULT_REVIEW_TOKEN
+  token: string | undefined = getReviewToken()
 ) {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/verify`, {
     method: 'POST',
@@ -589,7 +599,7 @@ export async function verifyTender(
   return res.json();
 }
 
-export async function withdrawTender(tenderId: string, token: string = DEFAULT_REVIEW_TOKEN) {
+export async function withdrawTender(tenderId: string, token: string | undefined = getReviewToken()) {
   const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}/withdraw`, {
     method: 'POST',
     headers: getHeaders(token, false),
