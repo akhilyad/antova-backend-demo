@@ -19,6 +19,9 @@
 !/samples/
 !/docs/
 !/web/
+!/Dockerfile
+!/.dockerignore
+!/deploy/
 
 # Internal strategy notes: kept on disk, never published. These come after the allowlist
 # above, which would otherwise let them through (/antova_*.md).

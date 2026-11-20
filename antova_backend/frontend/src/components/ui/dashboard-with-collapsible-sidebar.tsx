@@ -52,7 +52,7 @@ import {
   withdrawTender,
   fetchHealth,
   loadSampleBrief,
-  DEFAULT_REVIEW_TOKEN,
+  getReviewToken,
 } from "@/lib/api";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -605,7 +605,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                     </div>
                     <div className="py-2 space-y-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
                       <div>Role: <strong className="text-zinc-800 dark:text-zinc-200">founder</strong></div>
-                      <div>Token: <span className="text-zinc-600 dark:text-zinc-400">dev-review-token-antova</span></div>
+                      <div>Token: <span className="text-zinc-600 dark:text-zinc-400">{getReviewToken() ? 'set for this tab' : 'not set (read-only)'}</span></div>
                       <div>Engine: <span className="text-emerald-500">FastAPI 3.0.0 / Pint 0.26</span></div>
                     </div>
                     <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between">
@@ -1363,7 +1363,7 @@ export const Example = ({ initialTenderId = "TENDER-2026-402" }: DashboardProps)
                     </div>
                     <div className="py-2.5 flex justify-between">
                       <span className="text-zinc-500">Review Principal Token:</span>
-                      <span className="text-zinc-900 dark:text-white">{DEFAULT_REVIEW_TOKEN}</span>
+                      <span className="text-zinc-900 dark:text-white">{getReviewToken() ? 'Set for this tab' : 'Not set (read-only)'}</span>
                     </div>
                     <div className="py-2.5 flex justify-between">
                       <span className="text-zinc-500">Database Engine:</span>

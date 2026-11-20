@@ -4,7 +4,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR/backend"
 
 export ANTOVA_LOCATE_PROVIDER="explabs"
-export ANTOVA_REVIEW_TOKEN="dev-review-token-antova"
+# Local only. Override with your own value; never use this one on a deployed server.
+export ANTOVA_REVIEW_TOKEN="${ANTOVA_REVIEW_TOKEN:-dev-review-token-antova}"
 export ANTOVA_TENDERS_DIR="$(pwd)/samples"
 export ANTOVA_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001"
 
