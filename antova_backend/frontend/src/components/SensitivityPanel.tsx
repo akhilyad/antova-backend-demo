@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { RatesSettings, VendorFinancials, Vendor, Parameter } from '../lib/types';
 import { formatEur, formatDelta, formatPct } from '../lib/formatting';
+import { projectFinancials, baseLabourRate, rankBy, type Rates } from '../lib/domain/sensitivity';
 import {
   Sliders,
   RotateCcw,
@@ -22,7 +23,8 @@ import {
 } from 'lucide-react';
 
 export interface SensitivityPanelProps {
-  onEvaluate: (rates: RatesSettings) => void;
+  /** Resolves false when the engine could not recalculate; the staged rates then stay unapplied. */
+  onEvaluate: (rates: RatesSettings) => void | Promise<boolean | void>;
   isLoading?: boolean;
   onClose?: () => void;
   currentRates?: RatesSettings;
@@ -87,24 +89,27 @@ export function SensitivityPanel({
   vendors = [],
   parameters = [],
 }: SensitivityPanelProps) {
+  // The rate table's labour rate, read from the brief's labour lines (60 only when it has none).
+  const labourBase = useMemo(() => baseLabourRate(parameters) ?? 60, [parameters]);
+
   // 1. Staged Draft State (manipulated by sliders/inputs, does NOT trigger network recalculation)
   const [stagedCopper, setStagedCopper] = useState<number>(currentRates?.copper_multiplier ?? 1.0);
-  const [stagedLabor, setStagedLabor] = useState<number>(currentRates?.site_labor_rate ?? 60);
+  const [stagedLabor, setStagedLabor] = useState<number>(currentRates?.site_labor_rate ?? labourBase);
   const [stagedFreight, setStagedFreight] = useState<number>(currentRates?.freight_multiplier ?? 1.0);
 
   // 2. Applied Rates (currently active in the calculation)
   const [appliedCopper, setAppliedCopper] = useState<number>(currentRates?.copper_multiplier ?? 1.0);
-  const [appliedLabor, setAppliedLabor] = useState<number>(currentRates?.site_labor_rate ?? 60);
+  const [appliedLabor, setAppliedLabor] = useState<number>(currentRates?.site_labor_rate ?? labourBase);
   const [appliedFreight, setAppliedFreight] = useState<number>(currentRates?.freight_multiplier ?? 1.0);
 
   // Synchronize when currentRates prop changes externally
   useEffect(() => {
     if (currentRates) {
       setAppliedCopper(currentRates.copper_multiplier ?? 1.0);
-      setAppliedLabor(currentRates.site_labor_rate ?? 60);
+      setAppliedLabor(currentRates.site_labor_rate ?? labourBase);
       setAppliedFreight(currentRates.freight_multiplier ?? 1.0);
     }
-  }, [currentRates]);
+  }, [currentRates, labourBase]);
 
   // Diff checks
   const hasUnappliedChanges =
@@ -114,7 +119,7 @@ export function SensitivityPanel({
 
   const isModifiedFromBaseline =
     Math.abs(stagedCopper - 1.0) > 0.001 ||
-    Math.abs(stagedLabor - 60) > 0.1 ||
+    Math.abs(stagedLabor - labourBase) > 0.1 ||
     Math.abs(stagedFreight - 1.0) > 0.001;
 
   // Unapplied changes count
@@ -125,32 +130,34 @@ export function SensitivityPanel({
 
   // Reset Handlers
   const handleResetCopper = () => setStagedCopper(1.0);
-  const handleResetLabor = () => setStagedLabor(60);
+  const handleResetLabor = () => setStagedLabor(labourBase);
   const handleResetFreight = () => setStagedFreight(1.0);
 
   const handleResetAllToBaseline = () => {
     setStagedCopper(1.0);
-    setStagedLabor(60);
+    setStagedLabor(labourBase);
     setStagedFreight(1.0);
   };
 
   // Preset Selection
   const handleSelectPreset = (preset: ScenarioPreset) => {
     setStagedCopper(preset.copper);
-    setStagedLabor(preset.labor);
+    setStagedLabor(preset.id === 'realistic' ? labourBase : preset.labor);
     setStagedFreight(preset.freight);
   };
 
   // Explicit Recalculation Trigger (The ONLY action that triggers evaluateTender on the backend)
-  const handleApplyScenario = () => {
-    setAppliedCopper(stagedCopper);
-    setAppliedLabor(stagedLabor);
-    setAppliedFreight(stagedFreight);
-    onEvaluate({
+  const handleApplyScenario = async () => {
+    const ok = await onEvaluate({
       copper_multiplier: stagedCopper,
       site_labor_rate: stagedLabor,
       freight_multiplier: stagedFreight,
     });
+    // Only rates the engine accepted count as applied; otherwise the preview keeps showing the change.
+    if (ok === false) return;
+    setAppliedCopper(stagedCopper);
+    setAppliedLabor(stagedLabor);
+    setAppliedFreight(stagedFreight);
   };
 
   // Driver base analysis computed from tender parameters or benchmark package
@@ -183,88 +190,60 @@ export function SensitivityPanel({
       });
     });
 
-    return {
-      copperBase: copperBase > 0 ? copperBase : 12580,
-      labourHours: labourHours > 0 ? labourHours : 130,
-      freightBase: freightBase > 0 ? freightBase : 5200,
-      vendorCopper: Object.keys(vendorCopper).length ? vendorCopper : { 'vendor-b': 12580 },
-      vendorLabourHours: Object.keys(vendorLabourHours).length ? vendorLabourHours : { 'vendor-b': 65, 'vendor-c': 65 },
-      vendorFreight: Object.keys(vendorFreight).length ? vendorFreight : { 'vendor-b': 5200 },
-    };
+    // No invented fallbacks: a brief without rate-sensitive lines shows zeros.
+    return { copperBase, labourHours, freightBase, vendorCopper, vendorLabourHours, vendorFreight };
   }, [parameters]);
 
-  // Per-variable scenario results (financial deltas)
-  const copperDeltaTotal = driverTotals.copperBase * (stagedCopper - 1.0);
-  const laborDeltaTotal = driverTotals.labourHours * (stagedLabor - 60);
-  const freightDeltaTotal = driverTotals.freightBase * (stagedFreight - 1.0);
+  const stagedRates: Rates = useMemo(
+    () => ({ copper_multiplier: stagedCopper, site_labor_rate: stagedLabor, freight_multiplier: stagedFreight }),
+    [stagedCopper, stagedLabor, stagedFreight]
+  );
+  const appliedRates: Rates = useMemo(
+    () => ({ copper_multiplier: appliedCopper, site_labor_rate: appliedLabor, freight_multiplier: appliedFreight }),
+    [appliedCopper, appliedLabor, appliedFreight]
+  );
 
-  // Deterministic Client-Side Simulation Projection
+  // Per-variable results against the rate table (engine formula, exact cents; see lib/domain/sensitivity.ts)
+  const tableDeltas = useMemo(() => {
+    const table: Rates = { copper_multiplier: 1.0, site_labor_rate: null, freight_multiplier: 1.0 };
+    return projectFinancials(financials, parameters, table, stagedRates).reduce(
+      (acc, r) => ({
+        copper: acc.copper + r.delta.copper,
+        labour: acc.labour + r.delta.labour,
+        freight: acc.freight + r.delta.freight,
+      }),
+      { copper: 0, labour: 0, freight: 0 }
+    );
+  }, [financials, parameters, stagedRates]);
+  const copperDeltaTotal = tableDeltas.copper;
+  const laborDeltaTotal = tableDeltas.labour;
+  const freightDeltaTotal = tableDeltas.freight;
+
+  // Preview of the staged rates: the engine's applied figures plus the exact change per cell.
+  // "Apply Scenario" asks the engine; its answer replaces this preview.
   const simulationProjection = useMemo(() => {
-    const list = financials.length > 0
-      ? financials
-      : [
-          {
-            vendor_id: 'vendor-a',
-            name: 'Nordwerk Schaltanlagen GmbH',
-            headline_price: 452000,
-            true_evaluated_price: 452000,
-            badge: 'Recommended Award',
-          },
-          {
-            vendor_id: 'vendor-c',
-            name: 'Deltaport Skid Consortium B.V.',
-            headline_price: 439000,
-            true_evaluated_price: 454000,
-            badge: 'Bidder',
-          },
-          {
-            vendor_id: 'vendor-b',
-            name: 'VoltSwitch Industrial',
-            headline_price: 418000,
-            true_evaluated_price: 482800,
-            badge: 'Apparent Low Bidder',
-          },
-        ];
-
-    const projectedRows = list.map((v) => {
-      const vId = v.vendor_id;
-      const baseCost = v.true_evaluated_price ?? v.headline_price ?? 0;
-      const vCopperBase = driverTotals.vendorCopper[vId] || 0;
-      const vLabourHrs = driverTotals.vendorLabourHours[vId] || 0;
-      const vFreightBase = driverTotals.vendorFreight[vId] || 0;
-
-      const deltaCopper = vCopperBase * (stagedCopper - 1.0);
-      const deltaLabor = vLabourHrs * (stagedLabor - 60);
-      const deltaFreight = vFreightBase * (stagedFreight - 1.0);
-      const totalDelta = deltaCopper + deltaLabor + deltaFreight;
-      const projectedCost = baseCost + totalDelta;
-
-      return {
-        vendor_id: vId,
-        name: v.name,
-        baselineCost: baseCost,
-        projectedCost,
-        deltaCopper,
-        deltaLabor,
-        deltaFreight,
-        totalDelta,
-      };
-    });
-
-    const baselineSorted = [...projectedRows].sort((a, b) => a.baselineCost - b.baselineCost);
-    const projectedSorted = [...projectedRows].sort((a, b) => a.projectedCost - b.projectedCost);
-
-    const baselineWinner = baselineSorted[0];
+    const rows = projectFinancials(financials, parameters, appliedRates, stagedRates).map((r) => ({
+      vendor_id: r.vendor_id,
+      name: r.name,
+      baselineCost: r.baselineCost,
+      projectedCost: r.projectedCost,
+      deltaCopper: r.delta.copper,
+      deltaLabor: r.delta.labour,
+      deltaFreight: r.delta.freight,
+      totalDelta: r.totalDelta,
+    }));
+    const baselineWinner = rankBy(rows, 'baselineCost')[0];
+    const projectedSorted = rankBy(rows, 'projectedCost');
     const projectedWinner = projectedSorted[0];
-    const hasRankFlip = baselineWinner && projectedWinner && baselineWinner.vendor_id !== projectedWinner.vendor_id;
-
-    return {
-      rows: projectedSorted,
-      baselineWinner,
-      projectedWinner,
-      hasRankFlip,
-    };
-  }, [financials, driverTotals, stagedCopper, stagedLabor, stagedFreight]);
+    const hasRankFlip = Boolean(
+      baselineWinner &&
+        projectedWinner &&
+        baselineWinner.baselineCost !== null &&
+        projectedWinner.projectedCost !== null &&
+        baselineWinner.vendor_id !== projectedWinner.vendor_id
+    );
+    return { rows: projectedSorted, baselineWinner, projectedWinner, hasRankFlip };
+  }, [financials, parameters, appliedRates, stagedRates]);
 
   return (
     <div className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 text-xs shadow-2xs font-sans space-y-5">
@@ -489,9 +468,11 @@ export function SensitivityPanel({
               </span>
             </div>
             <p className="text-[10px] text-zinc-500 leading-tight">
-              {Math.abs(stagedCopper - 1.0) < 0.01
-                ? 'Rate table base: €12,580 Cu-Al adder applied on VoltSwitch.'
-                : `VoltSwitch Cu-Al busbar cost changes to ${formatEur(12580 * stagedCopper)}.`}
+              {driverTotals.copperBase === 0
+                ? 'No copper-priced cost lines in this brief.'
+                : Math.abs(stagedCopper - 1.0) < 0.01
+                ? `Rate table base: ${formatEur(driverTotals.copperBase)} of copper-priced cost lines.`
+                : `Copper-priced cost lines change to ${formatEur(driverTotals.copperBase * stagedCopper)}.`}
             </p>
           </div>
         </div>
@@ -509,11 +490,11 @@ export function SensitivityPanel({
               </div>
 
               {/* Reset Button */}
-              {stagedLabor !== 60 && (
+              {stagedLabor !== labourBase && (
                 <button
                   onClick={handleResetLabor}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
-                  title="Reset to €60/h baseline"
+                  title={`Reset to €${labourBase}/h baseline`}
                 >
                   <RotateCcw className="w-2.5 h-2.5" />
                   <span>Reset</span>
@@ -524,18 +505,18 @@ export function SensitivityPanel({
             {/* Current Baseline Indicator */}
             <div className="flex items-center justify-between text-[11px] bg-zinc-50 dark:bg-zinc-900/60 p-2 rounded-lg border border-zinc-100 dark:border-zinc-800/80 mb-3">
               <span className="text-zinc-600 dark:text-zinc-400">
-                Baseline: <strong className="font-mono text-zinc-800 dark:text-zinc-200">€60/h (rate table)</strong>
+                Baseline: <strong className="font-mono text-zinc-800 dark:text-zinc-200">€{labourBase}/h (rate table)</strong>
               </span>
               <span
                 className={`px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono ${
-                  stagedLabor === 60
+                  stagedLabor === labourBase
                     ? 'bg-zinc-200/60 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                    : stagedLabor > 60
+                    : stagedLabor > labourBase
                     ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400'
                     : 'bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-400'
                 }`}
               >
-                {stagedLabor === 60 ? 'At baseline' : formatPct(((stagedLabor - 60) / 60) * 100)}
+                {stagedLabor === labourBase ? 'At baseline' : formatPct(((stagedLabor - labourBase) / labourBase) * 100)}
               </span>
             </div>
 
@@ -578,7 +559,7 @@ export function SensitivityPanel({
             {/* Slider Scale Ticks */}
             <div className="flex justify-between text-[10px] text-zinc-400 font-mono mb-3">
               <span>€20/h</span>
-              <span className="text-zinc-600 dark:text-zinc-300 font-medium">€60/h (base)</span>
+              <span className="text-zinc-600 dark:text-zinc-300 font-medium">€{labourBase}/h (base)</span>
               <span>€200/h</span>
             </div>
           </div>
@@ -600,9 +581,11 @@ export function SensitivityPanel({
               </span>
             </div>
             <p className="text-[10px] text-zinc-500 leading-tight">
-              {stagedLabor === 60
-                ? 'Rate table base: 130 site hours (€7,800 total across bids).'
-                : `${formatDelta(65 * (stagedLabor - 60))} each on VoltSwitch and Deltaport (65h each).`}
+              {driverTotals.labourHours === 0
+                ? 'No site-labour cost lines in this brief.'
+                : stagedLabor === labourBase
+                ? `Rate table base: ${driverTotals.labourHours} site hours across bids.`
+                : `${formatDelta(laborDeltaTotal)} across ${driverTotals.labourHours} site hours.`}
             </p>
           </div>
         </div>
@@ -710,9 +693,11 @@ export function SensitivityPanel({
               </span>
             </div>
             <p className="text-[10px] text-zinc-500 leading-tight">
-              {Math.abs(stagedFreight - 1.0) < 0.01
-                ? 'Rate table base: €5,200 delivery adder on VoltSwitch (DAP).'
-                : `VoltSwitch site freight logistics changes to ${formatEur(5200 * stagedFreight)}.`}
+              {driverTotals.freightBase === 0
+                ? 'No freight-priced cost lines in this brief.'
+                : Math.abs(stagedFreight - 1.0) < 0.01
+                ? `Rate table base: ${formatEur(driverTotals.freightBase)} of freight-priced cost lines.`
+                : `Freight-priced cost lines change to ${formatEur(driverTotals.freightBase * stagedFreight)}.`}
             </p>
           </div>
         </div>

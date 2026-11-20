@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { uploadTenderFile, putManifest, startIngestJob, getJobStatus } from '../lib/api';
 import { SAMPLE_TENDER_IDS } from '../lib/replay';
 import { Job } from '../lib/types';
@@ -16,6 +16,10 @@ export function SplitUploadDropzone() {
   const [clientName, setClientName] = useState('Vogt-Grid EPC Consortium GmbH');
   const [equipmentClass, setEquipmentClass] = useState('mv_gis_switchgear');
   const [rateTable, setRateTable] = useState('mv_gis_switchgear_v2');
+  // Engineering estimates feed quantity-priced gaps. Blank means unknown: those gaps stay UNPRICED
+  // instead of being priced on another tender's numbers.
+  const [busbarCuKg, setBusbarCuKg] = useState('');
+  const [heavyHaulLoads, setHeavyHaulLoads] = useState('');
 
   // Selected files
   const [mrFile, setMrFile] = useState<File | null>(null);
@@ -26,6 +30,11 @@ export function SplitUploadDropzone() {
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+  }, []);
 
   const simulateJobProgression = (targetTenderId: string) => {
     const stages = [
@@ -82,33 +91,48 @@ export function SplitUploadDropzone() {
     }
   };
 
+  // Polls every 0.6 s at first, backing off to 5 s, for at most 20 minutes (a live ingest of a
+  // large tender can take several). Stops on COMPLETED, FAILED, unmount, or 4 failed checks in a row.
+  const POLL_LIMIT_MS = 20 * 60 * 1000;
   const pollJob = (jobId: string, targetTenderId: string) => {
+    const started = Date.now();
     let failedAttempts = 0;
-    const timer = setInterval(async () => {
+    let delay = 600;
+
+    const tick = async () => {
+      pollTimer.current = null;
+      if (Date.now() - started > POLL_LIMIT_MS) {
+        setIsProcessing(false);
+        setError(`Still processing after 20 minutes. Check the tender list later; job ${jobId} keeps running on the server.`);
+        return;
+      }
       try {
         const job = await getJobStatus(jobId);
+        failedAttempts = 0;
         setCurrentJob(job);
-
         if (job.status === 'COMPLETED') {
-          clearInterval(timer);
           setStatusMessage('Done. Opening the tender...');
-          setTimeout(() => {
-            router.push(`/audit/${targetTenderId}`);
-          }, 800);
-        } else if (job.status === 'FAILED') {
-          clearInterval(timer);
+          setTimeout(() => router.push(`/audit/${targetTenderId}`), 800);
+          return;
+        }
+        if (job.status === 'FAILED') {
           setIsProcessing(false);
           setError(job.error || 'Processing stopped. Nothing was saved. Try again.');
+          return;
         }
-      } catch (err: any) {
+      } catch {
         failedAttempts++;
         if (failedAttempts > 3) {
-          clearInterval(timer);
           setIsProcessing(false);
           setError(`Lost contact with the server. Check the tender list in a minute.`);
+          return;
         }
       }
-    }, 600);
+      delay = Math.min(Math.round(delay * 1.5), 5000);
+      pollTimer.current = setTimeout(tick, delay);
+    };
+
+    pollTimer.current = setTimeout(tick, delay);
   };
 
   const handleCustomSubmit = async (e: React.FormEvent) => {
@@ -123,6 +147,18 @@ export function SplitUploadDropzone() {
     try {
       setIsProcessing(true);
       setStatusMessage('Uploading...');
+
+      const estimates: Record<string, number> = {};
+      for (const [name, raw] of [['busbar_cu_kg', busbarCuKg], ['heavy_haul_loads', heavyHaulLoads]] as const) {
+        if (raw.trim() === '') continue;
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value < 0) {
+          setIsProcessing(false);
+          setError(`${name === 'busbar_cu_kg' ? 'Busbar copper' : 'Heavy-haul loads'} must be a number of 0 or more.`);
+          return;
+        }
+        estimates[name] = value;
+      }
 
       // 1. Upload MR Spec if provided
       if (mrFile) {
@@ -160,17 +196,16 @@ export function SplitUploadDropzone() {
           equipment_class: equipmentClass,
           rate_table: rateTable,
           documents: manifestDocuments,
-          engineering_estimates: {
-            busbar_cu_kg: 1480,
-            heavy_haul_loads: 2,
-          },
+          engineering_estimates: estimates,
           synthetic: false,
         });
       }
 
       // 4. Start Ingestion Job
       setStatusMessage('Queued. Processing starts shortly.');
-      const res = await startIngestJob(tenderId, 'replay');
+      // 'auto': reuse saved model answers where they exist, ask the model for the rest. 'replay' would
+      // fail on a new tender, which has no saved answers.
+      const res = await startIngestJob(tenderId, 'auto');
       if (res && res.job_id) {
         pollJob(res.job_id, tenderId);
       } else {
@@ -274,6 +309,40 @@ export function SplitUploadDropzone() {
               onChange={(e) => setClientName(e.target.value)}
               className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
               required
+            />
+          </div>
+
+          <div>
+            <label htmlFor="busbarCuKgInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
+              Busbar copper estimate (kg, optional)
+            </label>
+            <input
+              id="busbarCuKgInput"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              value={busbarCuKg}
+              onChange={(e) => setBusbarCuKg(e.target.value)}
+              placeholder="Leave blank if unknown"
+              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="heavyHaulInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
+              Heavy-haul loads (optional)
+            </label>
+            <input
+              id="heavyHaulInput"
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              value={heavyHaulLoads}
+              onChange={(e) => setHeavyHaulLoads(e.target.value)}
+              placeholder="Leave blank if unknown"
+              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
             />
           </div>
         </div>

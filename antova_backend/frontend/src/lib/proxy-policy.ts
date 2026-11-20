@@ -13,7 +13,8 @@
 export const REVIEW_HEADER = 'X-Antova-Review-Token';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
-const HOP_BY_HOP = ['host', 'connection', 'transfer-encoding', 'keep-alive', 'upgrade'];
+// `expect` (curl and some clients send 100-continue for large uploads) makes Node's fetch throw.
+const HOP_BY_HOP = ['host', 'connection', 'transfer-encoding', 'keep-alive', 'upgrade', 'expect', 'te', 'trailer'];
 
 export function isSafeMethod(method: string): boolean {
   return SAFE_METHODS.has(method.toUpperCase());
@@ -47,4 +48,26 @@ export function buildUpstreamHeaders(
     if (token && isSafeMethod(method)) headers.set(REVIEW_HEADER, token);
   }
   return headers;
+}
+
+/**
+ * How long the proxy waits for the backend, by route. Uploads and exports move whole files; the
+ * rest should answer quickly. Every value stays under the route's maxDuration (60 s).
+ */
+export function upstreamTimeoutMs(method: string, subPath: string): number {
+  const verb = method.toUpperCase();
+  if (verb === 'PUT' && /^review\/tenders\/[^/]+\/files\/[^/]+$/.test(subPath)) return 55_000;
+  if (/\.(xlsx|csv)$/.test(subPath)) return 30_000;
+  if (/\/evidence\/.+\.png$/.test(subPath)) return 20_000;
+  if (/\/evaluate$/.test(subPath) || /\/verify$/.test(subPath)) return 20_000;
+  return 10_000;
+}
+
+/**
+ * A backend that could not be reached at all (refused, DNS, reset before any answer) means replay.
+ * A backend that was reached but too slow is a 504: it exists, so its sample stand-in would mislead.
+ */
+export function isTimeout(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return err.name === 'AbortError' || err.name === 'TimeoutError';
 }

@@ -16,7 +16,8 @@ import {
   Criticality,
 } from './types';
 import sample402Raw from './sample402.json';
-import { replayResponse, type SampleBrief } from './replay';
+import { replayResponse, SAMPLE_TENDER_IDS, type SampleBrief } from './replay';
+import { Brief as BriefSchema } from './schemas';
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 /**
@@ -81,29 +82,42 @@ function getHeaders(token: string | undefined = getReviewToken(), isJson: boolea
 }
 
 /**
- * Intelligent fetcher:
- * 1. Attempts direct request to API_BASE (if configured).
- * 2. If direct cross-origin call fails (e.g. CORS preflight blocked, network error),
- *    automatically fails over to the same-origin Next.js runtime proxy (/api/...).
+ * Fetches `path` from API_BASE when one is configured, else from the same-origin proxy.
+ *
+ * A direct call that fails (network error, CORS block or a 5xx) is retried once through the
+ * same-origin proxy, but only for GET and HEAD. A write is never sent twice: a verify, withdraw,
+ * upload or ingest that may already have reached the server must not run again.
  */
+function isRetryable(init?: RequestInit): boolean {
+  const method = (init?.method || 'GET').toUpperCase();
+  return method === 'GET' || method === 'HEAD';
+}
+
 async function smartFetch(path: string, init?: RequestInit): Promise<Response> {
   const targetUrl = API_BASE ? `${API_BASE}${path}` : path;
+  const canRetry = Boolean(API_BASE) && path.startsWith('/api/') && isRetryable(init);
   try {
     const res = await fetch(targetUrl, init);
-    // If backend returns a 500 or 502 error on direct call, and we have a same-origin proxy, try proxy
-    if (!res.ok && res.status >= 500 && API_BASE && path.startsWith('/api/')) {
+    if (!res.ok && res.status >= 500 && canRetry) {
       console.warn(`Direct call to ${targetUrl} returned ${res.status}. Retrying via proxy ${path}...`);
       return await fetch(path, init);
     }
     return res;
   } catch (err) {
-    // Network / CORS block on direct fetch: retry through internal same-origin proxy
-    if (API_BASE && path.startsWith('/api/')) {
+    if (canRetry) {
       console.warn(`Direct fetch to ${targetUrl} failed with network/CORS error. Retrying via proxy ${path}...`);
       return await fetch(path, init);
     }
     throw err;
   }
+}
+
+/** An ApiError carrying the server's own detail and code, when it sent JSON. */
+async function errorFrom(res: Response, fallback: string): Promise<ApiError> {
+  const data = await res.json().catch(() => ({} as Record<string, unknown>));
+  const detail = typeof data.detail === 'string' ? data.detail : undefined;
+  const code = typeof data.code === 'string' ? data.code : undefined;
+  return new ApiError(detail || fallback, res.status, detail, code);
 }
 
 /**
@@ -269,41 +283,53 @@ export async function fetchHealth() {
 }
 
 export async function listTenders(token: string | undefined = getReviewToken()): Promise<ReviewTenderRow[]> {
+  let res: Response;
   try {
-    const res = await smartFetch('/api/review/tenders', {
+    res = await smartFetch('/api/review/tenders', {
       headers: getHeaders(token),
       cache: 'no-store',
     });
-    if (res.ok) {
-      return await res.json();
-    }
   } catch (err) {
-    console.warn("Direct fetch for listTenders failed:", err);
+    // No server reachable at all: the same single sample row the proxy serves in replay mode.
+    console.warn('Could not reach the server for the tender list; showing the saved sample.', err);
+    return replayResponse('GET', 'review/tenders', sample402Raw as SampleBrief).body as ReviewTenderRow[];
   }
-  // Replay: the same single sample row the proxy serves, so the two never disagree.
-  return replayResponse('GET', 'review/tenders', sample402Raw as SampleBrief).body as ReviewTenderRow[];
+  if (!res.ok) throw await errorFrom(res, "Couldn't load the tender list. Try again.");
+  return res.json();
 }
 
 export async function getTenderBrief(tenderId: string, token: string | undefined = getReviewToken()): Promise<Brief> {
+  let res: Response;
   try {
-    const res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}`, {
+    res = await smartFetch(`/api/review/tenders/${encodeURIComponent(tenderId)}`, {
       headers: getHeaders(token),
       cache: 'no-store',
     });
-    if (res.ok) {
-      const source = (res.headers.get('x-antova-source') as 'live' | 'replay') || 'live';
-      const raw = await res.json();
-      return { ...normalizeBrief(raw), _source: source };
-    }
   } catch (err) {
-    console.warn(`Direct fetch failed for ${tenderId}:`, err);
+    // No server reachable at all. Only a tender with saved sample data can be shown; never
+    // another tender's data under this one's ID.
+    if (SAMPLE_TENDER_IDS.has(tenderId)) {
+      console.warn(`Could not reach the server for ${tenderId}; showing the saved sample.`, err);
+      return { ...normalizeBrief(sample402Raw), _source: 'replay' };
+    }
+    throw new ApiError(`Couldn't reach the server to load ${tenderId}. Check your connection and try again.`, 0);
   }
+  if (!res.ok) throw await errorFrom(res, `Couldn't load ${tenderId}. Try again.`);
 
-  // Graceful fallback for demo replay so user never gets stuck with blank screen
-  if (!tenderId || tenderId.includes('402')) {
-    return { ...normalizeBrief(sample402Raw), _source: 'replay' };
+  const source = (res.headers.get('x-antova-source') as 'live' | 'replay') || 'live';
+  const raw = await res.json();
+  // Check the shape before rendering: a mismatch is reported, not papered over with defaults.
+  const checked = BriefSchema.safeParse(raw);
+  if (!checked.success) {
+    console.error(`Brief ${tenderId} does not match the expected shape`, checked.error.issues.slice(0, 10));
+    throw new ApiError(
+      "The server sent a brief this page can't read. It may be running a different version.",
+      502,
+      undefined,
+      'brief_schema'
+    );
   }
-  throw new Error(`Couldn't load ${tenderId}. Try again.`);
+  return { ...normalizeBrief(raw), _source: source };
 }
 
 export async function listReviewHistory(
