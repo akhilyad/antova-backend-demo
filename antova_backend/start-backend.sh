@@ -7,6 +7,7 @@ export ANTOVA_LOCATE_PROVIDER="explabs"
 # Local only. Override with your own value; never use this one on a deployed server.
 export ANTOVA_REVIEW_TOKEN="${ANTOVA_REVIEW_TOKEN:-dev-review-token-antova}"
 export ANTOVA_TENDERS_DIR="$(pwd)/samples"
+export ANTOVA_PUBLIC_DOCS=1  # serve /docs locally; off by default elsewhere
 export ANTOVA_ALLOWED_ORIGINS="http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001"
 
 echo "=========================================================="

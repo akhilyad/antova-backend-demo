@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import sample402Raw from "@/lib/sample402.json";
 import { replayResponse, type SampleBrief } from "@/lib/replay";
-import { buildUpstreamHeaders, isTimeout, resolveBackendBase, upstreamTimeoutMs } from "@/lib/proxy-policy";
+import {
+  REQUEST_ID_HEADER,
+  buildUpstreamHeaders,
+  isTimeout,
+  resolveBackendBase,
+  resolveRequestId,
+  upstreamTimeoutMs,
+} from "@/lib/proxy-policy";
 
 export const dynamic = "force-dynamic";
 // Uploads and exports can take longer than the default function limit.
@@ -11,12 +18,17 @@ type RouteContext = {
   params: Promise<{ path?: string[] }>;
 };
 
-function serveReplay(method: string, subPath: string): NextResponse {
+function newRequestId(): string {
+  return crypto.randomUUID().replace(/-/g, "");
+}
+
+function serveReplay(method: string, subPath: string, requestId: string): NextResponse {
   const result = replayResponse(method, subPath, sample402Raw as SampleBrief);
+  const headers = { ...result.headers, [REQUEST_ID_HEADER]: requestId };
   if (typeof result.body === "string") {
-    return new NextResponse(result.body, { status: result.status, headers: result.headers });
+    return new NextResponse(result.body, { status: result.status, headers });
   }
-  return NextResponse.json(result.body, { status: result.status, headers: result.headers });
+  return NextResponse.json(result.body, { status: result.status, headers });
 }
 
 async function proxy(request: NextRequest, context: RouteContext) {
@@ -27,8 +39,9 @@ async function proxy(request: NextRequest, context: RouteContext) {
     segments = [];
   }
   // "." and ".." would let new URL() climb out of /api/ on the backend.
+  const requestId = resolveRequestId(request.headers.get(REQUEST_ID_HEADER), newRequestId);
   if (segments.some((s) => s === "." || s === "..")) {
-    return NextResponse.json({ detail: "Invalid path" }, { status: 400 });
+    return NextResponse.json({ detail: "Invalid path" }, { status: 400, headers: { [REQUEST_ID_HEADER]: requestId } });
   }
   const subPath = segments.map(encodeURIComponent).join("/");
   const method = request.method;
@@ -36,12 +49,13 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const backendBase = resolveBackendBase(process.env);
   if (!backendBase) {
     // No backend configured: replay mode, without a doomed request to localhost first.
-    return serveReplay(method, subPath);
+    return serveReplay(method, subPath, requestId);
   }
 
   const targetUrl = new URL(`/api/${subPath}${request.nextUrl.search}`, backendBase);
   // REVIEW_TOKEN is server-only and is added to reads only (see proxy-policy.ts).
   const headers = buildUpstreamHeaders(request.headers, method, process.env.REVIEW_TOKEN);
+  headers.set(REQUEST_ID_HEADER, requestId);
   const hasBody = !["GET", "HEAD"].includes(method) && request.body !== null;
 
   let upstreamResponse: Response;
@@ -62,17 +76,17 @@ async function proxy(request: NextRequest, context: RouteContext) {
   } catch (err: unknown) {
     clearTimeout(timeoutId);
     if (isTimeout(err)) {
-      console.warn(`Upstream ${method} /api/${subPath} timed out after ${timeoutMs} ms`);
+      console.warn(JSON.stringify({ event: "upstream_timeout", request_id: requestId, method, path: `/api/${subPath}`, timeout_ms: timeoutMs }));
       return NextResponse.json(
         { detail: "The server took too long to answer. Try again in a moment.", code: "upstream_timeout" },
-        { status: 504, headers: { "x-antova-source": "live" } }
+        { status: 504, headers: { "x-antova-source": "live", [REQUEST_ID_HEADER]: requestId } }
       );
     }
     // Backend unreachable: fall back to the saved sample (reads only; writes get a 405).
     const cause = err instanceof Error && err.cause instanceof Error ? ` (${err.cause.message})` : "";
     const message = (err instanceof Error ? err.message : "Server not responding") + cause;
-    console.warn(`Upstream unreachable (${targetUrl.origin}): ${message}. Serving replay.`);
-    return serveReplay(method, subPath);
+    console.warn(JSON.stringify({ event: "upstream_unreachable", request_id: requestId, method, path: `/api/${subPath}`, error: message }));
+    return serveReplay(method, subPath, requestId);
   }
   clearTimeout(timeoutId);
 
@@ -82,6 +96,11 @@ async function proxy(request: NextRequest, context: RouteContext) {
   responseHeaders.delete("content-encoding");
   responseHeaders.delete("content-length");
   responseHeaders.set("x-antova-source", "live");
+  // The engine echoes the ID; set it anyway in case an older engine does not.
+  if (!responseHeaders.has(REQUEST_ID_HEADER)) responseHeaders.set(REQUEST_ID_HEADER, requestId);
+  if (upstreamResponse.status >= 500) {
+    console.warn(JSON.stringify({ event: "upstream_error", request_id: requestId, method, path: `/api/${subPath}`, status: upstreamResponse.status }));
+  }
   // Streamed back as it arrives (exports and evidence images are not buffered here).
   return new NextResponse(upstreamResponse.body, {
     status: upstreamResponse.status,
