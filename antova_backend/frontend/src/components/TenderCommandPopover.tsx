@@ -126,28 +126,17 @@ export function TenderCommandPopover({
 
   return (
     <div className="relative inline-block" ref={popoverRef}>
-      {/* Trigger Button */}
+      {/* Trigger: the active tender, nothing else */}
       <button
         onClick={handleToggle}
         type="button"
-        className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors shadow-2xs text-xs font-medium focus:outline-none focus:ring-1 focus:ring-zinc-400"
+        className="flex items-center gap-2 rounded px-2 py-1.5 -ml-2 text-[13px] text-ink hover:bg-sheet focus:outline-none focus-visible:ring-1 focus-visible:ring-rule-strong"
         aria-expanded={isOpen}
         aria-haspopup="dialog"
+        aria-label="Switch tender"
       >
-        <span className="text-zinc-500 dark:text-zinc-400">Tender:</span>
-        <span className="font-semibold text-zinc-900 dark:text-white font-mono">
-          {activeTender?.tender_id || activeTenderId || 'Choose tender'}
-        </span>
-        {activeTender?.status === 'VERIFIED' ? (
-          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-            Signed off
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-            Draft
-          </span>
-        )}
-        <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+        <span className="font-mono text-xs">{activeTender?.tender_id || activeTenderId || 'Choose tender'}</span>
+        <ChevronDown className="w-3.5 h-3.5 text-faint" />
       </button>
 
       {/* Popover Command Dialog */}

@@ -28,6 +28,15 @@ const config: Config = {
     },
     extend: {
       colors: {
+        paper: "var(--paper)",
+        sheet: "var(--sheet)",
+        rule: { DEFAULT: "var(--rule)", strong: "var(--rule-strong)" },
+        ink: { DEFAULT: "var(--ink)", 2: "var(--ink-2)" },
+        muted: "var(--muted)",
+        faint: "var(--faint)",
+        gap: "var(--gap)",
+        open: "var(--open)",
+        brand: "var(--brand)",
         background: "var(--background)",
         foreground: "var(--foreground)",
         antova: {

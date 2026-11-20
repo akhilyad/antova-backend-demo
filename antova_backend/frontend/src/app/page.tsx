@@ -4,48 +4,33 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../components/layout/AppShell';
-import { listTenders, getTenderBrief, loadSampleBrief, fetchHealth } from '../lib/api';
+import { KpiStrip, KpiItem } from '../components/audit/KpiStrip';
+import { listTenders, getTenderBrief, loadSampleBrief } from '../lib/api';
 import { ReviewTenderRow, Brief } from '../lib/types';
-import { formatEur, formatIsoDate } from '../lib/formatting';
-import {
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  FileSpreadsheet,
-  Layers,
-  ArrowRight,
-  ShieldCheck,
-  Clock,
-  Sparkles,
-  UploadCloud,
-  FileText,
-  Activity,
-  ChevronRight,
-  Info,
-} from 'lucide-react';
+import { formatEur, formatAdderEur } from '../lib/domain/money';
+import { ChevronRight } from 'lucide-react';
+
+function formatDay(iso: string | null | undefined): string {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '–' : d.toISOString().slice(0, 10);
+}
 
 export default function OverviewPage() {
   const router = useRouter();
   const [tenders, setTenders] = useState<ReviewTenderRow[]>([]);
   const [brief, setBrief] = useState<Brief | null>(null);
-  const [health, setHealth] = useState<{ status: string; version: string; pint_version?: string; mode?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        const [tendersData, healthData] = await Promise.all([
-          listTenders().catch(() => []),
-          fetchHealth().catch(() => null),
-        ]);
+        const tendersData = await listTenders().catch(() => []);
         setTenders(tendersData);
-        setHealth(healthData);
-
         const activeTid = tendersData[0]?.tender_id || 'TENDER-2026-402';
         try {
-          const briefData = await getTenderBrief(activeTid);
-          setBrief(briefData);
+          setBrief(await getTenderBrief(activeTid));
         } catch {
           setBrief(loadSampleBrief());
         }
@@ -59,300 +44,158 @@ export default function OverviewPage() {
     loadData();
   }, []);
 
-  // Compute workspace KPI stats
+  // Every figure comes from the loaded brief (live or the saved sample). No invented fallbacks.
   const stats = useMemo(() => {
-    const defaultBrief = brief || loadSampleBrief();
-    const priced = (defaultBrief.financials || []).filter((f) => f.true_evaluated_price !== null);
-    const sorted = [...priced].sort((a, b) => (a.true_evaluated_price ?? 0) - (b.true_evaluated_price ?? 0));
-    const recommended = sorted[0];
-
-    const totalOmissionsExposure = (defaultBrief.financials || []).reduce(
-      (sum, f) => sum + (f.total_adders || 0),
-      0
-    );
-
-    const financials = defaultBrief.financials || [];
-    const sortedByBase = [...financials]
+    const b = brief || loadSampleBrief();
+    const financials = b.financials || [];
+    const priced = financials
+      .filter((f) => f.true_evaluated_price !== null)
+      .sort((a, b2) => (a.true_evaluated_price ?? 0) - (b2.true_evaluated_price ?? 0));
+    const lowestQuote = [...financials]
       .filter((f) => f.headline_price != null)
-      .sort((a, b) => (a.headline_price ?? 0) - (b.headline_price ?? 0));
-    const lowestBase = sortedByBase[0];
-
-    // Every figure comes from the loaded brief (live or the saved sample). No invented fallbacks.
+      .sort((a, b2) => (a.headline_price ?? 0) - (b2.headline_price ?? 0))[0];
     return {
-      evaluatedVolume: recommended?.true_evaluated_price ?? null,
-      exposureAvoided: totalOmissionsExposure,
-      openItems: defaultBrief.open_items?.length || 0,
-      // Same version the engine pins in antova_requirements.txt.
-      pintEngineVersion: health?.pint_version || '0.26.2',
-      recommendedVendor: recommended?.name || 'Not decided',
-      lowestBaseName: lowestBase?.name ?? null,
-      lowestBaseAmount: lowestBase?.headline_price ?? null,
-      lowestBaseAdj: lowestBase?.total_adders ?? null,
-      lowestBaseEval: lowestBase?.true_evaluated_price ?? null,
-      bestName: recommended?.name ?? null,
-      bestEval: recommended?.true_evaluated_price ?? null,
+      best: priced[0] ?? null,
+      lowestQuote: lowestQuote ?? null,
+      excludedAll: financials.reduce((sum, f) => sum + (f.total_adders || 0), 0),
+      bids: financials.length,
+      openItems: b.open_items?.length || 0,
     };
-  }, [brief, health, tenders]);
+  }, [brief]);
 
   const activeTenderId = brief?.tender?.id || 'TENDER-2026-402';
+  const signedOff = tenders.filter((t) => t.status === 'VERIFIED').length;
+
+  const kpis: KpiItem[] = [
+    {
+      label: 'Tenders',
+      value: String(tenders.length),
+      context: tenders.length ? `${signedOff} signed off` : 'None uploaded',
+    },
+    {
+      label: 'Lowest true job cost',
+      value: formatEur(stats.best?.true_evaluated_price),
+      context: stats.best ? stats.best.name : 'Not decided',
+      onClick: () => router.push(`/audit/${activeTenderId}`),
+    },
+    {
+      label: 'Excluded scope, all bids',
+      value: formatAdderEur(stats.excludedAll),
+      tone: stats.excludedAll > 0 ? 'gap' : 'ink',
+      context: `${stats.bids} bids in ${activeTenderId}`,
+      onClick: () => router.push(`/audit/${activeTenderId}`),
+    },
+    {
+      label: 'Open items',
+      value: String(stats.openItems),
+      tone: stats.openItems > 0 ? 'open' : 'ink',
+      context: stats.openItems > 0 ? 'Before sign-off' : 'Ready to sign off',
+      onClick: () => router.push(`/audit/${activeTenderId}?tab=signoff`),
+    },
+  ];
+
+  const reversal =
+    stats.lowestQuote && stats.best && stats.lowestQuote.vendor_id !== stats.best.vendor_id ? stats.lowestQuote : null;
 
   return (
     <AppShell activeTenderId={activeTenderId} brief={brief}>
       {loading ? (
         <OverviewSkeleton />
       ) : (
-        <div className="space-y-6 font-sans">
-          {/* Executive Page Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
+        <div className="text-ink">
+          <header className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
-                Overview
-              </h1>
-              <p className="text-xs text-[#667487] dark:text-zinc-400 mt-0.5">
-                Every open tender, its status and its recommended award.
-              </p>
+              <h1 className="text-xl font-semibold leading-7 tracking-tight">Overview</h1>
+              <p className="mt-1 text-xs text-muted">Every tender, its status and its award.</p>
             </div>
+            <Link href="/ingest" className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:opacity-90">
+              Upload tender
+            </Link>
+          </header>
 
-            <div className="flex items-center gap-2">
-              <Link
-                href="/ingest"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#172536] dark:bg-white text-white dark:text-black font-semibold text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs"
-              >
-                <UploadCloud className="w-3.5 h-3.5" />
-                <span>Upload tender</span>
+          <div className="mt-8">
+            <KpiStrip items={kpis} />
+          </div>
+
+          {reversal && stats.best && (
+            <p className="mt-4 text-xs text-muted">
+              <span className="text-ink-2">{reversal.name}</span> quoted lowest at {formatEur(reversal.headline_price)}; priced
+              against the spec it costs{' '}
+              <span className="text-gap tabular-nums">
+                {formatEur(reversal.true_evaluated_price, { isLowerBound: reversal.price_status === 'UNPRICED_ITEMS' })}
+              </span>
+              .{' '}
+              <Link href={`/audit/${activeTenderId}`} className="text-ink underline decoration-rule-strong underline-offset-2 hover:decoration-ink">
+                See the bids
               </Link>
-
-              <Link
-                href={`/audit/${activeTenderId}?tab=ledger`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white dark:bg-zinc-800 border border-[#DCE2E8] dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-xs hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors shadow-2xs"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Open tender</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* High-Value Metric Strip (KPI Cards) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Evaluated Volume */}
-            <Link
-              href={`/audit/${activeTenderId}?tab=ledger`}
-              className="p-4 rounded-xl bg-[#FFFFFF] dark:bg-[#111113] border border-[#DCE2E8] dark:border-zinc-800 shadow-2xs hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors group"
-            >
-              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider">Tenders evaluated</span>
-                <TrendingUp className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-zinc-900 dark:text-white tabular-nums">
-                {formatEur(stats.evaluatedVolume)}
-              </div>
-              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium flex items-center gap-1">
-                <span>Recommended award:</span>
-                <span className="truncate">{stats.recommendedVendor}</span>
-              </div>
-            </Link>
-
-            {/* Card 2: Commercial Scope Omission Exposure */}
-            <Link
-              href={`/audit/${activeTenderId}?tab=risks`}
-              className="p-4 rounded-xl bg-[#FFFFFF] dark:bg-[#111113] border border-[#DCE2E8] dark:border-zinc-800 shadow-2xs hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors group"
-            >
-              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider">Missing scope cost</span>
-                <AlertTriangle className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-rose-600 dark:text-rose-400 tabular-nums">
-                +{formatEur(stats.exposureAvoided)}
-              </div>
-              <div className="text-[11px] text-zinc-500 mt-1">
-                Cost to close missing scope, all bids
-              </div>
-            </Link>
-
-            {/* Card 3: Pint Math Precision */}
-            <Link
-              href="/governance"
-              className="p-4 rounded-xl bg-[#FFFFFF] dark:bg-[#111113] border border-[#DCE2E8] dark:border-zinc-800 shadow-2xs hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors group"
-            >
-              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider">Calculation check</span>
-                <ShieldCheck className="w-4 h-4 text-cyan-600 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-zinc-900 dark:text-white">
-                Pint {stats.pintEngineVersion}
-              </div>
-              <div className="text-[11px] text-cyan-600 dark:text-cyan-400 mt-1 font-medium">
-                Units checked by code, not AI
-              </div>
-            </Link>
-
-            {/* Card 4: Open Clarifications */}
-            <Link
-              href={`/audit/${activeTenderId}?tab=compliance`}
-              className="p-4 rounded-xl bg-[#FFFFFF] dark:bg-[#111113] border border-[#DCE2E8] dark:border-zinc-800 shadow-2xs hover:border-zinc-400 dark:hover:border-zinc-700 transition-colors group"
-            >
-              <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 mb-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider">Clarification questions</span>
-                <FileText className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
-              </div>
-              <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 tabular-nums">
-                {stats.openItems} Ready
-              </div>
-              <div className="text-[11px] text-zinc-500 mt-1">
-                Download from the tender page
-              </div>
-            </Link>
-          </div>
-
-          {/* Material Anomaly & Rank Reversal Attention Banner */}
-          {stats.lowestBaseName && stats.bestName && stats.lowestBaseName !== stats.bestName && (
-          <div className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
-                  Lowest bid is not the lowest cost
-                </div>
-                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 max-w-3xl leading-relaxed">
-                  <strong>{stats.lowestBaseName}</strong> quoted the lowest base bid at {formatEur(stats.lowestBaseAmount)}. Missing scope adds {formatEur(stats.lowestBaseAdj)}, for an evaluated total of {formatEur(stats.lowestBaseEval)}. <strong>{stats.bestName}</strong> has the lowest evaluated total at {formatEur(stats.bestEval)}.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href={`/audit/${activeTenderId}?tab=risks`}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors shadow-2xs"
-            >
-              <span>See the cost breakdown</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+            </p>
           )}
 
-          {/* Active Tenders Table */}
-          <div className="rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] overflow-hidden shadow-2xs">
-            <div className="px-5 py-3.5 border-b border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between bg-[#F8FAFC] dark:bg-[#111113]">
-              <div>
-                <h2 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider">
-                  Tenders
-                </h2>
-                <p className="text-[11px] text-[#667487] dark:text-zinc-400 mt-0.5">
-                  Status, open items and sign-off for each tender
-                </p>
-              </div>
-              <Link
-                href="/ingest"
-                className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
-              >
-                <span>Upload tender</span>
-              </Link>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-sans">
-                <thead className="bg-[#F8FAFC] dark:bg-zinc-900/60 text-zinc-500 uppercase tracking-wider font-semibold border-b border-[#DCE2E8] dark:border-zinc-800 text-[10px]">
+          <section className="mt-10">
+            <h2 className="text-[13px] font-medium">Tenders</h2>
+            <table className="mt-3 w-full table-fixed border-collapse text-[13px]" aria-label="Tenders">
+              <colgroup>
+                <col className="w-44" />
+                <col />
+                <col className="w-24" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-rule-strong text-[11px] text-muted">
+                  <th scope="col" className="py-2 pr-4 text-left font-normal">Tender</th>
+                  <th scope="col" className="py-2 pr-4 text-left font-normal">Package</th>
+                  <th scope="col" className="py-2 pr-4 text-left font-normal">Status</th>
+                  <th scope="col" className="py-2 pr-4 text-right font-normal">Open items</th>
+                  <th scope="col" className="py-2 text-right font-normal">Uploaded</th>
+                  <th scope="col"><span className="sr-only">Open</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tenders.length === 0 ? (
                   <tr>
-                    <th className="py-2.5 px-4 font-mono">Tender ID</th>
-                    <th className="py-2.5 px-4">Package</th>
-                    <th className="py-2.5 px-4">Status</th>
-                    <th className="py-2.5 px-4 text-center font-mono">Open items</th>
-                    <th className="py-2.5 px-4">Uploaded</th>
-                    <th className="py-2.5 px-4 text-right">Actions</th>
+                    <td colSpan={6} className="py-10 text-center text-muted">
+                      No tenders yet.{' '}
+                      <Link href="/ingest" className="text-ink underline decoration-rule-strong underline-offset-2">
+                        Upload your spec and bids
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-[#DCE2E8] dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
-                  {tenders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-12 text-center text-zinc-500">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <FileText className="w-8 h-8 text-zinc-400 stroke-[1.5]" />
-                          <span className="font-semibold text-xs text-zinc-800 dark:text-zinc-200">
-                            No tenders yet
-                          </span>
-                          <p className="text-[11px] text-[#667487] dark:text-zinc-400 max-w-sm">
-                            Upload your spec and the bids you received to start.
-                          </p>
-                          <Link
-                            href="/ingest"
-                            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#172536] dark:bg-white text-white dark:text-black font-semibold text-xs shadow-2xs"
-                          >
-                            <UploadCloud className="w-3.5 h-3.5" />
-                            <span>Upload a tender</span>
+                ) : (
+                  tenders.map((t) => {
+                    const isVer = t.status === 'VERIFIED';
+                    const go = () => router.push(`/audit/${t.tender_id}`);
+                    return (
+                      <tr key={t.tender_id} onClick={go} className="cursor-pointer border-b border-rule hover:bg-sheet">
+                        <td className="py-3 pr-4 font-mono text-xs">
+                          <Link href={`/audit/${t.tender_id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                            {t.tender_id}
                           </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    tenders.map((tender) => {
-                      const isVer = tender.status === 'VERIFIED';
-                      return (
-                        <tr
-                          key={tender.tender_id}
-                          className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40 transition-colors"
-                        >
-                          <td className="py-3 px-4 font-mono font-semibold text-zinc-900 dark:text-white">
-                            {tender.tender_id}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                              {tender.title}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            {isVer ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Signed off
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                                <AlertTriangle className="w-3 h-3" />
-                                Draft
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-center font-mono font-semibold">
-                            {tender.open_items === 0 ? (
-                              <span className="text-emerald-600 dark:text-emerald-400">0</span>
-                            ) : (
-                              <span className="text-amber-600 dark:text-amber-400">{tender.open_items ?? 'n/a'}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-zinc-500 font-mono text-[11px]">
-                            {tender.ingested_at ? formatIsoDate(tender.ingested_at) : 'n/a'}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <Link
-                              href={`/audit/${tender.tender_id}?tab=ledger`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#172536] dark:bg-white text-white dark:text-black font-semibold text-[11px] hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors shadow-2xs"
-                            >
-                              <span>Open</span>
-                              <ChevronRight className="w-3 h-3" />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        </td>
+                        <td className="truncate py-3 pr-4 text-ink-2" title={t.title}>{t.title}</td>
+                        <td className={`py-3 pr-4 ${isVer ? 'text-ink-2' : 'text-open'}`}>{isVer ? 'Signed off' : 'Draft'}</td>
+                        <td className={`py-3 pr-4 text-right tabular-nums ${t.open_items ? 'text-open' : 'text-faint'}`}>
+                          {t.open_items ?? '–'}
+                        </td>
+                        <td className="py-3 text-right tabular-nums text-muted">{formatDay(t.ingested_at)}</td>
+                        <td className="py-3 text-right text-faint">
+                          <ChevronRight className="ml-auto h-3.5 w-3.5" aria-hidden="true" />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </section>
 
-          {/* Governance & Precision Note */}
-          <div className="p-3.5 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] flex flex-col sm:flex-row sm:items-center justify-between text-xs text-zinc-500 gap-2 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-600 shrink-0" />
-              <span>
-                Code checks every unit and does every sum. AI only finds the quotes, and each quote links to its page.
-              </span>
-            </div>
-            <Link href="/governance" className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline shrink-0">
+          <p className="mt-10 text-[11px] text-faint">
+            Code checks every unit and does every sum. AI only finds the quotes, and each quote links to its page.{' '}
+            <Link href="/governance" className="underline decoration-rule-strong underline-offset-2 hover:text-ink">
               How the checks work
             </Link>
-          </div>
+          </p>
         </div>
       )}
     </AppShell>
@@ -361,51 +204,16 @@ export default function OverviewPage() {
 
 function OverviewSkeleton() {
   return (
-    <div className="space-y-6 font-sans animate-pulse" aria-busy="true" aria-label="Loading...">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
-        <div className="space-y-2">
-          <div className="h-6 w-64 bg-zinc-200 dark:bg-zinc-800 rounded" />
-          <div className="h-3.5 w-96 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-md" />
-          <div className="h-8 w-28 bg-zinc-100 dark:bg-zinc-800 rounded-md" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="p-4 rounded-xl bg-[#FFFFFF] dark:bg-[#111113] border border-[#DCE2E8] dark:border-zinc-800 shadow-2xs space-y-2.5"
-          >
-            <div className="h-3 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" />
-            <div className="h-7 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
-            <div className="h-3 w-40 bg-zinc-100 dark:bg-zinc-800/60 rounded" />
+    <div className="animate-pulse" aria-busy="true" aria-label="Loading">
+      <div className="h-6 w-40 rounded-sm bg-rule" />
+      <div className="mt-2 h-3 w-64 rounded-sm bg-rule" />
+      <div className="mt-8 grid grid-cols-2 border-y border-rule lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={`space-y-2 py-5 ${i ? 'border-l border-rule px-5' : ''}`}>
+            <div className="h-3 w-24 rounded-sm bg-rule" />
+            <div className="h-7 w-32 rounded-sm bg-rule" />
           </div>
         ))}
-      </div>
-
-      <div className="p-4 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 shadow-2xs">
-        <div className="h-4 w-56 bg-amber-200/60 dark:bg-amber-900/40 rounded mb-2" />
-        <div className="h-3 w-full bg-amber-100/60 dark:bg-amber-950/40 rounded" />
-      </div>
-
-      <div className="rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] overflow-hidden shadow-2xs">
-        <div className="px-5 py-3.5 border-b border-[#DCE2E8] dark:border-zinc-800 bg-[#F8FAFC] dark:bg-[#111113] flex justify-between">
-          <div className="h-4 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
-          <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800 rounded" />
-        </div>
-        <div className="divide-y divide-[#DCE2E8] dark:divide-zinc-800">
-          {[1, 2].map((i) => (
-            <div key={i} className="p-4 flex items-center justify-between">
-              <div className="h-4 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" />
-              <div className="h-4 w-48 bg-zinc-200 dark:bg-zinc-800 rounded" />
-              <div className="h-4 w-20 bg-zinc-200 dark:bg-zinc-800 rounded" />
-              <div className="h-4 w-12 bg-zinc-200 dark:bg-zinc-800 rounded" />
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

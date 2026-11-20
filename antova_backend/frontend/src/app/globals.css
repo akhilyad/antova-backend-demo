@@ -14,6 +14,19 @@
   --text-secondary: #667487;
   --brand-accent: #B8894D;
   --accent: #34495E;
+
+  /* Workbench editorial tokens: paper, ink, hairline rules. Colour marks only what is wrong or open. */
+  --paper: #FAF9F7;
+  --sheet: #FFFFFF;
+  --rule: #E4DFD7;
+  --rule-strong: #CFC8BD;
+  --ink: #1A1714;
+  --ink-2: #3D3832;
+  --muted: #6F685E;
+  --faint: #A39C91;
+  --gap: #9E2B1F;
+  --open: #8A5A00;
+  --brand: #9C5137;
 }
 
 .dark {
@@ -28,6 +41,18 @@
   --text-secondary: #A1A1AA;
   --brand-accent: #B8894D;
   --accent: #34495E;
+
+  --paper: #141210;
+  --sheet: #1A1715;
+  --rule: #2E2A25;
+  --rule-strong: #443E36;
+  --ink: #F1EEE9;
+  --ink-2: #D6D0C7;
+  --muted: #A39A8D;
+  --faint: #6F685E;
+  --gap: #E07A6A;
+  --open: #E0B055;
+  --brand: #D49672;
 }
 
 body {

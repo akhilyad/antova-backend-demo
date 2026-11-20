@@ -5,7 +5,7 @@ import { uploadTenderFile, putManifest, startIngestJob, getJobStatus, fetchHealt
 import { AUDIT_REQUEST_URL, REPLAY_NOTICE, SAMPLE_TENDER_ID } from '../lib/site';
 import { SAMPLE_TENDER_IDS } from '../lib/replay';
 import { Job } from '../lib/types';
-import { FileUp, CheckCircle, AlertCircle, Loader2, ArrowRight, UploadCloud, FileCheck, Layers } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function SplitUploadDropzone() {
@@ -235,228 +235,120 @@ export function SplitUploadDropzone() {
     }
   };
 
-  return (
-    <div className="space-y-6 text-xs max-w-5xl mx-auto font-sans">
-      {/* Sample tender: the one-click path to a full result */}
-      <div className="p-4 rounded-xl border border-[#E7CDBF] dark:border-[#5A3A2C] bg-[#FBF4EF] dark:bg-[#211B17] shadow-2xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#C4552D]" />
-              <h3 className="text-xs font-bold text-[#3B2A21] dark:text-white uppercase tracking-wider">
-                Run the sample audit
-              </h3>
-            </div>
-            <p className="text-[#6B5A50] dark:text-zinc-400 text-xs mt-1">
-              {SAMPLE_TENDER_ID}: a real 33 kV switchgear tender with 3 bids. Opens the full result.
-            </p>
-          </div>
+  const input =
+    'w-full rounded border border-rule-strong bg-paper px-2.5 py-1.5 text-[13px] text-ink outline-none focus:border-ink placeholder:text-faint';
+  const lbl = 'mb-1 block text-[11px] text-muted';
+  const drop =
+    'block cursor-pointer rounded border border-dashed border-rule-strong px-4 py-6 text-center hover:border-ink';
 
-          <button
-            onClick={() => handleQuickLoadPreset(SAMPLE_TENDER_ID)}
-            disabled={isProcessing}
-            className="px-4 py-2 bg-[#9C5137] hover:bg-[#C4552D] text-white font-semibold rounded-md text-xs transition-colors disabled:opacity-50 shadow-2xs flex items-center gap-1.5"
-          >
-            <span>Run sample audit</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+  return (
+    <div className="space-y-8 text-[13px] text-ink">
+      {/* Sample tender: the one-click path to a full result */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-y border-rule py-4">
+        <div>
+          <p className="font-medium">Run the sample audit</p>
+          <p className="mt-0.5 text-xs text-muted">
+            <span className="font-mono">{SAMPLE_TENDER_ID}</span>: a real 33 kV switchgear tender with 3 bids.
+          </p>
         </div>
+        <button
+          onClick={() => handleQuickLoadPreset(SAMPLE_TENDER_ID)}
+          disabled={isProcessing}
+          className="rounded bg-brand px-3.5 py-1.5 text-xs font-medium text-paper hover:opacity-90 disabled:opacity-50"
+        >
+          Open sample audit
+        </button>
       </div>
 
-      {/* Live Pipeline Monitor Modal */}
       {isProcessing && currentJob && (
-        <div className="p-4 border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl space-y-3 shadow-2xs">
-          <div className="flex items-center justify-between pb-2 border-b border-[#DCE2E8] dark:border-zinc-800">
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-cyan-600 dark:text-cyan-400 animate-spin" />
-              <span className="font-semibold text-zinc-900 dark:text-white uppercase tracking-wider text-xs">
-                Progress: {currentJob.job_id}
-              </span>
-            </div>
-            <span className="text-cyan-600 dark:text-cyan-400 font-mono font-bold text-xs tabular-nums">
-              {currentJob.progress_pct}%
+        <div className="border-b border-rule pb-4" role="status">
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="flex items-center gap-2 text-ink-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {currentJob.stage}
+              <span className="text-faint">{statusMessage}</span>
             </span>
+            <span className="tabular-nums text-ink">{currentJob.progress_pct}%</span>
           </div>
-
-          {/* Progress bar */}
-          <div className="w-full bg-zinc-200 dark:bg-zinc-900 h-1.5 rounded overflow-hidden">
-            <div
-              className="bg-zinc-900 dark:bg-white h-full transition-all duration-300"
-              style={{ width: `${currentJob.progress_pct}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400 font-sans">
-            <div>
-              Step: <strong className="text-zinc-900 dark:text-white uppercase font-mono">{currentJob.stage}</strong>
-            </div>
-            <div className="text-zinc-800 dark:text-zinc-300">{statusMessage}</div>
+          <div className="mt-2 h-px w-full bg-rule">
+            <div className="h-px bg-ink transition-all duration-300" style={{ width: `${currentJob.progress_pct}%` }} />
           </div>
         </div>
       )}
 
-      {/* Replay mode: the honest route for a real tender */}
       {isReplay && (
-        <div className="p-4 rounded-xl border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] shadow-2xs flex flex-wrap items-center justify-between gap-3">
-          <p className="text-zinc-700 dark:text-zinc-300 text-xs max-w-2xl leading-relaxed">{REPLAY_NOTICE.upload}</p>
-          <a
-            href={AUDIT_REQUEST_URL}
-            className="shrink-0 px-4 py-2 rounded-md bg-[#1A1512] dark:bg-white text-[#F1F0EF] dark:text-black font-semibold text-xs flex items-center gap-1.5 shadow-2xs hover:opacity-90"
-          >
-            <span>Send us your tender</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+        <div className="flex flex-wrap items-center justify-between gap-4 text-xs">
+          <p className="max-w-2xl leading-relaxed text-muted">{REPLAY_NOTICE.upload}</p>
+          <a href={AUDIT_REQUEST_URL} className="shrink-0 font-medium text-ink underline decoration-rule-strong underline-offset-2 hover:decoration-ink">
+            Send us your tender
           </a>
         </div>
       )}
 
-      {/* Main Split Ingestion Form */}
-      <form onSubmit={handleCustomSubmit} className="border border-[#DCE2E8] dark:border-zinc-800 bg-[#FFFFFF] dark:bg-[#111113] rounded-xl p-5 shadow-2xs">
-        <fieldset disabled={isReplay} aria-describedby={isReplay ? 'replay-upload-note' : undefined} className={`space-y-5 min-w-0 ${isReplay ? 'opacity-55' : ''}`}>
-        <div className="border-b border-[#DCE2E8] dark:border-zinc-800 pb-3">
-          <h2 className="text-xs font-bold text-[#182433] dark:text-white uppercase tracking-wider flex items-center gap-2">
-            <UploadCloud className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
-            <span>Upload a tender</span>
-          </h2>
-          <p className="text-zinc-600 dark:text-zinc-400 text-xs mt-0.5">
-            Add your spec and every bid. Antova prices each gap against your spec.
-          </p>
-        </div>
-
-        {/* Tender Metadata */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="tenderIdInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Tender ID
-            </label>
-            <input
-              id="tenderIdInput"
-              type="text"
-              value={tenderId}
-              onChange={(e) => setTenderId(e.target.value)}
-              placeholder="TENDER-2026-XXX"
-              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs font-mono focus:border-zinc-500 focus:outline-none shadow-xs"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="tenderTitleInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Package name
-            </label>
-            <input
-              id="tenderTitleInput"
-              type="text"
-              value={tenderTitle}
-              onChange={(e) => setTenderTitle(e.target.value)}
-              placeholder="e.g. 33 kV GIS switchgear package"
-              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="clientNameInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Client
-            </label>
-            <input
-              id="clientNameInput"
-              type="text"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="e.g. your EPC or utility"
-              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="busbarCuKgInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Busbar copper estimate (kg, optional)
-            </label>
-            <input
-              id="busbarCuKgInput"
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
-              value={busbarCuKg}
-              onChange={(e) => setBusbarCuKg(e.target.value)}
-              placeholder="Leave blank if unknown"
-              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="heavyHaulInput" className="block text-zinc-700 dark:text-zinc-400 font-medium mb-1 text-xs">
-              Heavy-haul loads (optional)
-            </label>
-            <input
-              id="heavyHaulInput"
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              value={heavyHaulLoads}
-              onChange={(e) => setHeavyHaulLoads(e.target.value)}
-              placeholder="Leave blank if unknown"
-              className="w-full px-3 py-2 bg-white dark:bg-black border border-zinc-300 dark:border-zinc-800 rounded text-zinc-900 dark:text-white text-xs focus:border-zinc-500 focus:outline-none font-sans shadow-xs"
-            />
-          </div>
-        </div>
-
-        {/* Split Upload Interface */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
-          {/* Panel A: Baseline Engineering Tender Specification */}
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-zinc-50/70 dark:bg-[#111113] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
-              <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                Your spec
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">Required</span>
+      <form onSubmit={handleCustomSubmit}>
+        <fieldset
+          disabled={isReplay}
+          aria-describedby={isReplay ? 'replay-upload-note' : undefined}
+          className={`min-w-0 space-y-8 ${isReplay ? 'opacity-50' : ''}`}
+        >
+          <section>
+            <h2 className="font-medium">Tender</h2>
+            <div className="mt-3 grid grid-cols-1 gap-4 border-t border-rule pt-4 md:grid-cols-3">
+              <div>
+                <label htmlFor="tenderIdInput" className={lbl}>Tender ID</label>
+                <input id="tenderIdInput" type="text" value={tenderId} onChange={(e) => setTenderId(e.target.value)} placeholder="TENDER-2026-XXX" className={`${input} font-mono`} required />
+              </div>
+              <div>
+                <label htmlFor="tenderTitleInput" className={lbl}>Package name</label>
+                <input id="tenderTitleInput" type="text" value={tenderTitle} onChange={(e) => setTenderTitle(e.target.value)} placeholder="33 kV GIS switchgear package" className={input} required />
+              </div>
+              <div>
+                <label htmlFor="clientNameInput" className={lbl}>Client</label>
+                <input id="clientNameInput" type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Your EPC or utility" className={input} required />
+              </div>
+              <div>
+                <label htmlFor="busbarCuKgInput" className={lbl}>Busbar copper estimate, kg (optional)</label>
+                <input id="busbarCuKgInput" type="number" min="0" step="any" inputMode="decimal" value={busbarCuKg} onChange={(e) => setBusbarCuKg(e.target.value)} placeholder="Blank if unknown" className={`${input} tabular-nums`} />
+              </div>
+              <div>
+                <label htmlFor="heavyHaulInput" className={lbl}>Heavy-haul loads (optional)</label>
+                <input id="heavyHaulInput" type="number" min="0" step="1" inputMode="numeric" value={heavyHaulLoads} onChange={(e) => setHeavyHaulLoads(e.target.value)} placeholder="Blank if unknown" className={`${input} tabular-nums`} />
+              </div>
             </div>
+          </section>
 
-            <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
+          <section className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-medium">Your spec</h2>
+                <span className="text-[11px] text-faint">Required · PDF up to 50 MB, 600 pages</span>
+              </div>
               <input
                 type="file"
                 accept=".pdf"
                 id="mrFileInput"
-                className="hidden"
+                className="sr-only"
                 onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setMrFile(e.target.files[0]);
-                  }
+                  if (e.target.files && e.target.files[0]) setMrFile(e.target.files[0]);
                 }}
               />
-              <label htmlFor="mrFileInput" className="cursor-pointer block">
-                <FileUp className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
-                <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
-                  {mrFile ? mrFile.name : 'Drop your spec PDF here, or browse'}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-1 font-mono">
-                  {mrFile ? `${(mrFile.size / 1024).toFixed(0)} KB, ready` : 'PDF up to 50 MB and 600 pages'}
-                </div>
+              <label htmlFor="mrFileInput" className={`${drop} mt-3`}>
+                <span className="block text-ink-2">{mrFile ? mrFile.name : 'Drop the spec PDF, or browse'}</span>
+                {mrFile && <span className="mt-0.5 block text-[11px] tabular-nums text-faint">{(mrFile.size / 1024).toFixed(0)} KB</span>}
               </label>
             </div>
-          </div>
 
-          {/* Panel B: Vendor Proposals */}
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-zinc-50/70 dark:bg-[#111113] space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
-              <span className="text-xs font-semibold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Bids
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">One PDF per bidder</span>
-            </div>
-
-            <div className="border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-700 rounded-lg p-5 text-center bg-white/80 dark:bg-black/60 cursor-pointer transition-colors shadow-xs">
+            <div>
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-medium">Bids</h2>
+                <span className="text-[11px] text-faint">One PDF per bidder</span>
+              </div>
               <input
                 type="file"
                 accept=".pdf"
                 multiple
                 id="vendorFileInput"
-                className="hidden"
+                className="sr-only"
                 onChange={(e) => {
                   if (e.target.files) {
                     const files = Array.from(e.target.files);
@@ -470,68 +362,41 @@ export function SplitUploadDropzone() {
                   }
                 }}
               />
-              <label htmlFor="vendorFileInput" className="cursor-pointer block">
-                <FileCheck className="w-8 h-8 mx-auto mb-2 text-zinc-400 dark:text-zinc-500" />
-                <div className="text-zinc-800 dark:text-zinc-200 font-medium text-xs">
+              <label htmlFor="vendorFileInput" className={`${drop} mt-3`}>
+                <span className="block text-ink-2">
                   {vendorFiles.length > 0
-                    ? `${vendorFiles.length} ${vendorFiles.length === 1 ? 'bid' : 'bids'} added`
-                    : 'Drop bid PDFs here, or browse'}
-                </div>
-                <div className="text-[11px] text-zinc-500 mt-1">
-                  Add every bid you want to compare
-                </div>
+                    ? `${vendorFiles.length} ${vendorFiles.length === 1 ? 'bid' : 'bids'} added. Add more`
+                    : 'Drop bid PDFs, or browse'}
+                </span>
               </label>
+              {vendorFiles.length > 0 && (
+                <ul className="mt-2 max-h-36 overflow-y-auto border-t border-rule text-xs">
+                  {vendorFiles.map((v, i) => (
+                    <li key={i} className="flex justify-between gap-4 border-b border-rule py-1.5">
+                      <span className="truncate text-ink-2">{v.file.name}</span>
+                      <span className="shrink-0 font-mono text-[11px] text-faint">{v.vendorId}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
+          </section>
 
-            {/* Staged list */}
-            {vendorFiles.length > 0 && (
-              <div className="space-y-1.5 max-h-36 overflow-y-auto pt-1">
-                {vendorFiles.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 text-xs shadow-xs">
-                    <span className="text-zinc-800 dark:text-zinc-200 truncate max-w-[200px]">{v.file.name}</span>
-                    <span className="text-zinc-500 dark:text-zinc-400 font-mono text-[11px]">{v.vendorId}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          {error && <p className="text-xs text-gap" role="alert">{error}</p>}
 
-        {error && (
-          <div className="p-3 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" />
-            <span>{error}</span>
+          <div className="flex justify-end border-t border-rule pt-4">
+            <button
+              type="submit"
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 rounded bg-ink px-3.5 py-1.5 text-xs font-medium text-paper hover:opacity-90 disabled:opacity-50"
+            >
+              {isProcessing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isProcessing ? 'Processing' : 'Evaluate bids'}
+            </button>
           </div>
-        )}
-
-        {/* Submit */}
-        <div className="pt-3 border-t border-[#DCE2E8] dark:border-zinc-800 flex items-center justify-between">
-          <div className="text-[#667487] dark:text-zinc-400 text-xs">
-          </div>
-          <button
-            type="submit"
-            disabled={isProcessing}
-            className="px-4 py-2 bg-[#172536] dark:bg-white text-white dark:text-black font-semibold rounded-md text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-2xs"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <span>Evaluate bids</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </div>
         </fieldset>
-        {isReplay && (
-          <p id="replay-upload-note" className="sr-only">{REPLAY_NOTICE.upload}</p>
-        )}
+        {isReplay && <p id="replay-upload-note" className="sr-only">{REPLAY_NOTICE.upload}</p>}
       </form>
-
     </div>
   );
 }
