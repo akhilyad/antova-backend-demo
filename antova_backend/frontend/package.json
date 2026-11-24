@@ -9,6 +9,9 @@
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "test:snapshot": "node scripts/test-snapshot.mjs",
     "test:proxy": "node --test scripts/test-proxy.mjs",
     "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs scripts/test-native.mjs",
@@ -16,6 +19,7 @@
     "mock:llm": "node scripts/mock-llm.mjs"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.18",
     "@vercel/blob": "^2.9.0",
     "clsx": "^2.1.1",
     "decimal.js-light": "^2.5.1",
@@ -34,6 +38,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "wrangler": "^4.167.0"
   }
 }

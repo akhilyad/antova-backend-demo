@@ -1,0 +1,25 @@
+// Cloudflare Workers deployment of the Antova workbench (built by @opennextjs/cloudflare).
+// Secrets (LLM_API_KEY, REVIEW_TOKEN) are NOT in this file: set them with `npx wrangler secret put`.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "antova-workbench",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	// Uploaded PDFs, page text, jobs and tenders for the built-in engine. Private: no public URL.
+	"r2_buckets": [
+		{
+			"binding": "ANTOVA_BUCKET",
+			"bucket_name": "antova-workbench-data"
+		}
+	],
+	// Non-secret settings. LLM_BASE_URL and LLM_MODEL_NAME can live here or be set as secrets too.
+	"vars": {
+		"LLM_BASE_URL": "https://api.openai.com/v1"
+	},
+	"observability": { "enabled": true }
+}

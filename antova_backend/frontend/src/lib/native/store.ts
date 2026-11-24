@@ -10,11 +10,10 @@
  *   storage "ephemeral" so nobody mistakes it for durable.
  */
 import { promises as fs } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 export interface Store {
-  readonly kind: 'blob' | 'disk';
+  readonly kind: 'blob' | 'disk' | 'r2';
   readonly durable: boolean;
   putBytes(key: string, body: Uint8Array, contentType: string): Promise<void>;
   getBytes(key: string): Promise<Uint8Array | null>;
@@ -138,16 +137,69 @@ class BlobStore implements Store {
   }
 }
 
+/** The R2 bucket binding's methods this store uses (see wrangler.jsonc, binding ANTOVA_BUCKET). */
+interface R2BucketLike {
+  put(key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
+  delete(key: string): Promise<void>;
+}
+
+/**
+ * Cloudflare R2, on the Workers deploy. Private (no public URL) and strongly consistent, so a key is
+ * simply overwritten: a read after a write always sees the write.
+ */
+class R2Store implements Store {
+  readonly kind = 'r2' as const;
+  readonly durable = true;
+  private readonly bucket: R2BucketLike;
+  constructor(bucket: R2BucketLike) {
+    this.bucket = bucket;
+  }
+  async putBytes(key: string, body: Uint8Array, contentType: string): Promise<void> {
+    await this.bucket.put(`antova-native/${key}`, body, { httpMetadata: { contentType } });
+  }
+  async getBytes(key: string): Promise<Uint8Array | null> {
+    const obj = await this.bucket.get(`antova-native/${key}`);
+    return obj ? new Uint8Array(await obj.arrayBuffer()) : null;
+  }
+  async putJson(key: string, value: unknown): Promise<void> {
+    await this.putBytes(key, new TextEncoder().encode(JSON.stringify(value)), 'application/json');
+  }
+  async getJson<T>(key: string): Promise<T | null> {
+    const bytes = await this.getBytes(key);
+    return bytes ? (JSON.parse(new TextDecoder().decode(bytes)) as T) : null;
+  }
+  async remove(key: string): Promise<void> {
+    await this.bucket.delete(`antova-native/${key}`);
+  }
+}
+
+/** The ANTOVA_BUCKET binding when running as a Cloudflare Worker, else null. */
+function r2Bucket(): R2BucketLike | null {
+  try {
+    // Present only inside the Workers runtime (OpenNext puts the request context on this symbol).
+    const ctx = (globalThis as any)[Symbol.for('__cloudflare-context__')];
+    const bucket = ctx?.env?.ANTOVA_BUCKET;
+    return bucket && typeof bucket.put === 'function' ? (bucket as R2BucketLike) : null;
+  } catch {
+    return null;
+  }
+}
+
 let cached: Store | null = null;
 
 export function getStore(env: Record<string, string | undefined> = process.env): Store {
+  const bucket = r2Bucket();
+  if (bucket) return new R2Store(bucket);
   if (cached) return cached;
   const token = (env.BLOB_READ_WRITE_TOKEN || '').trim();
   if (token) {
     const access: BlobAccess = env.BLOB_ACCESS === 'public' ? 'public' : 'private';
     cached = new BlobStore(token, access, 'antova-native/');
   } else {
-    const root = (env.ANTOVA_DATA_DIR || '').trim() || path.join(os.tmpdir(), 'antova-native');
+    // Built at run time so the build's file tracer does not mistake the temp folder for a file to bundle.
+    const folder: Record<string, string> = { name: 'antova-native' };
+    const root = (env.ANTOVA_DATA_DIR || '').trim() || path.join(env.TMPDIR || env.TEMP || env.TMP || '/tmp', folder[Object.keys(folder)[0]]);
     // A serverless instance's disk goes away with the instance; a long-running server's does not.
     cached = new DiskStore(root, !env.VERCEL);
   }
