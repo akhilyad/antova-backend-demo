@@ -10,6 +10,8 @@
  *   the reviewer's own token reaches the backend without one and is refused there (401).
  */
 
+import { backendConfig } from './native/config.ts';
+
 export const REVIEW_HEADER = 'X-Antova-Review-Token';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
@@ -22,14 +24,11 @@ export function isSafeMethod(method: string): boolean {
 
 /**
  * The backend origin to proxy to, or null when none is configured. Outside development there is no
- * localhost default: an unset BACKEND_URL means replay mode, not a request to 127.0.0.1.
+ * localhost default: an unset BACKEND_URL means replay mode (or the built-in engine), not a request
+ * to 127.0.0.1. A placeholder such as https://your-backend-url-here counts as unset.
  */
 export function resolveBackendBase(env: Record<string, string | undefined>): string | null {
-  const raw = (env.BACKEND_URL || env.NEXT_PUBLIC_API_URL || '').trim();
-  if (raw) {
-    return /^https?:\/\//.test(raw) ? raw.replace(/\/+$/, '') : null;
-  }
-  return env.NODE_ENV === 'production' ? null : 'http://127.0.0.1:8000';
+  return backendConfig(env).base;
 }
 
 export function buildUpstreamHeaders(

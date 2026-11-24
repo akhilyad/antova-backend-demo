@@ -5,10 +5,11 @@ import {
   REQUEST_ID_HEADER,
   buildUpstreamHeaders,
   isTimeout,
-  resolveBackendBase,
   resolveRequestId,
   upstreamTimeoutMs,
 } from "@/lib/proxy-policy";
+import { engineMode } from "@/lib/native/config";
+import { handleNative } from "@/lib/native/handler";
 
 export const dynamic = "force-dynamic";
 // Uploads and exports can take longer than the default function limit.
@@ -46,11 +47,21 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const subPath = segments.map(encodeURIComponent).join("/");
   const method = request.method;
 
-  const backendBase = resolveBackendBase(process.env);
-  if (!backendBase) {
-    // No backend configured: replay mode, without a doomed request to localhost first.
-    return serveReplay(method, subPath, requestId, { reason: "not_configured" });
+  const mode = engineMode(process.env);
+  if (mode.kind === "native") {
+    // No external engine, but an LLM is configured: the built-in engine answers (src/lib/native).
+    return handleNative(request, segments, mode, requestId);
   }
+  if (mode.kind === "replay") {
+    // Nothing configured: replay mode, without a doomed request to localhost first.
+    const notes = [
+      mode.ignoredBackend ? `BACKEND_URL "${mode.ignoredBackend}" is a placeholder or not a real origin, so it is ignored.` : "",
+      mode.ignored.length ? `${mode.ignored.join(", ")} still hold template placeholders.` : "",
+      `To process files here, set ${mode.missing.join(" and ")} (the built-in engine), or BACKEND_URL to a running engine.`,
+    ].filter(Boolean);
+    return serveReplay(method, subPath, requestId, { reason: "not_configured", error: notes.join(" ") });
+  }
+  const backendBase = mode.base;
 
   const targetUrl = new URL(`/api/${subPath}${request.nextUrl.search}`, backendBase);
   // REVIEW_TOKEN is server-only and is added to reads only (see proxy-policy.ts).

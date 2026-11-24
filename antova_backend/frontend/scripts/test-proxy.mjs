@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { replayResponse, SAMPLE_TENDER_IDS } from '../src/lib/replay.ts';
 import { buildUpstreamHeaders, resolveBackendBase, REVIEW_HEADER, upstreamTimeoutMs, isTimeout, resolveRequestId } from '../src/lib/proxy-policy.ts';
+import { backendConfig, engineMode, llmConfig } from '../src/lib/native/config.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sample = JSON.parse(fs.readFileSync(path.resolve(here, '../src/lib/sample402.json'), 'utf8'));
@@ -166,8 +167,53 @@ test('hop-by-hop headers are dropped', () => {
 test('production without BACKEND_URL means replay, not 127.0.0.1', () => {
   assert.equal(resolveBackendBase({ NODE_ENV: 'production' }), null);
   assert.equal(resolveBackendBase({ NODE_ENV: 'development' }), 'http://127.0.0.1:8000');
-  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'https://api.example.com/' }), 'https://api.example.com');
-  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'api.example.com' }), null);
+  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'https://engine.antova.io/' }), 'https://engine.antova.io');
+  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'engine.antova.io' }), null);
+});
+
+// --- Placeholders and the built-in engine -------------------------------------------------
+
+test('a template placeholder in BACKEND_URL is ignored, never proxied to', () => {
+  for (const raw of [
+    'https://your-backend-url-here',
+    'https://your-backend-url-here/',
+    'https://<engine-host>',
+    '[PASTE_BACKEND_URL_HERE]',
+    'https://api.example.com',
+    'https://engine',
+  ]) {
+    assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: raw }), null, raw);
+    assert.equal(backendConfig({ NODE_ENV: 'production', BACKEND_URL: raw }).ignored, raw.trim().slice(0, 120), raw);
+  }
+  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'http://10.0.0.5:8000' }), 'http://10.0.0.5:8000');
+  assert.equal(resolveBackendBase({ NODE_ENV: 'production', BACKEND_URL: 'http://localhost:8000' }), 'http://localhost:8000');
+});
+
+test('the engine mode: BACKEND_URL first, then the built-in LLM engine, then replay', () => {
+  const llm = { LLM_API_KEY: 'sk-test-123', LLM_MODEL_NAME: 'gpt-4o-mini' };
+  assert.equal(engineMode({ NODE_ENV: 'production', BACKEND_URL: 'https://engine.antova.io', ...llm }).kind, 'proxy');
+  const native = engineMode({ NODE_ENV: 'production', BACKEND_URL: 'https://your-backend-url-here', ...llm });
+  assert.equal(native.kind, 'native');
+  assert.equal(native.ignoredBackend, 'https://your-backend-url-here');
+  assert.equal(native.llm.baseUrl, 'https://api.openai.com/v1');
+  assert.equal(native.llm.provider, 'openai');
+  const replay = engineMode({ NODE_ENV: 'production', LLM_API_KEY: '[PASTE_YOUR_API_KEY_HERE]', LLM_MODEL_NAME: '[PASTE_YOUR_MODEL_NAME_HERE]' });
+  assert.equal(replay.kind, 'replay');
+  assert.deepEqual(replay.missing, ['LLM_API_KEY', 'LLM_MODEL_NAME']);
+  assert.deepEqual(replay.ignored, ['LLM_API_KEY', 'LLM_MODEL_NAME']);
+  // In development the built-in engine wins over the localhost default when it is configured.
+  assert.equal(engineMode({ NODE_ENV: 'development', ...llm }).kind, 'native');
+  assert.equal(engineMode({ NODE_ENV: 'development' }).kind, 'proxy');
+});
+
+test('LLM base URLs: trailing slashes and /chat/completions are trimmed; Anthropic is detected', () => {
+  const a = llmConfig({ LLM_API_KEY: 'k', LLM_MODEL_NAME: 'm', LLM_BASE_URL: 'https://openrouter.ai/api/v1/chat/completions/' });
+  assert.equal(a.ok && a.settings.baseUrl, 'https://openrouter.ai/api/v1');
+  const b = llmConfig({ LLM_API_KEY: 'k', LLM_MODEL_NAME: 'claude-sonnet-5-5', LLM_BASE_URL: 'https://api.anthropic.com/v1' });
+  assert.equal(b.ok && b.settings.provider, 'anthropic');
+  assert.equal(b.ok && b.settings.baseUrl, 'https://api.anthropic.com');
+  const c = llmConfig({ LLM_API_KEY: 'k', LLM_MODEL_NAME: 'm', LLM_BASE_URL: 'ftp://nope' });
+  assert.equal(c.ok, false);
 });
 
 // --- P1-1: timeouts -------------------------------------------------------------------------

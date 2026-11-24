@@ -18,6 +18,9 @@ only here; port it to antova-yc when that repo needs the Inspector.
 
 ## 2. Environment variables
 
+> Since 2026-11-24 the workbench can also run with **no engine host**: set `LLM_API_KEY` and
+> `LLM_MODEL_NAME` and leave `BACKEND_URL` unset. See [built-in-engine.md](built-in-engine.md).
+
 ### Vercel project `antova-backend-demo` (service root `antova_backend/frontend`)
 
 | Name | Example | Where it comes from | Required |

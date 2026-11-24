@@ -67,3 +67,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Environment files: never commit keys. Templates (.env.example) stay tracked.
+.env
+.env.*
+!.env.example
+

@@ -11,9 +11,12 @@
     "typecheck": "tsc --noEmit",
     "test:snapshot": "node scripts/test-snapshot.mjs",
     "test:proxy": "node --test scripts/test-proxy.mjs",
-    "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs"
+    "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs scripts/test-native.mjs",
+    "test:native-e2e": "node scripts/test-native-e2e.mjs",
+    "mock:llm": "node scripts/mock-llm.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.9.0",
     "clsx": "^2.1.1",
     "decimal.js-light": "^2.5.1",
     "lucide-react": "^0.475.0",

@@ -312,7 +312,7 @@ export async function fetchHealth() {
  */
 export type EngineState =
   | { kind: 'checking' }
-  | { kind: 'live'; version?: string }
+  | { kind: 'live'; version?: string; engine?: string; model?: string; storage?: string }
   | { kind: 'degraded'; status: number; detail: string }
   | { kind: 'replay'; reason: 'not_configured' | 'unreachable'; backend?: string; error?: string }
   | { kind: 'unknown'; detail: string };
@@ -332,7 +332,8 @@ export async function probeEngine(timeoutMs = 8000): Promise<EngineState> {
       };
     }
     if (res.ok && body.status === 'healthy') {
-      return { kind: 'live', version: typeof body.version === 'string' ? body.version : undefined };
+      const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+      return { kind: 'live', version: str(body.version), engine: str(body.engine), model: str(body.model), storage: str(body.storage) };
     }
     const detail =
       typeof body.detail === 'string'

@@ -454,6 +454,15 @@ function EngineNote({ engine, onRecheck }: { engine: EngineState; onRecheck: () 
     );
   }
   if (engine.kind === 'live') {
+    if (engine.engine === 'native') {
+      return (
+        <p className="text-xs text-faint">
+          Connected to the built-in engine{engine.model ? ` (${engine.model})` : ''}. New files are processed for real.
+          {engine.storage === 'ephemeral' &&
+            ' Results live only as long as this server instance; connect a Vercel Blob store to keep them.'}
+        </p>
+      );
+    }
     return (
       <p className="text-xs text-faint">
         Connected to the live engine{engine.version ? ` (v${engine.version})` : ''}. New files are processed for real.
@@ -471,7 +480,8 @@ function EngineNote({ engine, onRecheck }: { engine: EngineState; onRecheck: () 
   } else if (engine.kind === 'replay') {
     headline = ENGINE_COPY.replayShort;
     detail =
-      'BACKEND_URL is not set on this deployment, so /api answers from the saved sample (replay mode). Set BACKEND_URL to the engine origin and redeploy.';
+      engine.error ??
+      'No engine is configured, so /api answers from the saved sample (replay mode). Set LLM_API_KEY and LLM_MODEL_NAME for the built-in engine, or BACKEND_URL to a running engine, and redeploy.';
   } else if (engine.kind === 'degraded') {
     headline = 'The engine is reachable but not healthy. Uploads may fail until it recovers.';
     detail = `${engine.detail} /api/health returned ${engine.status}.`;

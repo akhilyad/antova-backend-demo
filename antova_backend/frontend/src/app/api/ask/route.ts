@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { REVIEW_HEADER, resolveBackendBase } from "@/lib/proxy-policy";
+import { engineMode, nativeWriteToken } from "@/lib/native/config";
+import { chatText } from "@/lib/native/llm";
 
 /**
  * Evidence Inspector "Ask AI": a question about one cited clause, answered by a Q&A service.
@@ -29,8 +31,15 @@ function qaUrl(): string | null {
   return /^https?:\/\//.test(raw) ? raw : null;
 }
 
+/** The built-in engine's model, when no Q&A service is named and an LLM is configured. */
+function nativeModel() {
+  if (qaUrl()) return null;
+  const mode = engineMode(process.env);
+  return mode.kind === "native" ? mode.llm : null;
+}
+
 export async function GET() {
-  return NextResponse.json({ enabled: qaUrl() !== null, requires: "ANTOVA_QA_URL" });
+  return NextResponse.json({ enabled: qaUrl() !== null || nativeModel() !== null, requires: "ANTOVA_QA_URL or LLM_API_KEY" });
 }
 
 type AskBody = {
@@ -59,7 +68,8 @@ async function reviewerAllowed(request: NextRequest, tenderId: string): Promise<
 
 export async function POST(request: NextRequest) {
   const url = qaUrl();
-  if (!url) {
+  const llm = nativeModel();
+  if (!url && !llm) {
     return NextResponse.json(
       { detail: "Ask AI is off: set ANTOVA_QA_URL on the server to a Q&A service.", code: "qa_not_configured" },
       { status: 501 }
@@ -82,11 +92,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ detail: "context.tender_id is required." }, { status: 422 });
   }
 
-  if (!(await reviewerAllowed(request, tenderId))) {
+  const allowed = llm
+    ? (() => {
+        // Built-in engine: the same rule as its writes. Open unless REVIEW_TOKEN is set.
+        const need = nativeWriteToken(process.env);
+        return !need || (request.headers.get(REVIEW_HEADER) || "").trim() === need;
+      })()
+    : await reviewerAllowed(request, tenderId);
+  if (!allowed) {
     return NextResponse.json(
       { detail: "Ask AI needs your reviewer token. Add it under Settings.", code: "qa_needs_token" },
       { status: 401 }
     );
+  }
+
+  if (llm) {
+    try {
+      const answer = await chatText(
+        llm,
+        "You help a procurement engineer review a bid against a buyer's specification for MV switchgear. Answer only from the context given; say so when it does not contain the answer. Two to five sentences, plain language.",
+        `Question: ${question}\n\nContext (JSON): ${JSON.stringify(context).slice(0, 6000)}`
+      );
+      return NextResponse.json({ answer });
+    } catch (err) {
+      console.warn(JSON.stringify({ event: "qa_native_error", error: err instanceof Error ? err.message.slice(0, 200) : "unknown" }));
+      return NextResponse.json({ detail: "The model didn't answer. Try again." }, { status: 502 });
+    }
   }
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -94,7 +125,7 @@ export async function POST(request: NextRequest) {
   if (qaToken) headers.Authorization = `Bearer ${qaToken}`;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(url!, {
       method: "POST",
       headers,
       body: JSON.stringify({ question, context }),
