@@ -19,7 +19,7 @@
 	],
 	// Non-secret settings. LLM_BASE_URL and LLM_MODEL_NAME can live here or be set as secrets too.
 	"vars": {
-		"LLM_BASE_URL": "https://api.openai.com/v1"
+		"LLM_BASE_URL": "https://api.experientiallabs.ai/v1"
 	},
 	"observability": { "enabled": true }
 }
