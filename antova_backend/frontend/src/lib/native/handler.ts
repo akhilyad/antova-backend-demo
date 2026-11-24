@@ -64,15 +64,39 @@ function validFilename(name: string): boolean {
   return name.length > 0 && name.length <= 160 && !/[\\/\x00-\x1f]/.test(name) && !name.startsWith('.') && /\.pdf$/i.test(name);
 }
 
-/** Writes need the reviewer token when REVIEW_TOKEN is set on the server; otherwise they are open. */
-function writeAllowed(request: NextRequest): boolean {
+/**
+ * Writes need the reviewer token when REVIEW_TOKEN is set on the server; otherwise they are open.
+ * 'missing' (no token sent) and 'invalid' (sent, but not this server's) are told apart, so a person
+ * who did save a token is told it is the wrong one, not asked to add one.
+ */
+type TokenCheck = 'open' | 'ok' | 'missing' | 'invalid';
+
+function tokenCheck(request: NextRequest): TokenCheck {
   const required = nativeWriteToken(process.env);
-  if (!required) return true;
+  if (!required) return 'open';
   const given = (request.headers.get(REVIEW_HEADER) || '').trim();
-  if (!given || given.length !== required.length) return false;
-  let diff = 0;
-  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ required.charCodeAt(i);
-  return diff === 0;
+  if (!given) return 'missing';
+  // Constant-time over the longer length, so the comparison leaks nothing about the token.
+  const n = Math.max(given.length, required.length);
+  let diff = given.length ^ required.length;
+  for (let i = 0; i < n; i++) diff |= (given.charCodeAt(i) || 0) ^ (required.charCodeAt(i) || 0);
+  return diff === 0 ? 'ok' : 'invalid';
+}
+
+function writeAllowed(request: NextRequest): boolean {
+  const t = tokenCheck(request);
+  return t === 'open' || t === 'ok';
+}
+
+const TOKEN_INVALID =
+  "The reviewer token saved under Settings doesn't match this server's REVIEW_TOKEN. Paste it again under Settings (check for extra spaces or a browser-filled password) and save.";
+
+/** A 401 that says whether the token was missing or wrong. 
+eed names the action, e.g. "Uploading". */
+function denied(request: NextRequest, need: string, requestId: string) {
+  return tokenCheck(request) === 'invalid'
+    ? fail(401, TOKEN_INVALID, requestId, 'token_invalid')
+    : fail(401, `${need} needs your reviewer token. Add it under Settings.`, requestId, 'token_missing');
 }
 
 function reviewer(request: NextRequest): string {
@@ -318,12 +342,12 @@ async function tenderRoute(request: NextRequest, tenderId: string, rest: string[
   if (rest[0] === 'files' && rest.length === 2 && method === 'PUT') {
     const filename = decode(rest[1]);
     if (!filename || !validFilename(filename)) return fail(422, 'Use a PDF file name without slashes.', requestId);
-    if (!writeAllowed(request)) return fail(401, 'Uploading needs your reviewer token. Add it under Settings.', requestId);
+    if (!writeAllowed(request)) return denied(request, 'Uploading', requestId);
     return putFile(request, tenderId, filename, requestId);
   }
   if (sub === 'files' && method === 'GET') return listFiles(tenderId, requestId);
   if (sub === 'manifest' && method === 'PUT') {
-    if (!writeAllowed(request)) return fail(401, 'Saving the file list needs your reviewer token. Add it under Settings.', requestId);
+    if (!writeAllowed(request)) return denied(request, 'Saving the file list', requestId);
     return putManifest(request, tenderId, requestId);
   }
 
@@ -399,7 +423,7 @@ async function tenderRoute(request: NextRequest, tenderId: string, rest: string[
   // Everything below changes the tender.
   const writes = ['overrides', 'reviews', 'verify', 'withdraw'];
   if (!writes.includes(rest[0])) return fail(404, 'Not found', requestId);
-  if (!writeAllowed(request)) return fail(401, 'This needs your reviewer token. Add it under Settings.', requestId);
+  if (!writeAllowed(request)) return denied(request, 'This', requestId);
 
   if (rest[0] === 'overrides' && rest.length === 3 && (method === 'PUT' || method === 'DELETE')) {
     if (state.meta.status === 'VERIFIED') return fail(409, LOCKED, requestId);
@@ -476,8 +500,13 @@ export async function handleNative(request: NextRequest, segments: string[], mod
   const path = segments.join('/');
   try {
     if (path === 'health' && (method === 'GET' || method === 'HEAD')) return await health(mode, requestId);
+    // Settings checks a token here before relying on it. Says only required / accepted, nothing else.
+    if (path === 'auth/check' && method === 'GET') {
+      const t = tokenCheck(request);
+      return json(200, { required: t !== 'open', valid: t === 'open' || t === 'ok', sent: t !== 'missing' }, requestId);
+    }
     if (path === 'jobs/ingest' && method === 'POST') {
-      if (!writeAllowed(request)) return fail(401, 'Processing needs your reviewer token. Add it under Settings.', requestId);
+      if (!writeAllowed(request)) return denied(request, 'Processing', requestId);
       return await startIngest(request, mode, requestId);
     }
     if (segments[0] === 'jobs' && segments.length === 2 && method === 'GET') return await jobStatus(segments[1], mode, requestId);

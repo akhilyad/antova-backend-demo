@@ -54,6 +54,24 @@ export function setReviewToken(token: string | null): void {
   }
 }
 
+/**
+ * Whether `token` is accepted by this site's built-in engine. 'unknown' when the server has no check
+ * route (an external engine behind BACKEND_URL) or could not be reached.
+ */
+export async function checkReviewToken(
+  token: string | undefined
+): Promise<'accepted' | 'rejected' | 'not_required' | 'unknown'> {
+  try {
+    const res = await fetch('/api/auth/check', { headers: tokenHeader(token), cache: 'no-store' });
+    if (!res.ok) return 'unknown';
+    const body = (await res.json()) as { required?: boolean; valid?: boolean };
+    if (body.required === false) return 'not_required';
+    return body.valid ? 'accepted' : 'rejected';
+  } catch {
+    return 'unknown';
+  }
+}
+
 function tokenHeader(token: string | undefined): Record<string, string> {
   return token ? { 'X-Antova-Review-Token': token } : {};
 }
@@ -446,7 +464,11 @@ export async function uploadTenderFile(
         'This PDF is larger than the proxy accepts (4.5 MB on Vercel). Set NEXT_PUBLIC_DIRECT_UPLOAD_URL to upload straight to the engine.'
       );
     }
-    if (res.status === 401) throw new Error('Uploading needs your reviewer token. Add it under Settings.');
+    if (res.status === 401) {
+      // The server says whether the token was missing or is the wrong one.
+      const err = await res.json().catch(() => ({} as { detail?: string }));
+      throw new Error(err.detail || 'Uploading needs your reviewer token. Add it under Settings.');
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Upload failed. Try again.");
   }

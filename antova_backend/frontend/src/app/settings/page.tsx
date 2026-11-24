@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AppShell } from '../../components/layout/AppShell';
-import { API_BASE, getReviewToken, setReviewToken } from '../../lib/api';
+import { API_BASE, checkReviewToken, getReviewToken, setReviewToken } from '../../lib/api';
 
 const field =
   'w-full rounded border border-rule-strong bg-paper px-2.5 py-1.5 text-[13px] tabular-nums text-ink outline-none focus:border-ink';
@@ -23,18 +23,31 @@ export default function SettingsPage() {
   const [copperBaseline, setCopperBaseline] = useState(1.0);
   const [laborBaseline, setLaborBaseline] = useState(60);
   const [freightBaseline, setFreightBaseline] = useState(1.0);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [savedTone, setSavedTone] = useState<'ok' | 'bad'>('ok');
   const [reviewToken, setReviewTokenInput] = useState('');
 
   useEffect(() => {
     setReviewTokenInput(getReviewToken() || '');
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setReviewToken(reviewToken);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    const token = reviewToken.trim();
+    setReviewToken(token);
+    setReviewTokenInput(token);
+    // Ask the server whether it accepts the token, so a wrong one shows here, not at upload time.
+    const result = token ? await checkReviewToken(token) : 'unknown';
+    const messages: Record<string, [string, 'ok' | 'bad']> = {
+      accepted: ['Saved. The server accepts this token.', 'ok'],
+      rejected: ["Saved, but the server doesn't accept this token. Check it for typos or a browser-filled password.", 'bad'],
+      not_required: ['Saved. This server needs no token.', 'ok'],
+      unknown: ['Saved', 'ok'],
+    };
+    const [text, tone] = messages[result];
+    setSaved(text);
+    setSavedTone(tone);
+    if (tone === 'ok') setTimeout(() => setSaved(null), 4000);
   };
 
   return (
@@ -89,7 +102,7 @@ export default function SettingsPage() {
             >
               <input
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 value={reviewToken}
                 onChange={(e) => setReviewTokenInput(e.target.value)}
                 placeholder="Token from your administrator"
@@ -100,7 +113,11 @@ export default function SettingsPage() {
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-4 text-xs">
-            {saved && <span className="text-muted" role="status">Saved</span>}
+            {saved && (
+              <span className={savedTone === 'bad' ? 'text-gap' : 'text-muted'} role="status">
+                {saved}
+              </span>
+            )}
             <button type="submit" className="rounded bg-ink px-3.5 py-1.5 font-medium text-paper hover:opacity-90">
               Save
             </button>
