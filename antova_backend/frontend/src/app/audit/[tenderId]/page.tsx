@@ -25,14 +25,20 @@ import {
   downloadClarificationsExport,
   ApiError,
   API_BASE,
+  deleteTender,
+  updateTenderDetails,
+  rerunAudit,
 } from '../../../lib/api';
+import { SAMPLE_TENDER_IDS } from '../../../lib/replay';
+import { TenderFilesPanel } from '../../../components/TenderFilesPanel';
+import { ActionButton, ConfirmDialog } from '../../../components/ui/actions';
 import { AUDIT_REQUEST_URL, REPLAY_NOTICE } from '../../../lib/site';
 import { Brief, Citation, RatesSettings } from '../../../lib/types';
 import { formatEur, formatAdderEur } from '../../../lib/domain/money';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pencil, RotateCw, Save, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 
-const TAB_IDS = ['LEDGER', 'COMPLIANCE', 'RISKS', 'FINDINGS', 'SENSITIVITY', 'SIGNOFF'] as const;
+const TAB_IDS = ['LEDGER', 'COMPLIANCE', 'RISKS', 'FINDINGS', 'SENSITIVITY', 'FILES', 'SIGNOFF'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 interface PageProps {
@@ -101,6 +107,19 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
   const [isExportingTbe, setIsExportingTbe] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+
+  // Edit / re-run / delete
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftClient, setDraftClient] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isRerunning, setIsRerunning] = useState(false);
+  const [rerunStage, setRerunStage] = useState<string | null>(null);
+  const [filesChanged, setFilesChanged] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchBrief = async () => {
     try {
@@ -256,6 +275,77 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     }
   };
 
+  const startEdit = () => {
+    setDraftTitle(brief?.tender?.title || '');
+    setDraftClient(brief?.tender?.client || '');
+    setEditError(null);
+    setIsEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!brief) return;
+    if (!draftTitle.trim()) {
+      setEditError('The title cannot be empty.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      setEditError(null);
+      const updated = await updateTenderDetails(tenderId, { title: draftTitle.trim(), client: draftClient.trim() });
+      setBrief({ ...brief, tender: { ...brief.tender, title: updated.tender.title, client: updated.tender.client } });
+      setIsEditing(false);
+      setActionMsg('Tender details updated.');
+      setTimeout(() => setActionMsg(null), 3500);
+    } catch (err: any) {
+      setEditError(err?.message || 'Could not save. Try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRerunAudit = async () => {
+    if (replayOnly(REPLAY_NOTICE.signOff)) return;
+    try {
+      setIsRerunning(true);
+      setError(null);
+      setRerunStage('Queued');
+      await rerunAudit(tenderId, (job) => setRerunStage(`${job.stage || job.status} · ${Math.round(job.progress_pct || 0)}%`));
+      setFilesChanged(false);
+      await fetchBrief();
+      setActionMsg('Audit re-run on the current files.');
+      setTimeout(() => setActionMsg(null), 4000);
+    } catch (err: any) {
+      setError(err?.message || 'Could not re-run the audit. Try again.');
+    } finally {
+      setIsRerunning(false);
+      setRerunStage(null);
+    }
+  };
+
+  const handleDeleteTender = async () => {
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await deleteTender(tenderId);
+      router.push('/');
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Could not delete the tender. Try again.');
+      setIsDeleting(false);
+    }
+  };
+
+  const openAdjustment = (vendorId: string, paramId: string) => {
+    const existing = (brief?.overrides || []).find((o: any) => o.param_id === paramId && o.vendor_id === vendorId);
+    setOverrideTarget({
+      vendorId,
+      paramId,
+      paramName: safeParameters.find((p) => p.id === paramId)?.name,
+      vendorName: safeVendors.find((v) => v.id === vendorId)?.name,
+      currentAdder: existing ? Number(existing.adder_eur) : undefined,
+      currentNote: existing?.note ?? null,
+    });
+  };
+
   // Safe data views
   const safeVendors = Array.isArray(brief?.tender?.vendors) ? brief!.tender.vendors : [];
   const safeParameters = Array.isArray(brief?.tender?.parameters) ? brief!.tender.parameters : [];
@@ -303,6 +393,9 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     : 0;
 
   const isVerified = brief?.status === 'VERIFIED';
+  // A real tender on a live engine: the saved sample and replay mode stay read-only.
+  const isLive = brief?._source !== 'replay' && !SAMPLE_TENDER_IDS.has(tenderId);
+  const canEdit = isLive && !isVerified;
   const isReplayMode = brief?._source === 'replay';
 
   const openCellReview = (vendorId: string, paramId: string, initialAction?: 'approve' | 'override' | 'reject') =>
@@ -351,6 +444,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
     { id: 'RISKS', label: 'Commercial terms' },
     { id: 'FINDINGS', label: 'Findings', count: findingsCount, hidden: findingsCount === 0 && activeTab !== 'FINDINGS' },
     { id: 'SENSITIVITY', label: 'Rate scenarios' },
+    { id: 'FILES', label: 'Files', count: safeDocuments.length },
     { id: 'SIGNOFF', label: 'Sign-off', count: safeOpenItems.length || undefined, tone: 'open' },
   ];
 
@@ -408,9 +502,49 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 <span className="font-mono">{brief.tender?.id || tenderId}</span>
                 {brief.tender?.client && <> · {brief.tender.client}</>}
               </p>
-              <h1 className="mt-1 text-xl font-semibold leading-7 tracking-tight text-ink">
-                {brief.tender?.title || 'Bid evaluation'}
-              </h1>
+              {isEditing ? (
+                <form
+                  className="mt-1 space-y-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveEdit();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && !isSaving) setIsEditing(false);
+                  }}
+                >
+                  <input
+                    autoFocus
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    aria-label="Package title"
+                    maxLength={200}
+                    className="w-full rounded border border-rule-strong bg-paper px-2 py-1 text-lg font-semibold tracking-tight text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={draftClient}
+                      onChange={(e) => setDraftClient(e.target.value)}
+                      aria-label="Client"
+                      placeholder="Client"
+                      maxLength={200}
+                      className="h-7 w-64 rounded border border-rule-strong bg-paper px-2 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+                    />
+                    <ActionButton type="submit" tone="primary" icon={Save} label="Save" busy={isSaving} />
+                    <ActionButton icon={X} label="Cancel" onClick={() => setIsEditing(false)} disabled={isSaving} />
+                  </div>
+                  {editError && <p className="text-xs text-gap" role="alert">{editError}</p>}
+                </form>
+              ) : (
+                <div className="mt-1 flex items-start gap-1.5">
+                  <h1 className="text-xl font-semibold leading-7 tracking-tight text-ink">
+                    {brief.tender?.title || 'Bid evaluation'}
+                  </h1>
+                  {canEdit && (
+                    <ActionButton icon={Pencil} iconOnly label="Edit title and client" className="mt-0.5" onClick={startEdit} />
+                  )}
+                </div>
+              )}
               <p className="mt-1 text-xs text-muted">
                 {brief.tender?.mr_doc && <span className="font-mono">{brief.tender.mr_doc}</span>}
                 {brief.tender?.mr_doc && ' · '}
@@ -418,7 +552,19 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 <span className={isVerified ? 'text-ink-2' : 'text-open'}>{isVerified ? 'Signed off' : 'Draft'}</span>
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2 text-xs">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+              {isLive && (
+                <ActionButton
+                  icon={RotateCw}
+                  size="md"
+                  tone={filesChanged ? 'primary' : 'default'}
+                  label={isRerunning ? rerunStage || 'Re-running' : 'Re-run audit'}
+                  title={isVerified ? 'Signed off: reopen it before re-running' : 'Run a fresh spec audit on the current files'}
+                  disabled={isVerified}
+                  busy={isRerunning}
+                  onClick={handleRerunAudit}
+                />
+              )}
               <Link
                 href={`/print?tender=${tenderId}`}
                 target="_blank"
@@ -435,8 +581,40 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                 {isExportingTbe && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Download workbook
               </button>
+              {isLive && (
+                <ActionButton
+                  icon={Trash2}
+                  size="md"
+                  tone="destructive"
+                  label="Delete"
+                  title={isVerified ? 'Signed off: reopen it before deleting' : 'Delete this tender and its files'}
+                  disabled={isVerified || isRerunning}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setConfirmDelete(true);
+                  }}
+                />
+              )}
             </div>
           </header>
+
+          {filesChanged && (
+            <p className="mt-4 flex flex-wrap items-center gap-2 rounded border border-rule-strong bg-sheet px-3 py-2 text-xs text-ink-2" role="status">
+              The files changed since this evaluation. Re-run the audit to update the ranking.
+              <ActionButton icon={RotateCw} size="xs" tone="primary" label="Re-run audit" busy={isRerunning} onClick={handleRerunAudit} />
+            </p>
+          )}
+
+          <ConfirmDialog
+            open={confirmDelete}
+            title={`Delete ${tenderId}?`}
+            body="This removes the spec, every bid PDF, the evaluated brief and its review history from storage. It cannot be undone."
+            confirmLabel="Delete tender"
+            busy={isDeleting}
+            error={deleteError}
+            onConfirm={handleDeleteTender}
+            onCancel={() => setConfirmDelete(false)}
+          />
 
           <div className="mt-8">
             <KpiStrip items={kpis} />
@@ -477,12 +655,29 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     vendors={safeVendors}
                     parameters={safeParameters}
                     onInspect={(vendorId, paramId) => openCellReview(vendorId, paramId)}
+                    onAddAdjustment={isLive ? openAdjustment : undefined}
+                    adjustDisabledReason={isVerified ? 'Signed off: reopen it before adjusting' : undefined}
                   />
                   <p className="mt-4 text-[11px] leading-4 text-faint">
                     True job cost is the quoted price plus the cost to close missing scope, delivery terms and warranty
                     shortfalls, priced from rate table {brief.tender?.rate_table_version || 'in force'}. Open a bid to see its gaps.
                   </p>
                 </>
+              )}
+
+              {activeTab === 'FILES' && (
+                <TenderFilesPanel
+                  tenderId={tenderId}
+                  documents={safeDocuments}
+                  vendors={safeVendors}
+                  readOnly={!isLive || isVerified}
+                  readOnlyReason={!isLive ? 'The saved sample cannot be changed' : 'Signed off: reopen it before changing files'}
+                  onChanged={(msg) => {
+                    setFilesChanged(true);
+                    setActionMsg(msg);
+                    setTimeout(() => setActionMsg(null), 5000);
+                  }}
+                />
               )}
 
               {activeTab === 'COMPLIANCE' && (

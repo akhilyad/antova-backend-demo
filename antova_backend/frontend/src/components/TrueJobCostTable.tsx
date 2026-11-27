@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Plus, X } from 'lucide-react';
+import { ActionButton } from './ui/actions';
 import { VendorFinancials, Vendor, Parameter } from '../lib/types';
 import { formatEur, formatAdderEur } from '../lib/domain/money';
 import { statusTag } from '../lib/domain/status';
@@ -12,6 +13,10 @@ interface TrueJobCostTableProps {
   parameters?: Parameter[];
   /** Opens the review drawer for one requirement of one bidder (clause, quote, evidence, override). */
   onInspect: (vendorId: string, paramId: string) => void;
+  /** Opens the override drawer for a bidder and requirement the engine priced at €0 or missed. */
+  onAddAdjustment?: (vendorId: string, paramId: string) => void;
+  /** Why adjustments are off (signed off, saved sample); hides nothing, disables the button. */
+  adjustDisabledReason?: string;
 }
 
 const NUM = 'text-right tabular-nums whitespace-nowrap';
@@ -22,8 +27,11 @@ const CRIT: Record<string, string> = { MANDATORY: 'Mandatory', HIGH: 'High', MED
  * Bids ranked by true job cost. Rows stay one line; a click opens that bidder's priced gaps
  * underneath. The full clause and evidence live in the review drawer, one gap at a time.
  */
-export function TrueJobCostTable({ financials = [], vendors = [], parameters = [], onInspect }: TrueJobCostTableProps) {
+export function TrueJobCostTable({ financials = [], vendors = [], parameters = [], onInspect, onAddAdjustment, adjustDisabledReason }: TrueJobCostTableProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [pickVendor, setPickVendor] = useState('');
+  const [pickParam, setPickParam] = useState('');
 
   const rows = Array.isArray(financials) ? financials.filter(Boolean) : [];
   const priced = rows
@@ -36,6 +44,7 @@ export function TrueJobCostTable({ financials = [], vendors = [], parameters = [
   const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id));
 
   return (
+    <>
     <table className="w-full table-fixed border-collapse text-[13px]" aria-label="Bids ranked by true job cost">
       <colgroup>
         <col className="w-10" />
@@ -126,6 +135,60 @@ export function TrueJobCostTable({ financials = [], vendors = [], parameters = [
         })}
       </tbody>
     </table>
+    {onAddAdjustment && (
+      <div className="mt-3">
+        {picking ? (
+          <form
+            className="flex flex-wrap items-center gap-2 text-xs"
+            onKeyDown={(e) => e.key === 'Escape' && setPicking(false)}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!pickVendor || !pickParam) return;
+              onAddAdjustment(pickVendor, pickParam);
+              setPicking(false);
+            }}
+          >
+            <select
+              aria-label="Bidder"
+              value={pickVendor}
+              onChange={(e) => setPickVendor(e.target.value)}
+              className="h-7 rounded border border-rule-strong bg-paper px-2 text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+            >
+              <option value="">Bidder…</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Requirement"
+              value={pickParam}
+              onChange={(e) => setPickParam(e.target.value)}
+              className="h-7 max-w-xs rounded border border-rule-strong bg-paper px-2 text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+            >
+              <option value="">Scope item…</option>
+              {parameters.map((p) => (
+                <option key={p.id} value={p.id}>{p.id} · {p.name}</option>
+              ))}
+            </select>
+            <ActionButton type="submit" tone="primary" icon={Plus} label="Continue" disabled={!pickVendor || !pickParam} />
+            <ActionButton icon={X} label="Cancel" onClick={() => setPicking(false)} />
+          </form>
+        ) : (
+          <ActionButton
+            icon={Plus}
+            label="Add cost adjustment"
+            title={adjustDisabledReason || 'Price a scope item the engine missed or under-priced'}
+            disabled={Boolean(adjustDisabledReason)}
+            onClick={() => {
+              setPickVendor(rows[0]?.vendor_id ?? vendors[0]?.id ?? '');
+              setPickParam('');
+              setPicking(true);
+            }}
+          />
+        )}
+      </div>
+    )}
+    </>
   );
 }
 

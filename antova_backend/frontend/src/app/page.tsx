@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '../components/layout/AppShell';
 import { KpiStrip, KpiItem } from '../components/audit/KpiStrip';
-import { listTenders, getTenderBrief, loadSampleBrief } from '../lib/api';
+import { listTenders, getTenderBrief, loadSampleBrief, deleteTender } from '../lib/api';
+import { SAMPLE_TENDER_IDS } from '../lib/replay';
+import { ActionButton, ConfirmDialog } from '../components/ui/actions';
 import { ReviewTenderRow, Brief } from '../lib/types';
 import { formatEur, formatAdderEur } from '../lib/domain/money';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trash2, Upload } from 'lucide-react';
 
 function formatDay(iso: string | null | undefined): string {
   if (!iso) return '–';
@@ -21,6 +23,29 @@ export default function OverviewPage() {
   const [tenders, setTenders] = useState<ReviewTenderRow[]>([]);
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<ReviewTenderRow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      await deleteTender(pendingDelete.tender_id);
+      const remaining = tenders.filter((t) => t.tender_id !== pendingDelete.tender_id);
+      setTenders(remaining);
+      if (brief?.tender?.id === pendingDelete.tender_id) {
+        const next = remaining[0]?.tender_id;
+        setBrief(next ? await getTenderBrief(next).catch(() => loadSampleBrief()) : loadSampleBrief());
+      }
+      setPendingDelete(null);
+    } catch (err: any) {
+      setDeleteError(err?.message || "Couldn't delete the tender. Try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -108,7 +133,11 @@ export default function OverviewPage() {
               <h1 className="text-xl font-semibold leading-7 tracking-tight">Overview</h1>
               <p className="mt-1 text-xs text-muted">Every tender, its status and its award.</p>
             </div>
-            <Link href="/ingest" className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:opacity-90">
+            <Link
+              href="/ingest"
+              className="inline-flex h-8 items-center gap-1.5 rounded bg-ink px-3 text-xs font-medium text-paper hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1"
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
               Upload tender
             </Link>
           </header>
@@ -140,7 +169,7 @@ export default function OverviewPage() {
                 <col className="w-24" />
                 <col className="w-24" />
                 <col className="w-28" />
-                <col className="w-8" />
+                <col className="w-16" />
               </colgroup>
               <thead>
                 <tr className="border-b border-rule-strong text-[11px] text-muted">
@@ -149,7 +178,7 @@ export default function OverviewPage() {
                   <th scope="col" className="py-2 pr-4 text-left font-normal">Status</th>
                   <th scope="col" className="py-2 pr-4 text-right font-normal">Open items</th>
                   <th scope="col" className="py-2 text-right font-normal">Uploaded</th>
-                  <th scope="col"><span className="sr-only">Open</span></th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -179,8 +208,23 @@ export default function OverviewPage() {
                           {t.open_items ?? '–'}
                         </td>
                         <td className="py-3 text-right tabular-nums text-muted">{formatDay(t.ingested_at)}</td>
-                        <td className="py-3 text-right text-faint">
-                          <ChevronRight className="ml-auto h-3.5 w-3.5" aria-hidden="true" />
+                        <td className="py-2 text-right text-faint" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-0.5">
+                            {!SAMPLE_TENDER_IDS.has(t.tender_id) && (
+                              <ActionButton
+                                icon={Trash2}
+                                iconOnly
+                                tone="destructive"
+                                label={isVer ? 'Signed off: reopen it before deleting' : `Delete ${t.tender_id}`}
+                                disabled={isVer}
+                                onClick={() => {
+                                  setDeleteError(null);
+                                  setPendingDelete(t);
+                                }}
+                              />
+                            )}
+                            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          </div>
                         </td>
                       </tr>
                     );
@@ -189,6 +233,22 @@ export default function OverviewPage() {
               </tbody>
             </table>
           </section>
+
+          <ConfirmDialog
+            open={Boolean(pendingDelete)}
+            title={`Delete ${pendingDelete?.tender_id ?? ''}?`}
+            body={
+              <>
+                This removes the spec, every bid PDF, the evaluated brief and its review history from storage. It
+                cannot be undone.
+              </>
+            }
+            confirmLabel="Delete tender"
+            busy={isDeleting}
+            error={deleteError}
+            onConfirm={confirmDelete}
+            onCancel={() => setPendingDelete(null)}
+          />
 
           <p className="mt-10 text-[11px] text-faint">
             Code checks every unit and does every sum. AI only finds the quotes, and each quote links to its page.{' '}

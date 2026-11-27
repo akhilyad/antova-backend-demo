@@ -6,7 +6,8 @@ import { AUDIT_REQUEST_URL, SAMPLE_TENDER_ID } from '../lib/site';
 import { SAMPLE_TENDER_IDS } from '../lib/replay';
 import { INGEST_PHASES, phaseFor, phaseIndex, type IngestPhase } from '../lib/ingest-phase';
 import { Job } from '../lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { ActionButton } from './ui/actions';
 import { useRouter } from 'next/navigation';
 
 const ENGINE_COPY = {
@@ -341,9 +342,28 @@ export function SplitUploadDropzone() {
                 }}
               />
               <label htmlFor="mrFileInput" className={`${drop} mt-3`}>
-                <span className="block text-ink-2">{mrFile ? mrFile.name : 'Drop the spec PDF, or browse'}</span>
-                {mrFile && <span className="mt-0.5 block text-[11px] tabular-nums text-faint">{(mrFile.size / 1024).toFixed(0)} KB</span>}
+                <span className="block text-ink-2">{mrFile ? 'Replace the spec PDF, or browse' : 'Drop the spec PDF, or browse'}</span>
               </label>
+              {mrFile && (
+                <div className="mt-2 flex items-center justify-between gap-3 border-y border-rule py-1.5 text-xs">
+                  <span className="min-w-0 truncate text-ink-2">{mrFile.name}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="tabular-nums text-[11px] text-faint">{(mrFile.size / 1024).toFixed(0)} KB</span>
+                    <ActionButton
+                      icon={X}
+                      iconOnly
+                      tone="destructive"
+                      label={`Remove ${mrFile.name}`}
+                      disabled={isProcessing}
+                      onClick={() => {
+                        setMrFile(null);
+                        const el = document.getElementById('mrFileInput') as HTMLInputElement | null;
+                        if (el) el.value = '';
+                      }}
+                    />
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -360,13 +380,23 @@ export function SplitUploadDropzone() {
                 onChange={(e) => {
                   if (e.target.files) {
                     const files = Array.from(e.target.files);
-                    const newItems = files.map((file, idx) => ({
+                    // Next unused letter, so removing a bid never makes two share an ID.
+                    const used = new Set(vendorFiles.map((v) => v.vendorId));
+                    let n = 0;
+                    const nextId = () => {
+                      while (used.has(`vendor-${String.fromCharCode(97 + n)}`)) n++;
+                      const id = `vendor-${String.fromCharCode(97 + n)}`;
+                      used.add(id);
+                      return id;
+                    };
+                    const newItems = files.map((file) => ({
                       file,
-                      vendorId: `vendor-${String.fromCharCode(97 + vendorFiles.length + idx)}`,
+                      vendorId: nextId(),
                       vendorName: file.name.replace(/\.pdf$/i, ''),
                       country: 'EU',
                     }));
                     setVendorFiles([...vendorFiles, ...newItems]);
+                    e.target.value = '';
                   }
                 }}
               />
@@ -380,9 +410,29 @@ export function SplitUploadDropzone() {
               {vendorFiles.length > 0 && (
                 <ul className="mt-2 max-h-36 overflow-y-auto border-t border-rule text-xs">
                   {vendorFiles.map((v, i) => (
-                    <li key={i} className="flex justify-between gap-4 border-b border-rule py-1.5">
-                      <span className="truncate text-ink-2">{v.file.name}</span>
+                    <li key={`${v.vendorId}-${v.file.name}`} className="flex items-center justify-between gap-3 border-b border-rule py-1">
+                      <span className="min-w-0 flex-1">
+                        <input
+                          type="text"
+                          value={v.vendorName}
+                          aria-label={`Bidder name for ${v.file.name}`}
+                          disabled={isProcessing}
+                          onChange={(e) =>
+                            setVendorFiles(vendorFiles.map((x, j) => (j === i ? { ...x, vendorName: e.target.value } : x)))
+                          }
+                          className="w-full truncate rounded-sm bg-transparent px-1 py-0.5 text-ink-2 hover:bg-sheet focus:bg-paper focus:outline-none focus:ring-1 focus:ring-rule-strong"
+                        />
+                        <span className="block truncate px-1 text-[11px] text-faint">{v.file.name}</span>
+                      </span>
                       <span className="shrink-0 font-mono text-[11px] text-faint">{v.vendorId}</span>
+                      <ActionButton
+                        icon={X}
+                        iconOnly
+                        tone="destructive"
+                        label={`Remove ${v.file.name}`}
+                        disabled={isProcessing}
+                        onClick={() => setVendorFiles(vendorFiles.filter((_, j) => j !== i))}
+                      />
                     </li>
                   ))}
                 </ul>
