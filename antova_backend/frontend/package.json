@@ -16,7 +16,8 @@
     "test:proxy": "node --test scripts/test-proxy.mjs",
     "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs scripts/test-native.mjs scripts/test-manage.mjs scripts/test-properties.mjs",
     "test:native-e2e": "node scripts/test-native-e2e.mjs",
-    "mock:llm": "node scripts/mock-llm.mjs"
+    "mock:llm": "node scripts/mock-llm.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.18",
@@ -32,6 +33,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
