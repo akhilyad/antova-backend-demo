@@ -14,6 +14,7 @@ import { probeLlm } from './llm.ts';
 import { EQUIPMENT_CLASSES, RATE_TABLES } from './ontology.ts';
 import { parsePdf } from './pdftext.ts';
 import { getStore } from './store.ts';
+import { addBid, deleteTender, ManageError, removeDocument, renameManifest, renameTender } from './manage.ts';
 import {
   ENGINE_VERSION,
   advanceJob,
@@ -351,6 +352,23 @@ async function tenderRoute(request: NextRequest, tenderId: string, rest: string[
     return putManifest(request, tenderId, requestId);
   }
 
+  // Housekeeping: delete the tender, or add / remove a bid in its file list (then re-run the audit).
+  const manages = (sub === '' && method === 'DELETE') || (sub === 'manifest/documents' && method === 'POST') ||
+    (rest[0] === 'manifest' && rest[1] === 'documents' && rest.length === 3 && method === 'DELETE');
+  if (manages) {
+    if (SAMPLE_TENDER_IDS.has(tenderId)) return fail(409, `${tenderId} is the saved sample and cannot be changed.`, requestId);
+    if (!writeAllowed(request)) return denied(request, method === 'DELETE' && sub === '' ? 'Deleting' : 'Changing the file list', requestId);
+    const store = getStore();
+    try {
+      if (sub === '') return json(200, { deleted: tenderId, ...(await deleteTender(store, tenderId)) }, requestId);
+      if (method === 'POST') return json(200, await addBid(store, tenderId, (await body<any>(request)) ?? {}, MAX_BIDS), requestId);
+      return json(200, await removeDocument(store, tenderId, decode(rest[2]) ?? ''), requestId);
+    } catch (err) {
+      if (err instanceof ManageError) return fail(err.status, err.message, requestId);
+      throw err;
+    }
+  }
+
   // The saved sample stays as it was saved; only its totals are recomputed (that is pure arithmetic).
   if (SAMPLE_TENDER_IDS.has(tenderId)) {
     if (sub === 'evaluate' && method === 'POST') {
@@ -366,6 +384,20 @@ async function tenderRoute(request: NextRequest, tenderId: string, rest: string[
   if (!state) return fail(404, `No tender ${tenderId}. Upload its files and process it first.`, requestId);
 
   if (sub === '' && (method === 'GET' || method === 'HEAD')) return json(200, briefPayload(state), requestId);
+
+  if (sub === '' && method === 'PATCH') {
+    if (!writeAllowed(request)) return denied(request, 'Editing', requestId);
+    const patch = (await body<{ title?: unknown; client?: unknown }>(request)) ?? {};
+    try {
+      const next = renameTender(state, patch);
+      await saveState(next);
+      await renameManifest(getStore(), tenderId, { title: next.meta.title, client: next.tender.client });
+      return json(200, briefPayload(next), requestId);
+    } catch (err) {
+      if (err instanceof ManageError) return fail(err.status, err.message, requestId);
+      throw err;
+    }
+  }
 
   if (sub === 'evaluate' && method === 'POST') {
     const s = sensitivityFrom(await body(request));
