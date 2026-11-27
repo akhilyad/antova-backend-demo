@@ -7,11 +7,13 @@ name only; values belong in the host's secret store, never in the repo.
 
 | Repo | Role | Ships |
 |---|---|---|
-| `akhilyad/antova-backend-demo` (this repo) | Source of truth for the engine and the workbench | Workbench on Cloudflare Workers |
-| `akhilyad/antova-yc` | Landing page and the YC reference copy of the engine and brief site | Landing page on Vercel |
+| `akhilyad/antova-yc` | Product and audit engine (ingest, rules, review, contract stage), plus the landing page | Landing page on Vercel |
+| `akhilyad/antova-backend-demo` (this repo) | Workbench, built-in TypeScript engine and the FastAPI serving layer | Workbench on Cloudflare Workers |
 
-Engine changes land here first. `antova-yc/antova_backend` is a reference copy, not a second place
-to fix things.
+Engine changes (`antova_ingest/`, rate tables, review rules) land in `antova-yc` first and are mirrored
+here. The serving-layer additions in this repo (request IDs, rate limits, the `documents` route) are
+not yet ported to `antova-yc`. This was the other way round before 2026-11-27: the copy here had been
+described as the source of truth, but `antova-yc` has since gained the contract-stage modules.
 
 ## What runs where
 
