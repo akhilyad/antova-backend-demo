@@ -110,8 +110,8 @@ class TenderRecord(Base):
     equipment_class = Column(String(64), nullable=False, default="")
     rate_table_version = Column(String(64), nullable=False, default="")
     pages_parsed = Column(Integer, default=0)
-    latency_sec = Column(Integer, default=0)
-    compute_cogs = Column(Float, default=0.0)
+    latency_sec = Column(Integer, default=0)  # {s}
+    compute_cogs = Column(Float, default=0.0)  # {USD} engine value is D4{USD}; stored as float
     ingested_at = Column(DateTime, nullable=False)
     share_id = Column(String(32), nullable=False, unique=True, index=True)
     status = Column(String(16), nullable=False, default="DRAFT")
@@ -133,7 +133,7 @@ class AdderOverrideRecord(Base):
     tender_id = Column(String(64), ForeignKey("tenders.id"), primary_key=True)
     param_id = Column(String(64), primary_key=True)
     vendor_id = Column(String(64), primary_key=True)
-    adder_eur = Column(String(32), nullable=False)  # the Decimal's string, e.g. "12000.00"
+    adder_eur = Column(String(32), nullable=False)  # D2{EUR} as the Decimal's string, e.g. "12000.00"
     note = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False)
     evidence_hash = Column(String(64), nullable=True)  # antova_review.evidence_hash of the cell when it was set
@@ -161,7 +161,7 @@ class VendorRecord(Base):
     position = Column(Integer, nullable=False, default=0)
     name = Column(String(255), nullable=False)
     country = Column(String(64), nullable=False)
-    headline_price = Column(Float, nullable=False)
+    headline_price = Column(Float, nullable=False)  # {EUR} float (not Decimal); 0 means unknown
     headline_citation = Column(Text, nullable=True)
     doc_name = Column(String(255), nullable=False)
     cover_claim = Column(Text, nullable=False)
@@ -199,7 +199,7 @@ class ExtractedParameterRecord(Base):
     bbox = Column(String(255), nullable=False)
     snippet = Column(Text, nullable=False)
     conflict_note = Column(Text, nullable=True)
-    cost_adder = Column(Float, default=0.0)
+    cost_adder = Column(Float, default=0.0)  # {EUR} float of a D2{EUR} engine value
     adder_formula = Column(Text, default="")
     citation = Column(Text, nullable=True)
     secondary_citation = Column(Text, nullable=True)
@@ -277,9 +277,9 @@ class AuditLedgerRecord(Base):
     tender_id = Column(String(64), ForeignKey("tenders.id", ondelete="CASCADE"), index=True)
     negotiation_round = Column(Integer, nullable=False)
     vendor_id = Column(String(64), nullable=False)
-    clawed_amount = Column(Float, nullable=False)
-    performance_fee = Column(Float, nullable=False)
-    net_savings = Column(Float, nullable=False)
+    clawed_amount = Column(Float, nullable=False)  # UNCERTAIN: {EUR} assumed, currency not stated
+    performance_fee = Column(Float, nullable=False)  # UNCERTAIN: {EUR} or {1} fraction, needs review
+    net_savings = Column(Float, nullable=False)  # UNCERTAIN: {EUR} if clawed_amount and performance_fee are {EUR}
     conceded_items = Column(Text, default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -520,6 +520,8 @@ class TenderRepository:
             )
         vendors = (self.db.query(VendorRecord).filter(VendorRecord.tender_id == tender_id)
                    .order_by(VendorRecord.position).all())
+        # headline_price: Float {EUR} (or {EUR/bay} for per-bay bids) -> float; 0.0 maps back to None.
+        # cost_adder: Float {EUR} back into the engine's D2{EUR} field (float round-trip, not the original Decimal).
         parameters = (self.db.query(ParameterRecord).filter(ParameterRecord.tender_id == tender_id)
                       .order_by(ParameterRecord.position).all())
         return engine_models.TenderPackage(
@@ -711,6 +713,8 @@ class TenderRepository:
         net_savings: float,
         conceded_items: List[str]
     ) -> AuditLedgerRecord:
+        # clawed_amount {EUR} (INFERRED: plan doc expects 57400.0 for round 3), performance_fee UNCERTAIN,
+        # net_savings UNCERTAIN; no production caller passes these, so no data flow fixes their units.
         record = AuditLedgerRecord(
             tender_id=tender_id,
             negotiation_round=round_num,

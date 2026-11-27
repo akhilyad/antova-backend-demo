@@ -152,7 +152,7 @@ def resolution_from_plain(data: dict) -> Resolution:
 def pricing_to_plain(p: Pricing) -> dict:
     data = asdict(p)
     data["lines"] = [line.model_dump(mode="json") for line in p.lines]
-    data["adder"] = str(p.adder)
+    data["adder"] = str(p.adder)  # {EUR} Decimal kept exact as string
     return data
 
 

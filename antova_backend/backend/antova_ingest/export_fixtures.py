@@ -33,7 +33,7 @@ FIXED_AT = datetime(2026, 11, 5, tzinfo=timezone.utc)
 FIXED_ISO = FIXED_AT.isoformat()  # 2026-11-05T00:00:00+00:00
 JOB_ID = "job-e2e00001"
 # Milliseconds since start at which each stage reported, as a live run would record them.
-STAGE_T_MS = [15, 2840, 41260, 41390, 41520, 41580, 41660]
+STAGE_T_MS = [15, 2840, 41260, 41390, 41520, 41580, 41660]  # {ms} cumulative stage timestamps
 DURATION_S = 41.7
 LATENCY_SEC = 42
 # The real values change with every edit to the pipeline's source, so the fixtures carry fixed ones.
@@ -44,6 +44,7 @@ PARITY_COPPER = [0.5, 1.0, 1.15, 2.5]
 PARITY_LABOUR = [20.0, 60.0, 87.5, 200.0]
 PARITY_FREIGHT = [0.5, 1.0, 2.5]
 PARITY_OVERRIDE_NOTE = "Parity case: founder priced the gap from the vendor's clarification"
+# adder_eur: D2{EUR}
 PARITY_OVERRIDE = {("PARAM-02", "vendor-b"): Override(adder_eur=Decimal("10000.00"), note=PARITY_OVERRIDE_NOTE)}
 
 DRAFT_CELL = ("PARAM-05", "vendor-c")  # made unpriced in the draft brief, so it is an open item

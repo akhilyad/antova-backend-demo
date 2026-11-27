@@ -36,7 +36,7 @@ export interface FieldDef {
   label: string;
   /** What the model should look for, with the unit it is usually written in. */
   hint: string;
-  plausible?: [string, string];
+  plausible?: [string, string]; // written with units; parsed to the kind's base unit (values.ts UNITS)
 }
 
 export interface ParameterDef {
@@ -165,12 +165,12 @@ export type Driver = 'fixed' | 'copper' | 'labour' | 'freight';
 
 export interface RateLine {
   label: string;
-  qty: string;
+  qty: string; // {X}: bay | lot | kg | h | day | month | load (per `unit`)
   unit: string;
-  rate: string;
+  rate: string; // {EUR/X}; line cost {EUR} = qty{X} * rate{EUR/X}
   driver: Driver;
-  low?: string;
-  high?: string;
+  low?: string; // {EUR/X}
+  high?: string; // {EUR/X}
 }
 
 export interface RateTable {
@@ -178,7 +178,7 @@ export interface RateTable {
   equipment_class?: string;
   effective_date: string;
   currency: string;
-  base_labour_rate: string;
+  base_labour_rate: string; // {EUR/h}
   unpriced_classes: string[];
   exposure_classes?: string[];
   deviation_rates: Record<string, RateLine[]>;

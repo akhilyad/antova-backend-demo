@@ -39,6 +39,9 @@ interface UnitDef {
 }
 
 /** Each numeric kind: its units, how far each is from the base unit, and the base unit's label. */
+// factor = {base/unit}: base = n{unit} * factor. {A/kA}=1000, {V/kV}=1000, {m/ft}=0.3048,
+// {month/year}=12, {week/working-day}=1/5, {week/day}=1/7, {week/month}=52/12.
+// percent: {%} only; no per-day/per-month -> {%/week} normalisation (Python does this).
 const UNITS: Partial<Record<FieldKind, { base: string; units: UnitDef[] }>> = {
   current: {
     base: 'A',
@@ -109,7 +112,7 @@ function parseNumeric(kind: FieldKind, text: string): Parsed {
   const re = new RegExp(NUM + String.raw`\s*`, 'g');
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const n = parseNumber(m[1]);
+    const n = parseNumber(m[1]); // {unit as stated}; base below = n{unit} * factor{base/unit}
     if (n === null) continue;
     const rest = text.slice(m.index + m[0].length);
     const unit = def.units.find((u) => u.pattern.test(rest));
@@ -125,6 +128,7 @@ function parseTemperature(text: string): Parsed {
   if (n === null) return { ok: false, reason: 'unreadable number' };
   const u = m[3].toUpperCase();
   if (u === 'K' && !m[2] && n < 150) return { ok: false, reason: 'ambiguous K' };
+  // base: {°C} = ({°F} - 32) * 5/9 | {K} - 273.15 | {°C}
   const c = u === 'F' ? ((n - 32) * 5) / 9 : u === 'K' ? n - 273.15 : n;
   return { ok: true, kind: 'number', base: c, unit: `°${u === 'K' ? 'K' : u}`, label: `${fmt(n)} ${u === 'K' ? 'K' : `°${u}`}` };
 }
@@ -318,20 +322,22 @@ export interface CheckResult {
   offered_canonical: string;
   /** The offer as a number in the requirement's unit, when it was converted. */
   offered_equivalent: number | null;
-  /** How far short of the requirement, in the requirement's unit (for shortfall-priced classes). */
+  /** How far short of the requirement, in the requirement's unit (for shortfall-priced classes). D3{reqUnit} */
   shortfall: number | null;
 }
 
 /** The offered number expressed in the unit the requirement was written in. */
 function inUnitOf(field: FieldDef, required: Ok<'number'>, offered: Ok<'number'>): { text: string; value: number; converted: boolean } {
   if (field.kind === 'temperature') {
+    // {°F} = {°C} * 9/5 + 32; a '°K' requirement is shown in {°C}
     const f = required.unit === '°F';
-    const v = f ? (offered.base * 9) / 5 + 32 : offered.base;
+    const v = f ? (offered.base * 9) / 5 + 32 : offered.base; // {°F} or {°C} (never {K}, even for a '°K' requirement)
     return { text: `${fmt(v)} ${f ? '°F' : '°C'}`, value: v, converted: offered.unit !== required.unit };
   }
   const def = UNITS[field.kind];
   const unit = def?.units.find((u) => u.label === required.unit);
   const factor = unit?.factor ?? 1;
+  // {reqUnit} = {base} / {base/reqUnit}
   const v = offered.base / factor;
   return { text: required.unit ? `${fmt(v)} ${required.unit}` : offered.label, value: v, converted: offered.unit !== required.unit };
 }
@@ -350,6 +356,7 @@ export function check(field: FieldDef, required: Parsed, offered: Parsed): Check
   switch (required.kind) {
     case 'number': {
       const o = offered as Ok<'number'>;
+      // conv.value, reqValue: {reqUnit} ({°C} for a '°K' requirement); eps and pass/fail compare in {base}
       const conv = inUnitOf(field, required, o);
       const reqValue = field.kind === 'temperature' && required.unit === '°F' ? (required.base * 9) / 5 + 32 : required.base / (UNITS[field.kind]?.units.find((u) => u.label === required.unit)?.factor ?? 1);
       const eps = 1e-9 * Math.max(1, Math.abs(required.base));
@@ -357,7 +364,7 @@ export function check(field: FieldDef, required: Parsed, offered: Parsed): Check
       if (field.operator === 'le') passed = o.base <= required.base + eps;
       else if (field.operator === 'eq') passed = Math.abs(o.base - required.base) <= eps;
       else passed = o.base >= required.base - eps;
-      const shortfall = passed ? 0 : Math.abs(reqValue - conv.value);
+      const shortfall = passed ? 0 : Math.abs(reqValue - conv.value); // {reqUnit} = |{reqUnit} - {reqUnit}|, D3 below
       return {
         ...base,
         passed,

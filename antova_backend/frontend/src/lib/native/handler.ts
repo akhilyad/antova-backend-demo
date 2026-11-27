@@ -42,7 +42,7 @@ type Native = Extract<EngineMode, { kind: 'native' }>;
 
 const SOURCE = { 'x-antova-source': 'live', 'x-antova-engine': 'native' };
 // One step must finish inside the route's maxDuration (60 s).
-const STEP_BUDGET_MS = 57_000;
+const STEP_BUDGET_MS = 57_000; // {ms}
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_BIDS = 8;
 const TENDER_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -124,6 +124,7 @@ function serveSample(method: string, subPath: string, requestId: string) {
 function sensitivityFrom(raw: any): Sensitivity | null {
   if (!raw || typeof raw !== 'object') return DEFAULT_SENSITIVITY;
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : Number(v));
+  // copper_multiplier {1}, freight_multiplier {1}, site_labor_rate {EUR/h} | null
   const s = {
     copper_multiplier: num(raw.copper_multiplier, 1),
     freight_multiplier: num(raw.freight_multiplier, 1),
@@ -265,7 +266,7 @@ function sampleJob(tenderId: string) {
 function runInBackground(jobId: string, mode: Native) {
   after(async () => {
     try {
-      await advanceJob(jobId, mode.llm, STEP_BUDGET_MS);
+      await advanceJob(jobId, mode.llm, STEP_BUDGET_MS); // {ms} step budget -> advanceJob budget param
     } catch (err) {
       console.error(JSON.stringify({ event: 'native_job_error', job_id: jobId, error: err instanceof Error ? err.message : String(err) }));
     }
@@ -293,6 +294,7 @@ async function jobStatus(jobId: string, mode: Native, requestId: string) {
   const job = await getStore().getJson<NativeJob>(keys.job(jobId));
   if (!job) return fail(404, 'Job not found', requestId);
   // Each poll moves an unfinished job on, in the background, so the poll itself answers at once.
+  // {ms} lease_until (epoch ms) <= {ms} Date.now()
   if ((job.status === 'PENDING' || job.status === 'PROCESSING') && job.lease_until <= Date.now()) {
     runInBackground(jobId, mode);
   }
@@ -468,10 +470,12 @@ async function tenderRoute(request: NextRequest, tenderId: string, rest: string[
       delete state.overrides[k];
     } else {
       const b = await body<{ adder_eur?: string | number; note?: string }>(request);
+      // {EUR} (whole euros, float); stored as D2{EUR} string via toFixed(2)
       const amount = Number(b?.adder_eur);
       const note = String(b?.note ?? '').trim();
       if (!Number.isFinite(amount) || amount < 0 || amount > 1e9) return fail(422, 'The amount must be a number of 0 or more.', requestId);
       if (!note) return fail(422, 'Say why, in the note.', requestId);
+      // D2{EUR} string = toFixed(2) of float {EUR} (binary float rounding, not Decimal ROUND_HALF_UP)
       state.overrides[k] = { adder_eur: amount.toFixed(2), note: note.slice(0, 1000), evidence_hash: evidenceHash(cell), set_at: new Date().toISOString() };
     }
     await saveState(state);

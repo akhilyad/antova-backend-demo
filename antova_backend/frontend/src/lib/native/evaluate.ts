@@ -19,15 +19,15 @@ import type {
 } from '../types.ts';
 
 export interface Sensitivity {
-  copper_multiplier: number;
-  site_labor_rate?: number | null;
-  freight_multiplier: number;
+  copper_multiplier: number; // {1}
+  site_labor_rate?: number | null; // {EUR/h}; null = each labour line's own rate
+  freight_multiplier: number; // {1}
 }
 
 export const DEFAULT_SENSITIVITY: Sensitivity = { copper_multiplier: 1, site_labor_rate: null, freight_multiplier: 1 };
 
 export interface StoredOverride {
-  adder_eur: string;
+  adder_eur: string; // D2{EUR} as decimal string
   note: string;
   evidence_hash: string;
   set_at: string;
@@ -58,6 +58,7 @@ export interface TenderState {
 }
 
 const ZERO = new Decimal(0);
+// D2{EUR} = round_half_up({EUR}, 2)
 const cents = (d: Decimal) => d.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
 const dec = (v: unknown) => {
   try {
@@ -68,10 +69,12 @@ const dec = (v: unknown) => {
 };
 
 function lineAmount(line: Extraction['cost_lines'][number], s: Sensitivity, bound: 'base' | 'low' | 'high'): Decimal {
-  const qty = dec(line.qty);
+  const qty = dec(line.qty); // {X}
   if (line.driver === 'labour' && s.site_labor_rate !== null && s.site_labor_rate !== undefined) {
+    // {EUR} = qty{h} * site_labor_rate{EUR/h} (low/high bound ignored when a rate is set)
     return qty.times(dec(s.site_labor_rate));
   }
+  // {EUR} = qty{X} * rate{EUR/X} [* multiplier{1} for copper/freight]
   let rate = dec(line.rate);
   if (bound === 'low' && line.rate_low != null) rate = dec(line.rate_low);
   if (bound === 'high' && line.rate_high != null) rate = dec(line.rate_high);
@@ -80,6 +83,7 @@ function lineAmount(line: Extraction['cost_lines'][number], s: Sensitivity, boun
   return qty.times(rate);
 }
 
+/** @returns D2{EUR} the cell's adder, rounded per cell. */
 function adderDecimal(cell: Extraction, s: Sensitivity, bound: 'base' | 'low' | 'high' = 'base'): Decimal {
   if (!cell.cost_lines || cell.cost_lines.length === 0) return cents(dec(cell.cost_adder ?? 0));
   return cents(cell.cost_lines.reduce((sum, line) => sum.plus(lineAmount(line, s, bound)), ZERO));
@@ -94,10 +98,10 @@ export function evaluateFinancials(
   overrides: Record<string, { adder_eur: string; note: string }> = {}
 ): VendorFinancials[] {
   return tender.vendors.map((v) => {
-    let tech = ZERO;
-    let commercial = ZERO;
-    let low = ZERO;
-    let high = ZERO;
+    let tech = ZERO; // {EUR} sum of D2{EUR} cell adders (non-COMMERCIAL)
+    let commercial = ZERO; // {EUR} sum of D2{EUR} cell adders (COMMERCIAL)
+    let low = ZERO; // {EUR} sum of D2{EUR} low-bound adders
+    let high = ZERO; // {EUR} sum of D2{EUR} high-bound adders
     let hasUnpriced = false;
     const itemized = [];
     for (const p of tender.parameters) {
@@ -127,6 +131,7 @@ export function evaluateFinancials(
         override_note: o ? o.note : null,
       });
     }
+    // {EUR} = {EUR} + {EUR}
     const total = tech.plus(commercial);
     const priced = typeof v.headline_price === 'number' && v.headline_price > 0;
     const status = priced ? 'PRICED' : v.headline_status && v.headline_status !== 'PRICED' ? v.headline_status : 'NOT_FOUND';
@@ -138,7 +143,8 @@ export function evaluateFinancials(
     if (!priced) {
       priceStatus = status === 'NOT_FOUND' ? 'NO_HEADLINE' : status;
     } else {
-      headline = v.headline_price as number;
+      headline = v.headline_price as number; // D2{EUR} total scope (pipeline only sets it when currency === table.currency)
+      // D2{EUR} = headline{EUR} + sum adders{EUR}
       const h = dec(headline);
       tep = cents(h.plus(total)).toNumber();
       tepLow = cents(h.plus(low)).toNumber();
@@ -151,7 +157,7 @@ export function evaluateFinancials(
       country: v.country,
       badge: v.badge,
       headline_price: headline,
-      currency: 'EUR',
+      currency: 'EUR', // hardcoded label; headline is in table.currency, which is not checked to be EUR here
       total_tech_penalty: cents(tech).toNumber(),
       total_commercial_adder: cents(commercial).toNumber(),
       total_adders: cents(total).toNumber(),

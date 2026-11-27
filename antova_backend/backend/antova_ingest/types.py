@@ -53,8 +53,8 @@ class ProjectBaseline(BaseModel):
     po_award_date: BaselineDate | None = None
     required_on_site_date: BaselineDate | None = None
     energization_date: BaselineDate | None = None
-    site_altitude_m: BaselineNumber | None = None
-    site_max_ambient_c: BaselineNumber | None = None
+    site_altitude_m: BaselineNumber | None = None  # {m}
+    site_max_ambient_c: BaselineNumber | None = None  # {°C}
 
     @model_validator(mode="after")
     def _dates_in_order(self):
@@ -77,7 +77,7 @@ class TenderManifest(BaseModel):
     equipment_class: str
     rate_table: str
     documents: list[DocumentEntry]
-    engineering_estimates: dict[str, Decimal]
+    engineering_estimates: dict[str, Decimal]  # {X} per key, X from the key suffix (busbar_cu_kg {kg}, heavy_haul_loads {load}); not money
     synthetic: bool = False
     project: ProjectBaseline | None = None
 
@@ -178,7 +178,7 @@ class CheckResult:
     # False when the two sides start from different points and nothing in the MR says how far apart.
     comparable: bool = True
     # The offered months restated on the required basis, when the MR's own duration allowed it.
-    offered_equivalent: int | None = None
+    offered_equivalent: int | None = None  # {month}
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -195,7 +195,7 @@ class Resolution:
     secondary: Citation | None
     conflict_note: str | None
     extracted_text: str
-    confidence: float
+    confidence: float  # {1}
     # Things a person must look at: [{"code": ..., "message": ...}]
     flags: list[dict] = field(default_factory=list)
     # For a COMPLIANT cell: "documentary" or "claim_only" (cover letter or compliance table only).

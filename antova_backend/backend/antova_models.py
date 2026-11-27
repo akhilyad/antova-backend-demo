@@ -37,7 +37,7 @@ class IngestJobRequest(BaseModel):
 class JobStatusResponse(BaseModel):
     job_id: str
     status: JobStatus
-    progress_pct: int
+    progress_pct: int  # {%} 0-100
     stage: str
     created_at: str
     completed_at: Optional[str] = None
@@ -58,7 +58,9 @@ class BriefResponse(BaseModel):
     stage_log: List[Dict[str, Any]]
     documents: List[Dict[str, Any]]
     tender: Dict[str, Any]
+    # financials: headline_price {EUR} (or {EUR/bay}), adders and true_evaluated_price as {EUR} floats
     financials: List[Dict[str, Any]]
+    # overrides: adder_eur as a D2{EUR} string
     overrides: List[Dict[str, Any]]
     open_items: List[Dict[str, Any]]
     review: Dict[str, Any]

@@ -39,7 +39,7 @@ class ScheduleResult:
     projected_arrival: date | None
     required_on_site: date | None
     # Calendar days. Positive: arrives early. Zero: arrives on the day. Negative: late.
-    float_days: int | None
+    float_days: int | None  # {day}
     # Why the result is manual, or one line on the outcome.
     reason: str
     # The calculation, one line per step, for the reviewer.
@@ -64,6 +64,7 @@ def _date(project: Mapping[str, Any], name: str) -> date | None:
 
 def _days(weeks: float) -> int:
     """Whole calendar days in `weeks`, rounded up (a tolerance keeps 5.2 weeks from becoming 37 days)."""
+    # weeks: {week} -> {day}; {day} = ceil(D6({week} * 7{day/week}))
     return math.ceil(round(weeks * 7, 6))
 
 
@@ -75,11 +76,12 @@ def schedule_float(
     project: Mapping[str, Any] | None,
     lead_time: FieldValue | None,
     *,
-    drawing_approval_weeks: float | None = None,
+    drawing_approval_weeks: float | None = None,  # {week}
     arrival_basis: Literal["site", "before_site"] | None = None,
-    transit_days: int | None = None,
-    minimum_float_days: int = 0,
+    transit_days: int | None = None,  # {day}
+    minimum_float_days: int = 0,  # {day}
 ) -> ScheduleResult:
+    # lead_time.value: D6{week}; returns float_days {day}
     """Float of one vendor's delivery against the project's required on-site date.
 
     project: the stored baseline ({"po_award_date": {"value": "2027-01-15"}, ...}), or None.
@@ -113,12 +115,12 @@ def schedule_float(
         if drawing_approval_weeks is None:
             return _manual("the lead time counts from approved drawings and the MR does not state how long "
                            "drawing approval takes", steps, required)
-        start = po + timedelta(days=_days(drawing_approval_weeks))
+        start = po + timedelta(days=_days(drawing_approval_weeks))  # date + {day}({week})
         steps.append(f"+ {drawing_approval_weeks:g} weeks drawing approval = drawings approved {start.isoformat()}")
     else:
         return _manual("the lead time does not say what it is counted from (PO or approved drawings)", steps, required)
 
-    ready = start + timedelta(days=_days(lead_time.value))
+    ready = start + timedelta(days=_days(lead_time.value))  # date + {day}(D6{week})
     steps.append(f"+ {lead_time.value:g} weeks lead time ({lead_time.display}) = {ready.isoformat()}")
 
     if arrival_basis not in ARRIVAL_BASES:
@@ -129,9 +131,10 @@ def schedule_float(
         if transit_days is None:
             return _manual("the lead time ends before the site (not DAP, DPU or DDP) and no transit time is given",
                            steps, required)
-        arrival = ready + timedelta(days=transit_days)
+        arrival = ready + timedelta(days=transit_days)  # date + {day}
         steps.append(f"+ {transit_days} days transit = arrival {arrival.isoformat()}")
 
+    # {day} = date - date
     float_days = (required - arrival).days
     steps.append(f"required on site {required.isoformat()}; float {float_days:+d} days")
     if float_days < minimum_float_days:

@@ -31,9 +31,10 @@ router = APIRouter(prefix="/api/briefs", tags=["Briefs"])
 
 class RatesBody(BaseModel):
     """The brief's sensitivity sliders; the same bounds as /api/evaluate."""
-    copper_multiplier: float = Field(default=1.0, ge=0.5, le=2.5)
+    copper_multiplier: float = Field(default=1.0, ge=0.5, le=2.5)  # {1}
+    # site_labor_rate: {EUR/h}
     site_labor_rate: Optional[float] = Field(default=None, ge=20.0, le=200.0)  # unset: the table's rate
-    freight_multiplier: float = Field(default=1.0, ge=0.5, le=2.5)
+    freight_multiplier: float = Field(default=1.0, ge=0.5, le=2.5)  # {1}
 
 
 @dataclass

@@ -16,14 +16,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
-CENTS = Decimal("0.01")
-HUNDRED = Decimal("100")
+CENTS = Decimal("0.01")  # D2 quantum for {EUR}
+HUNDRED = Decimal("100")  # {%} per {1}
 
 
 @dataclass(frozen=True)
 class Exposure:
     kind: str
-    amount: Decimal | None
+    amount: Decimal | None  # D2{EUR}
     formula: str
     # Why `amount` is None; empty when it is known.
     reason: str = ""
@@ -47,6 +47,7 @@ def _euros(value: Decimal) -> Decimal:
 
 
 def delay_cost(weeks_late, cost_per_week) -> Exposure:
+    # weeks_late: {week} (positive = late); cost_per_week: {EUR/week}; amount: D2{EUR}
     """What a late delivery costs the buyer: weeks late times the buyer's own cost of a week's delay.
 
     `weeks_late` comes from the schedule float (a negative float is a late delivery) and `cost_per_week` is
@@ -58,19 +59,22 @@ def delay_cost(weeks_late, cost_per_week) -> Exposure:
         return _unknown("delay", "the buyer has not stated what a week of delay costs")
     if rate < 0:
         return _unknown("delay", "the cost of a week of delay is negative")
-    weeks = max(late, Decimal("0"))
+    weeks = max(late, Decimal("0"))  # {week}
     shown = _n(weeks.quantize(CENTS, rounding=ROUND_HALF_UP))
     approx = "≈ " if shown != _n(weeks) else ""  # the amount uses the exact weeks; only the display is rounded
+    # D2{EUR} = {week} * {EUR/week}
     return Exposure("delay", _euros(weeks * rate), f"{approx}{shown} weeks late × €{rate:,.2f} per week")
 
 
 def _recovered(rate_pct: Decimal, cap_pct: Decimal, weeks: Decimal) -> Decimal:
     """Share of the contract price recovered by liquidated damages after `weeks` of delay."""
+    # {%} = min({%/week} * {week}, {%}); cap is a % of the WHOLE contract value, not of the delayed portion
     return min(rate_pct * weeks, cap_pct)
 
 
 def ld_recovery_shortfall(required_rate_pct, required_cap_pct, offered_rate_pct, offered_cap_pct,
                           delay_weeks, contract_value) -> Exposure:
+    # rates: {%/week}; caps: {%} of contract value; delay_weeks: {week}; contract_value: {EUR}; amount: D2{EUR}
     """What the buyer would recover less, after `delay_weeks` of delay, than the MR's liquidated damages give.
 
     Each side recovers its weekly rate times the weeks, up to its cap, as a share of the contract value. The
@@ -84,11 +88,12 @@ def ld_recovery_shortfall(required_rate_pct, required_cap_pct, offered_rate_pct,
     if missing:
         return _unknown("ld_recovery", "not known: " + ", ".join(missing))
     req_rate, req_cap, off_rate, off_cap, weeks, value = values
-    required = _recovered(req_rate, req_cap, weeks)
-    offered = _recovered(off_rate, off_cap, weeks)
-    shortfall = max(required - offered, Decimal("0"))
+    required = _recovered(req_rate, req_cap, weeks)  # {%} of contract
+    offered = _recovered(off_rate, off_cap, weeks)  # {%} of contract (cap qualifier, e.g. delayed_portion, not received)
+    shortfall = max(required - offered, Decimal("0"))  # {%} = {%} - {%}
     formula = (f"(MR {_n(required)}% − bid {_n(offered)}% of the contract value after {_n(weeks)} weeks of delay) "
                f"= {_n(shortfall)}% × €{value:,.2f}")
+    # D2{EUR} = {%} / 100{%} * {EUR}
     return Exposure("ld_recovery", _euros(shortfall / HUNDRED * value), formula)
 
 
@@ -100,6 +105,8 @@ def liability_shortfall(required_pct, offered_pct, contract_value) -> Exposure:
                                     ("the contract value", value)) if v is None]
     if missing:
         return _unknown("liability", "not known: " + ", ".join(missing))
-    shortfall = max(required - offered, Decimal("0"))
+    # required_pct, offered_pct: {%} of contract; contract_value: {EUR}
+    shortfall = max(required - offered, Decimal("0"))  # {%}
+    # D2{EUR} = {%} / 100{%} * {EUR}
     return Exposure("liability", _euros(shortfall / HUNDRED * value),
                     f"(MR {_n(required)}% − bid {_n(offered)}%) = {_n(shortfall)}% × €{value:,.2f}")

@@ -94,6 +94,7 @@ def score_document(doc, ideal: dict, outcome: LocateOutcome, prices: tuple | Non
         # The locator must give every parameter a candidate or a not_stated entry.
         "silent_params": sorted(p.id for p in PARAMETERS if p.id not in answered),
         "windows": len(outcome.windows) if outcome.windows else 1,
+        # D4{USD} = api_cost_usd({token}, {token}, {USD/Mtok}, {USD/Mtok})
         "cost_usd": str(extract.api_cost_usd(outcome.input_tokens, outcome.output_tokens, *(prices or ()))),
         "per_param": {pid: (len({m for m in matched if m[0] == pid}), len({w for w in wanted if w[0] == pid}))
                       for pid in sorted({w[0] for w in wanted})},
@@ -102,7 +103,7 @@ def score_document(doc, ideal: dict, outcome: LocateOutcome, prices: tuple | Non
 
 def _cell_accuracy(tender, expected: dict) -> tuple[int, int, int]:
     cells = {(vid, p.id): cell for p in tender.parameters for vid, cell in p.vendors.items()}
-    total = status_ok = pricing_ok = 0
+    total = status_ok = pricing_ok = 0  # {1} cell counts
     for vendor_id, by_param in expected["cells"].items():
         for param_id, want in by_param.items():
             total += 1
@@ -110,6 +111,7 @@ def _cell_accuracy(tender, expected: dict) -> tuple[int, int, int]:
             if cell is None:
                 continue
             status_ok += cell.status.value == want["status"]
+            # D2{EUR} == {EUR} (answer-key adder); float compare after rounding cost_adder
             pricing_ok += (round(cell.cost_adder, 2) == float(want["adder"])
                            and want.get("pricing_status") in (None, cell.pricing_status))
     return total, status_ok, pricing_ok
@@ -151,6 +153,7 @@ def score_pack(tender_dir: Path, locator: Locator) -> dict:
             per_param.setdefault(pid, [0, 0])
             per_param[pid][0] += hit
             per_param[pid][1] += want
+    # cost_usd: D4{USD} = sum of per-document D4{USD}
     return {"tender": tender_dir.name, "locator": getattr(locator, "model", "?"), "documents": documents, "missing": missing,
             "per_param": {pid: {"matched": h, "expected": w} for pid, (h, w) in sorted(per_param.items())},
             "cost_usd": str(sum((Decimal(d["cost_usd"]) for d in documents), Decimal("0"))),
