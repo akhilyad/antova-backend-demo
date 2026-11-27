@@ -1,303 +1,345 @@
-# Antova — Technical Bid Evaluation & Tender Auditing Engine
+<p align="center">
+  <img src="antova_backend/docs/assets/antova-workbench-banner.svg" alt="Antova Workbench: the lowest bid is not always the lowest cost. Headline price against evaluated cost." width="100%" />
+</p>
 
-[![Next.js 15](https://img.shields.io/badge/Next.js-15.1.7-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![React 19](https://img.shields.io/badge/React-19.0.0-blue?style=flat-square&logo=react)](https://react.dev/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-3.0.0-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Pint](https://img.shields.io/badge/Pint-0.26.2-orange?style=flat-square)](https://pint.readthedocs.io/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4.17-38bdf8?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Pytest](https://img.shields.io/badge/Pytest-175%20Passed-green?style=flat-square&logo=pytest)](https://pytest.org/)
+<h1 align="center">Antova Workbench</h1>
 
-> **Institutional-grade automated technical bid evaluation (TBE), scope omission add-back pricing, and tender auditing platform for high-voltage electrical equipment and EPC capital projects.**
+<p align="center">
+  <b>The review workbench and serving layer for Antova's bid-audit engine.</b><br/>
+  Upload a spec and vendor bids, read every flag against the page it came from,<br/>
+  override with a reason, sign off, export.
+</p>
 
----
+<p align="center">
+  <a href="https://antova-workbench.akhilfut.workers.dev"><b>Live workbench</b></a> ·
+  <a href="https://antova.vercel.app"><b>Website</b></a> ·
+  <a href="https://github.com/akhilyad/antova-yc"><b>Engine and product repo</b></a> ·
+  <a href="antova_backend/docs/environments.md"><b>Environments</b></a>
+</p>
 
-## Table of Contents
-1. [Executive Summary](#1-executive-summary)
-2. [Core Architecture & Pipeline](#2-core-architecture--pipeline)
-3. [Key Capabilities](#3-key-capabilities)
-4. [Monorepo Directory Layout](#4-monorepo-directory-layout)
-5. [Quickstart & Running Locally](#5-quickstart--running-locally)
-6. [API Contract & Endpoint Reference](#6-api-contract--endpoint-reference)
-7. [Governance, Security & Review Principles](#7-governance-security--review-principles)
-8. [Testing & Verification](#8-testing--verification)
+<p align="center">
+  <a href="https://github.com/akhilyad/antova-backend-demo/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/akhilyad/antova-backend-demo/actions/workflows/ci.yml/badge.svg" /></a>
+  <img alt="Next.js 15" src="https://img.shields.io/badge/workbench-Next.js%2015-000000?logo=nextdotjs&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white" />
+  <img alt="Cloudflare Workers" src="https://img.shields.io/badge/runs%20on-Cloudflare%20Workers-F38020?logo=cloudflare&logoColor=white" />
+  <img alt="FastAPI" src="https://img.shields.io/badge/engine-FastAPI-009688?logo=fastapi&logoColor=white" />
+  <img alt="Data" src="https://img.shields.io/badge/data-synthetic%20benchmark-lightgrey" />
+</p>
 
----
-
-## 1. Executive Summary
-
-In multi-million-euro EPC procurement (high-voltage GIS switchgear, step-up transformers, and BESS packages), the nominal lowest bidder frequently omits mandatory scope—such as factory acceptance test witnessing (I-FAT), copper busbar ratings, or DDP delivery terms. 
-
-**Antova** provides deterministic, transparent bid auditing:
-- **Parses & Indexes Proposal Corpus:** Reads complex engineering specifications and multi-vendor bids using PyMuPDF coordinate geometry.
-- **Pint Unit Dimensional Engine:** Mathematically normalizes disparate engineering units (e.g. converting 104 °F $\rightarrow$ 40 °C, or 36,000 V $\rightarrow$ 36 kV) with zero hallucination.
-- **Automated Scope Omission Add-Backs:** Prices every deviation against benchmark rate tables to establish the **True Evaluated Cost**.
-- **Detects Commercial Rank Reversals:** Accurately unmasks nominal low bids that become subordinate once omitted technical and commercial scope is added back.
-- **Institutional Governance:** Seals briefs, records reviewer signatures, and streams official multi-tab Excel (`.xlsx`) TBE workbooks and `.csv` clarification registers.
+**Contents:** [Scope](#1-scope-and-relationship-to-antova-yc) · [Requirements](#2-requirements) · [Architecture](#3-system-architecture) · [Request lifecycle](#4-request-lifecycle) · [Review lifecycle](#5-review-lifecycle) · [Data model](#6-data-model) · [API](#7-api-contract) · [Results](#8-results-and-metrics) · [Failure modes](#9-failure-modes-and-trade-offs) · [Layout](#10-repository-layout) · [Setup](#11-local-setup) · [Configuration](#12-configuration) · [Deployment](#13-deployment-topology) · [Status](#14-status-and-known-limits)
 
 ---
 
-## 2. Core Architecture & Pipeline
+## 1. Scope and relationship to antova-yc
+
+Antova audits vendor bids against a technical specification: a model finds the quote, code checks and prices it, a named reviewer approves every flag. The product, the audit rules and the evidence design are described in [antova-yc](https://github.com/akhilyad/antova-yc).
+
+This repository is the user-facing part of the system:
+
+- **The workbench** (`antova_backend/frontend`): Next.js dashboard, evidence inspector, override drawer, sensitivity panel, sign-off and printable report.
+- **A built-in TypeScript engine** (`frontend/src/lib/native`) that runs the same ingest inside the workbench, so the hosted demo needs no separate engine host.
+- **A FastAPI engine** (`antova_backend/backend`) with the serving layer added: request IDs, per-route rate limits, a database health check, a document route for the inspector.
+- **A brief site** (`backend/web`, Vite) for read-only verified briefs.
+
+| | `antova-yc` | `antova-backend-demo` (this repo) |
+| :-- | :-- | :-- |
+| Owns | Audit engine: ingest, rules, review, contract stage | Workbench, built-in engine, serving layer, deployment |
+| FastAPI operations | 33 | 23 |
+| Tables | 20 | 12 |
+| Hosting | Vercel (website) | Cloudflare Workers + R2 |
+
+Engine changes land in `antova-yc` first and are mirrored here. This copy has no contract-stage modules, and `antova-yc` does not yet have this copy's request IDs, rate limits or `documents` route.
+
+## 2. Requirements
+
+| ID | Requirement | Implemented in |
+| :-- | :-- | :-- |
+| FR-1 | Run an ingest with no separate engine host. | `frontend/src/lib/native/` |
+| FR-2 | Choose the engine per request from the environment: remote engine, built-in engine, or replay. | `frontend/src/lib/native/config.ts` |
+| FR-3 | Serve the same `/api` routes and JSON from either engine. | `native/handler.ts`, `backend/antova_*_api.py` |
+| FR-4 | Show the cited quote on the full source page and as a crop. | `backend/antova_evidence.py`, `GET …/documents/{filename}` |
+| FR-5 | Override a priced gap only with a written note. | `PUT …/overrides/{param}/{vendor}` |
+| FR-6 | Recompute prices from copper, labour and freight sensitivity without re-ingesting. | `POST …/evaluate`, `native/evaluate.ts` |
+| FR-7 | Seal a brief only with zero open items. Export the workbook only after sealing. | `POST …/verify`, `GET …/export-tbe.xlsx` |
+| FR-8 | With no engine and no LLM key, serve the saved benchmark read-only. | `frontend/src/lib/replay.ts` |
+
+| Area | Requirement | Where it holds |
+| :-- | :-- | :-- |
+| Determinism | The model returns a page and quote only. Units, verdicts and money are code. | `native/pipeline.ts` header, `antova_ingest/` |
+| Runtime limit | A native ingest runs as saved steps, one model call each, so no step must fit with the others in one 60 s function. | `native/pipeline.ts` (`advanceJob`) |
+| Secrets | The LLM key and review token live only as Worker secrets. Nothing `NEXT_PUBLIC_*` is secret. | `docs/cloudflare-workers.md` |
+| Auth | `/api` writes are gated by a review token. | `REVIEW_TOKEN`, `ANTOVA_REVIEW_TOKEN` |
+| Abuse | Per-client sliding-window limits: evaluate 30, evidence 240, export 20 per minute by default. `429` with `Retry-After`. | `backend/antova_ratelimit.py` |
+| Traceability | `X-Request-ID` on every response, one JSON access line per request, shown in UI errors. | `backend/antova_observability.py` |
+| Template safety | A placeholder such as `https://your-backend-url-here` is treated as unset, never called. | `native/config.ts` (`isPlaceholder`) |
+
+## 3. System architecture
+
+```mermaid
+flowchart LR
+    U["Reviewer<br/>browser"] --> W
+
+    subgraph cf["Cloudflare Worker · antova-workbench"]
+        direction TB
+        W["Next.js 15 via OpenNext<br/>pages and /api catch-all proxy"]
+        SEL{"Which engine?<br/>native/config.ts"}
+        NAT["Built-in engine<br/>frontend/src/lib/native"]
+        REP["Replay<br/>saved TENDER-2026-402"]
+        R2[("R2 bucket<br/>ANTOVA_BUCKET")]
+        W --> SEL
+        SEL -- "3 neither" --> REP
+        SEL -- "2 LLM key and model" --> NAT
+        NAT --> R2
+    end
+
+    SEL -- "1 BACKEND_URL" --> FA
+    NAT -- "page and quote only" --> LLM["OpenAI-compatible<br/>locate model"]
+
+    subgraph optional["Optional · local today"]
+        FA["FastAPI engine<br/>antova_backend/backend"]
+        DB[("SQLite or Postgres<br/>ANTOVA_DATABASE_URL")]
+        FA --> DB
+    end
+
+    FA -- "page and quote only" --> LLM
+    BS["Brief site<br/>Vite, backend/web<br/>Vercel"] -. "verified briefs" .-> FA
+```
+
+Rules for choosing the engine, checked on every request:
+
+1. `BACKEND_URL` is a real origin: proxy to that engine.
+2. Otherwise `LLM_API_KEY` and `LLM_MODEL_NAME` are set: the built-in engine.
+3. Neither: replay mode.
+
+Under `next dev` with no LLM key, the proxy defaults to a FastAPI engine on `http://127.0.0.1:8000`.
+
+## 4. Request lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant P as Worker proxy
+    participant N as Built-in engine
+    participant S as R2 store
+    participant L as Locate model
+
+    B->>P: PUT PDFs, PUT manifest
+    P->>N: Same routes as FastAPI
+    N->>S: Store bytes and page text
+    B->>P: POST /api/jobs/ingest
+    P->>N: createJob
+    N->>S: Save job (PENDING)
+    loop each step, one model call
+        P->>N: advanceJob (any invocation)
+        N->>L: Find page and verbatim quote
+        L-->>N: Candidate quotes only
+        N->>N: Check quote is on its page, read values, price
+        N->>S: Save job state
+    end
+    B->>P: GET /api/jobs/{id} (poll)
+    P-->>B: Progress, stage, result
+    B->>P: PUT overrides and reviews, POST /verify
+    P-->>B: share id, or 409 with open items
+```
+
+Ingest stages, in order: Intake, Parse, Locate (one model call per document), Check each quote is on its page, Read values, Check where documents disagree, Price, Persist.
+
+Every response carries `X-Request-ID`. The proxy creates one per call, the FastAPI engine echoes it, logs it on every line and writes one JSON access line per request on the `antova.access` logger.
+
+## 5. Review lifecycle
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> DRAFT: ingest
+    DRAFT --> DRAFT: review, override, recompute
+    DRAFT --> VERIFIED: verify, zero open items
+    VERIFIED --> DRAFT: withdraw or re-ingest
+    VERIFIED --> [*]: export workbook, share brief
+```
+
+A flagged cell is `open`, `reviewed`, `rejected` or `stale`. A re-ingest that changes what the reviewer saw makes the approval stale. The workbook export answers `409` while the brief is a draft.
+
+## 6. Data model
+
+The FastAPI engine in this repo uses 12 tables (`backend/antova_db.py`). The built-in engine stores uploads, page text, manifests, jobs and tenders as objects in R2 (`native/store.ts`: R2, Vercel Blob or local disk).
+
+```mermaid
+erDiagram
+    tenders ||--o{ vendors : has
+    tenders ||--o{ parameters : has
+    tenders ||--o{ source_documents : has
+    tenders ||--o{ extracted_parameters : cells
+    tenders ||--o{ cell_reviews : approvals
+    tenders ||--o{ adder_overrides : "manual adders"
+    tenders ||--o{ audit_clawback_ledger : records
+    tenders ||--o{ ingest_runs : runs
+    ingest_runs ||--o{ stage_artifacts : stores
+    tenders { string id PK }
+    ingest_runs { string run_id PK }
+    ingest_jobs { string job_id PK }
+    schema_version { int version PK }
+```
+
+## 7. API contract
+
+23 FastAPI operations, generated from the app's OpenAPI document. The built-in engine answers the same routes. Routes under `/api/review` and `/api/jobs` need `X-Antova-Review-Token`.
+
+| Method and path | Purpose |
+| :-- | :-- |
+| `GET /api/health` | Status. FastAPI answers `503` with `degraded` when the database is unreachable |
+| `PUT /api/review/tenders/{id}/files/{filename}` · `GET …/files` · `PUT …/manifest` | Intake |
+| `POST /api/jobs/ingest` · `GET /api/jobs/{job_id}` | Queue and poll |
+| `GET /api/review/tenders` · `GET …/{id}` | List, load a brief |
+| `POST …/{id}/evaluate` | Recompute with sensitivity settings (rate limited) |
+| `GET …/{id}/evidence/{param}/{source}/{which}.png` | Quote crop (rate limited) |
+| `GET …/{id}/documents/{filename}` | Full source PDF for the inspector. Only files the brief lists |
+| `PUT/DELETE …/{id}/overrides/{param}/{vendor}` | Manual adder with a note |
+| `GET …/{id}/reviews` · `PUT …/{id}/reviews/{param}/{vendor}` | Per-cell approval |
+| `POST …/{id}/verify` · `POST …/{id}/withdraw` | Seal, reopen |
+| `GET …/{id}/export-tbe.xlsx` · `clarifications.csv` · `clarifications.xlsx` | Exports (rate limited). Workbook is `409` while draft |
+| `GET /api/briefs/{share_id}` · `POST …/evaluate` · `GET …/evidence/…png` | Public read-only brief |
+
+Workbench-only routes: `GET/POST /api/ask` answers a question about one cited clause. It forwards to `ANTOVA_QA_URL`, or uses the built-in engine's model when that is unset. With no engine it refuses unless `ANTOVA_QA_PUBLIC=1`.
+
+Health on the hosted workbench reports `mode`, `engine`, `version`, `provider`, `model`, `llm`, `llm_latency_ms` and `storage`.
+
+**Replay mode.** The saved `TENDER-2026-402` is served read-only and marked `x-antova-source: replay`. Any other tender is a 404. Uploads, ingests, decisions and recalculation answer `405` with a message that a live engine is needed. A backend that cannot be reached at all also falls back to replay. A backend that answers, including with 404 or 5xx, is passed through unchanged.
+
+## 8. Results and metrics
+
+Benchmark: synthetic 33 kV switchgear tender `TENDER-2026-402`, three fictional vendors, known answer key.
+
+| Vendor | Headline | Added by gaps | Evaluated | Price status |
+| :-- | --: | --: | --: | :-- |
+| A | €452,000 | €0 | €452,000 | Fully priced |
+| C | €439,000 | €15,000 | €454,000 | Fully priced |
+| B | **€418,000** | €61,650 | **€479,650** | Lower bound |
+
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#D4400F, #4B5563"}}}}%%
+xychart-beta
+    title "Headline bid vs evaluated cost, TENDER-2026-402 (EUR thousand)"
+    x-axis ["Vendor A", "Vendor B", "Vendor C"]
+    y-axis "EUR thousand" 400 --> 500
+    bar [452, 479.65, 454]
+    line [452, 418, 439]
+```
+
+Bars are evaluated cost, the line is the headline bid.
+
+| Metric | Value | How to measure |
+| :-- | :-- | :-- |
+| FastAPI engine tests collected | 1,120 (Python 3.14) | `cd antova_backend/backend && python -m pytest --collect-only -q` |
+| Workbench unit tests | `[TBD: benchmark required]` | `cd antova_backend/frontend && npm run test:unit`, count passes |
+| Native ingest wall-clock per bid pack | `[TBD: benchmark required]` | Upload the benchmark to the hosted workbench, time `/api/jobs/{id}` from PENDING to COMPLETED |
+| Model cost per tender | `[TBD: benchmark required]` | Native job usage (`LlmUsage` in `native/pipeline.ts`) times the provider's price |
+| `evaluate` latency, p95 | `[TBD: benchmark required]` | Call `POST …/evaluate` 100 times, read the `antova.access` log `ms` field |
+| Cold-start of the Worker | `[TBD: benchmark required]` | Observability tab in Cloudflare (`observability` is enabled in `wrangler.jsonc`) |
+
+## 9. Failure modes and trade-offs
+
+| Situation | Behaviour |
+| :-- | :-- |
+| `BACKEND_URL` holds a template value | Ignored. `/api/health` names what it ignored |
+| Backend unreachable | Replay mode |
+| No engine and no LLM key | Replay mode. Writes answer `405` |
+| LLM probe fails | Health reports `llm` status. The ingest form is locked only for real replay |
+| Upload over the Worker body limit | `413` with an explanation. `NEXT_PUBLIC_DIRECT_UPLOAD_URL` sends the PUT straight to an engine |
+| Client over a rate limit | `429` with `Retry-After` |
+| Engine job interrupted by a restart | FastAPI marks it `FAILED` and never re-runs a paid job automatically |
+| Provider or internal error during ingest | Job reports a reference only. Detail stays in the server log. Document problems are reported in full |
+| Worker storage not durable | Health reports `storage` so ephemeral disk is not mistaken for durable storage |
+
+| Decision | Chosen | Cost |
+| :-- | :-- | :-- |
+| Built-in engine inside the Worker | Hosted demo with no engine host | Two implementations of the engine to keep in parity |
+| Parity pinned by fixtures | CI regenerates sensitivity and financials fixtures from Python and fails on any diff | A Python engine change forces a fixture update |
+| FastAPI engine not hosted | Needs a persistent volume and one instance (in-memory queue) | No hosted engine today |
+| Replay fallback | The site always serves a verified sample | A user can mistake it for a live run, so it is marked `replay` |
+
+## 10. Repository layout
 
 ```text
-       ┌───────────────────────────┐      ┌───────────────────────────┐
-       │ Material Requisition (MR) │      │ Multi-Vendor Proposal PDFs│
-       │    Specification PDF      │      │ (Vendor A, B, C, D, ...)  │
-       └─────────────┬─────────────┘      └─────────────┬─────────────┘
-                     │                                  │
-                     └────────────────┬─────────────────┘
-                                      ▼
-                      ┌───────────────────────────────┐
-                      │    Ingest & PyMuPDF Parser    │
-                      │ Text extraction, BBox coords  │
-                      └───────────────┬───────────────┘
-                                      ▼
-                      ┌───────────────────────────────┐
-                      │  Pint Dimensional Unit Engine │
-                      │ Mathematical clause auditing  │
-                      └───────────────┬───────────────┘
-                                      ▼
-                      ┌───────────────────────────────┐
-                      │ Rate Table Pricing Engine     │
-                      │ Prices scope gaps & add-backs │
-                      └───────────────┬───────────────┘
-                                      ▼
-                      ┌───────────────────────────────┐
-                      │ True Job Cost Ledger          │
-                      │ Reconciled ranking & adders   │
-                      └───────┬───────────────┬───────┘
-                              │               │
-                              ▼               ▼
-          ┌─────────────────────────┐   ┌─────────────────────────┐
-          │ Next.js 15 UI Workbench │   │ Committee Deliverables  │
-          │ Collapsible sidebar,    │   │ • Multi-sheet TBE .xlsx │
-          │ Evidence viewer modal,  │   │ • Clarifications .csv   │
-          │ Override drawer         │   │ • Printable sign-off    │
-          └─────────────────────────┘   └─────────────────────────┘
+.
+├── antova_backend/
+│   ├── frontend/                 Next.js 15 workbench (OpenNext for Cloudflare)
+│   │   ├── src/app/              Pages: dashboard, audit, ingest, governance, reports, print, settings
+│   │   ├── src/app/api/          /api catch-all proxy and /api/ask
+│   │   ├── src/lib/native/       Built-in engine: pipeline, evaluate, handler, llm, store, ontology, values
+│   │   ├── scripts/              Node tests, parity generators, mock LLM
+│   │   └── wrangler.jsonc        Worker, R2 binding, non-secret vars
+│   ├── backend/                  FastAPI engine
+│   │   ├── antova_*.py           API, review, upload, briefs, auth, rate limits, observability
+│   │   ├── antova_ingest/        Pipeline and rate tables
+│   │   ├── web/                  Brief site (Vite)
+│   │   ├── Dockerfile  deploy/   Container for a hosted engine
+│   │   └── samples/              Reference tenders
+│   ├── docs/                     environments, cloudflare-workers, built-in-engine, live-engine-runbook
+│   └── start-*.sh  run-tests.sh  Local helpers
+└── .github/workflows/ci.yml      Engine, brief site, workbench
 ```
 
----
+## 11. Local setup
 
-## 3. Key Capabilities
+Requires Node 22 and Python 3.12+.
 
-### A. High-Density Audit Workbench & Collapsible Sidebar
-- **21st.dev Collapsible Sidebar:** Smooth `w-64` to `w-16` responsive collapse with icon-only tooltips.
-- **Navigation Sections:** Executive Dashboard, Bid Audits, Pint Compliance Matrix, Ingestion & Staging, Commodity Rate Sensitivity, TBE Exports, and Governance Settings.
-- **Institutional Styling:** Precision dark theme (`#000000`, `#09090B`, `#111113`), `1px zinc-800` borders, `4px` corner radii, and strict `font-mono tabular-nums` numerical alignment.
-
-### B. Deterministic True Job Cost Ledger
-- Detects commercial rank reversals with real-time breakdowns.
-- Example: In benchmark `TENDER-2026-402`, **VoltSwitch Industrial** submitted a nominal low quote of `€418,000`. Following systematic clause audits, VoltSwitch was assessed `+€49,000` in technical penalties and `+€15,800` in commercial adders, resulting in a **True Evaluated Cost of €482,800** and reversing rank in favor of **Nordwerk** (`€452,000`, 100% compliant).
-
-### C. Documentary Evidence & Coordinate Bounding-Box Viewer
-- PyMuPDF visual crop extraction for every technical requirement and vendor claim.
-- Cites exact document filenames, page numbers, section headers, match confidence, and verbatim text quotes.
-
-### D. Commodity Index & Labor Rate Sensitivity Recalculator
-- Real-time sensitivity testing for conductor copper (0.5x – 2.5x), site labor (€20 – €200/hr), and heavy freight (0.5x – 2.5x).
-- Instant ledger recalculation via FastAPI `/api/review/tenders/{id}/evaluate`.
-
-### E. Manual Cost Override Drawer & Audit Justification
-- Reviewers can override automated adders with whole-cent precision (`0.00`).
-- Enforces mandatory audit notes committed to the database and official deliverables.
-
-### F. Official Procurement Committee Sign-Off & Exports
-- **Verify & Seal Workflow:** Locks the tender brief from draft status into verified status.
-- **Official TBE Workbook (`.xlsx`):** Formatted multi-tab Excel model matching FIDIC / VDI procurement standards.
-- **Clarification Registers (`.csv` / `.xlsx`):** Detailed clause registers ready to issue to bidders.
-- **Printable Sign-Off Sheet (`/print/[tenderId]`):** Formal authorization sheet with signature blocks for the Chief Procurement Officer, Senior Electrical Lead Engineer, and Head of Estimating.
-
----
-
-## 4. Monorepo Directory Layout
-
-```text
-antova_backend_UI/
-├── README.md                          # Master architectural and operational manual
-├── .gitignore                         # Comprehensive ignore rules
-├── antova_backend/                    # Monorepo container
-│   ├── start-backend.sh               # Shell script to start FastAPI on port 8000
-│   ├── start-frontend.sh              # Shell script to start Next.js on port 3000
-│   ├── run-tests.sh                   # Pytest test execution script
-│   ├── .env.example                   # Environment variable template
-│   ├── backend/                       # Python FastAPI Backend Engine
-│   │   ├── antova_api.py              # Root API application & middleware
-│   │   ├── antova_auth.py             # Review token security & principal models
-│   │   ├── antova_briefs_api.py       # Public brief reading & evaluation routes
-│   │   ├── antova_db.py               # SQLite schema, transactions & ORM
-│   │   ├── antova_engine.py           # Pint dimensional analysis & rate evaluation
-│   │   ├── antova_evidence.py         # PyMuPDF coordinate & PDF crop renderer
-│   │   ├── antova_export.py           # Multi-sheet Excel TBE & CSV generator
-│   │   ├── antova_models.py           # Pydantic data schemas
-│   │   ├── antova_review_api.py       # Reviewer overrides, verification & clearance
-│   │   ├── antova_upload_api.py       # File streaming & manifest ingestion
-│   │   ├── antova_workers.py          # Background ingest worker & progress tracker
-│   │   ├── antova_enterprise.db       # Seed database with benchmark packages
-│   │   ├── antova_requirements.txt    # Python package dependencies
-│   │   ├── pytest.ini                 # Pytest configuration
-│   │   ├── test_*.py                  # 175-test pytest verification suite
-│   │   ├── antova_ingest/             # PDF extraction, locator & rate sweep
-│   │   └── samples/                   # Pre-staged benchmark tenders (402, 417, 418)
-│   ├── frontend/                      # Next.js 15 Production Workbench
-│   │   ├── package.json               # Next.js 15, React 19, Tailwind CSS, Lucide
-│   │   ├── tsconfig.json              # TypeScript strict configuration
-│   │   ├── next.config.ts             # App Router & API proxy rewrites
-│   │   ├── tailwind.config.ts         # High-density zinc color palette
-│   │   ├── components.json            # Shadcn configuration (@/components/ui)
-│   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── page.tsx           # Executive Operations Dashboard (Sidebar)
-│   │   │   │   ├── layout.tsx         # Root layout with dark mode class
-│   │   │   │   ├── globals.css        # Tailwind styling & tabular-nums
-│   │   │   │   ├── audit/[tenderId]/  # Split-pane interactive audit workbench
-│   │   │   │   ├── ingest/            # Multi-file staging dropzone & presets
-│   │   │   │   ├── print/[tenderId]/  # Printable formal sign-off report
-│   │   │   │   └── demo/              # Standalone collapsible sidebar demo
-│   │   │   ├── components/
-│   │   │   │   ├── Header.tsx         # Top bar with tender switcher & actions
-│   │   │   │   ├── TrueJobCostTable.tsx # Ranked bidder comparison ledger
-│   │   │   │   ├── LineItemDrilldown.tsx# Parameter drilldown & formulas
-│   │   │   │   ├── ComplianceMatrix.tsx # Pint unit evaluated clause matrix
-│   │   │   │   ├── CommercialRiskTable.tsx # Commercial terms & delivery analysis
-│   │   │   │   ├── SensitivityPanel.tsx # Commodity & labor recalculation sliders
-│   │   │   │   ├── OverrideDrawer.tsx # Whole-cent manual adder editor
-│   │   │   │   ├── EvidenceModal.tsx  # PyMuPDF coordinate crop viewer
-│   │   │   │   ├── SplitUploadDropzone.tsx # Document staging dropzone
-│   │   │   │   └── ui/
-│   │   │   │       ├── dashboard-with-collapsible-sidebar.tsx # 21st.dev sidebar
-│   │   │   │       └── demo.tsx       # Demo component export
-│   │   │   └── lib/
-│   │   │       ├── api.ts             # Typed REST client with token auth
-│   │   │       ├── types.ts           # Complete TypeScript type definitions
-│   │   │       └── formatting.ts      # Currency, numbers & ISO formatting
-│   └── docs/                          # Architectural blueprints & specs
-```
-
----
-
-## 5. Quickstart & Running Locally
-
-### Prerequisites
-- **Node.js** $\ge$ 18.0.0
-- **Python** $\ge$ 3.11 with `pip` / virtual environment
-
-### 1. Launch the Backend Engine
 ```bash
-cd antova_backend/backend
-# In your Python virtual environment:
-pip install -r antova_requirements.txt
-uvicorn antova_api:app --host 127.0.0.1 --port 8000
-```
-*Health Check:* `curl http://127.0.0.1:8000/api/health` $\rightarrow$ `{"status":"healthy","version":"3.0.0","pint_version":"0.26.2"}`.
-
-### 2. Launch the Next.js Frontend
-```bash
+# Workbench with the built-in engine (needs an OpenAI-compatible key)
 cd antova_backend/frontend
 npm install
-npm run build
-npm start
-# Or for live hot-reload development:
-npm run dev
-```
-Open **`http://localhost:3000`** in your browser.
+cp .dev.vars.example .dev.vars        # LLM_API_KEY, LLM_MODEL_NAME, REVIEW_TOKEN
+npm run dev                           # http://localhost:3000
 
-### 3. Deploying to Vercel (Multi-Service & Environment Setup)
-
-#### Option A: Vercel Multi-Service Monorepo Preset (Recommended)
-1. Import the repository into Vercel with **Root Directory** set to either `.` or `antova_backend`.
-2. Vercel automatically detects the multi-service layout via `vercel.json`:
-   - `frontend` (Next.js 15) receives all main application traffic (`/(.*)`).
-   - `web` (Vite) handles internal assets and legacy review routes (`/b/(.*)`, `/review/(.*)`).
-3. Set the following Environment Variables in the Vercel Project Settings:
-   - `BACKEND_URL`: the hosted FastAPI engine (see "Hosting the FastAPI engine" below), e.g. `https://api.example.com`. Unset means **replay mode**: the site serves the saved `TENDER-2026-402` sample read-only.
-   - `REVIEW_TOKEN` (optional, server-only): a token the proxy adds to **read** requests only, so visitors can browse a live backend. Writes always need the reviewer's own token, entered on the Settings page.
-   - Leave `NEXT_PUBLIC_API_URL` unset so the browser talks to the same-origin proxy. There is no `NEXT_PUBLIC_REVIEW_TOKEN`: anything `NEXT_PUBLIC_*` ships in the browser bundle.
-
-#### Hosting the FastAPI engine
-Vercel functions cannot run the engine: it keeps an in-process job queue, writes SQLite and tender PDFs to disk, and an ingest calls the LLM for minutes. Run `antova_backend/backend/Dockerfile` on a host with a persistent volume and **one** instance (Fly.io, Render, Railway, or Cloud Run with min and max instances set to 1):
-
-```bash
+# Workbench against a local FastAPI engine
 cd antova_backend/backend
-docker build -t antova-engine .
-docker run -p 8000:8000 -v antova-data:/data \
-  -e ANTOVA_REVIEW_TOKEN="$(openssl rand -hex 32)" \
-  -e ANTOVA_ALLOWED_ORIGINS="https://your-site.vercel.app" \
-  -e ANTOVA_CLIENT_IP_HEADER=x-forwarded-for \
-  -e EXPLABS_API_KEY=... antova-engine
+pip install -r antova_requirements.txt
+ANTOVA_REVIEW_TOKEN=change-me uvicorn antova_api:app --port 8000
+curl http://127.0.0.1:8000/api/health
+
+# Tests
+python -m pytest -q                                    # engine
+cd ../frontend && npm run typecheck && npm run test:unit && npm run test:snapshot
 ```
 
-Engine settings worth knowing for a public deployment:
+## 12. Configuration
 
-- `ANTOVA_ALLOWED_ORIGINS`: exact browser origins allowed to call the engine directly. Calls through the Next.js proxy are same-origin and need none. There is no wildcard for `*.vercel.app`.
-- Rate limits per client and minute: `ANTOVA_RATE_LIMIT_EVALUATE` (30), `ANTOVA_RATE_LIMIT_EVIDENCE` (240), `ANTOVA_RATE_LIMIT_EXPORT` (20); `ANTOVA_RATE_LIMIT=off` disables them. Behind the proxy, set `ANTOVA_CLIENT_IP_HEADER=x-forwarded-for` so clients are told apart (only when the engine is reachable through that proxy alone, since a client can forge the header).
-- `ANTOVA_PUBLIC_DOCS=1` serves `/docs`, `/redoc` and `/openapi.json`. They are off by default because they list every route; `start-backend.sh` turns them on locally.
-- `GET /api/health` answers 503 with `"status": "degraded"` when the database is unreachable, so the container health check and an uptime monitor see it.
-- Every response carries `X-Request-ID`. The Next.js proxy creates one per call and the engine echoes it, logs it on every line, and writes one JSON access line per request (`antova.access` logger). Server errors in the UI show it as a reference.
-- A failed ingest job reports document problems (bad manifest, unreadable PDF, model refusal) in full. Provider and internal errors report only a job reference; the details are in the server log.
+Names only. Values belong in the host's secret store. Full matrix: [`environments.md`](antova_backend/docs/environments.md).
 
-The image stores the database at `/data/antova.db` and uploads under `/data/tenders` (seeded from `samples/` on first start). Point `ANTOVA_DATABASE_URL` at Postgres instead of SQLite when you outgrow one instance's disk.
+| Setting | Secret | Used by |
+| :-- | :-- | :-- |
+| `LLM_API_KEY`, `LLM_MODEL_NAME` | yes | Built-in engine |
+| `LLM_BASE_URL`, `LLM_TIMEOUT_MS` | no | Built-in engine |
+| `REVIEW_TOKEN` | yes | Gate on `/api` writes |
+| `ANTOVA_BUCKET` | binding | R2 storage |
+| `BACKEND_URL` | no | Proxy to a FastAPI engine |
+| `ANTOVA_QA_URL`, `ANTOVA_QA_TOKEN`, `ANTOVA_QA_PUBLIC` | url/token yes | `/api/ask` |
+| `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_DIRECT_UPLOAD_URL`, `NEXT_PUBLIC_LANDING_URL` | no, baked into the bundle | Browser |
+| `ANTOVA_REVIEW_TOKEN` or `ANTOVA_REVIEWERS` | yes | FastAPI engine. Container refuses to start without one |
+| `ANTOVA_DATABASE_URL`, `ANTOVA_TENDERS_DIR` | no | FastAPI engine |
+| `ANTOVA_ALLOWED_ORIGINS`, `ANTOVA_CLIENT_IP_HEADER`, `ANTOVA_RATE_LIMIT*`, `ANTOVA_PUBLIC_DOCS` | no | FastAPI engine hardening |
+| `EXPLABS_*`, `ANTHROPIC_API_KEY` | yes | FastAPI engine locate model |
 
-#### Option B: Standalone Next.js Project on Vercel
-1. Set Vercel Root Directory directly to `antova_backend/frontend`.
-2. Configure `NEXT_PUBLIC_API_URL` to point to your hosted backend.
-3. Next.js automatically proxies all `/api/...` calls via serverless runtime handlers (`src/app/api/[[...path]]/route.ts`), completely bypassing browser cross-origin CORS limitations.
+## 13. Deployment topology
 
-#### Built-in High-Availability & Demo-Day Safeguards
-- **Smart CORS Failover:** The API client attempts direct calls to `NEXT_PUBLIC_API_URL`; if blocked by browser CORS preflight or network restrictions, it automatically retries via the serverless internal proxy.
-- **Replay mode:** If no backend is configured or it cannot be reached, the proxy serves the saved snapshot of `TENDER-2026-402`, read-only and marked `x-antova-source: replay`. Any other tender ID is a 404, and every write (upload, manifest, ingest, decision) is refused with 405. When the backend does answer, its response (including 404 and 5xx) is passed through unchanged.
-- **React ErrorBoundary:** All workbench tabs are encapsulated in localized Error Boundaries with 1-click retry cards, ensuring isolated component issues never unmount the application shell.
+| Surface | Code | Host |
+| :-- | :-- | :-- |
+| Workbench and built-in engine | `antova_backend/frontend` | Cloudflare Workers, R2 bucket `antova-workbench-data`: https://antova-workbench.akhilfut.workers.dev |
+| Website | [antova-yc](https://github.com/akhilyad/antova-yc) root | Vercel: https://antova.vercel.app |
+| Brief site | `antova_backend/backend/web` | Vercel |
+| FastAPI engine | `antova_backend/backend` | None today. `Dockerfile` for one instance with a persistent volume |
 
----
+Deploy steps: [`cloudflare-workers.md`](antova_backend/docs/cloudflare-workers.md). Build what ships with `npm run cf:build`; deploy with `npm run cf:deploy`. A hosted FastAPI engine must run as one instance (in-memory job queue, local database); the image refuses to start without review credentials.
 
-## 6. API Contract & Endpoint Reference
+## 14. Status and known limits
 
-All endpoints requiring reviewer access expect an `X-Antova-Review-Token` header carrying a token configured on the server (`ANTOVA_REVIEW_TOKEN` or `ANTOVA_REVIEWERS`). There is no default token.
-
-| Method | Endpoint Path | Description | Expected Payload / Response |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health & Pint version | `{"status": "healthy", "version": "3.0.0", "pint_version": "0.26.2"}` |
-| `GET` | `/api/review/tenders` | List ingested tender registry | Returns `ReviewTenderRow[]` (tender ID, title, status, open items) |
-| `GET` | `/api/review/tenders/{id}` | Complete brief & true job costs | Returns `Brief` (vendors, parameters, financials, open items) |
-| `POST`| `/api/review/tenders/{id}/evaluate` | Recalculate rates dynamically | Body: `{"copper_multiplier": 1.2, "site_labor_rate": 60, "freight_multiplier": 1.0}` |
-| `GET` | `/api/review/tenders/{id}/evidence/{p}/{v}/{which}.png` | PyMuPDF crop PNG | Returns `image/png` (coordinate cropped citation) |
-| `PUT` | `/api/review/tenders/{id}/overrides/{p}/{v}` | Apply manual cost adder | Body: `{"adder_eur": "9300.00", "note": "Audited logistics quote"}` (204 No Content) |
-| `DELETE`| `/api/review/tenders/{id}/overrides/{p}/{v}` | Revert manual override | Reverts to automated rate table pricing (204 No Content) |
-| `POST`| `/api/review/tenders/{id}/verify` | Seal brief for award | Transitions tender from `DRAFT` to `VERIFIED` |
-| `POST`| `/api/review/tenders/{id}/withdraw` | Unlock brief to draft | Transitions tender from `VERIFIED` to `DRAFT` |
-| `GET` | `/api/review/tenders/{id}/export-tbe.xlsx` | Export official TBE model | Returns `.xlsx` workbook (HTTP 409 Conflict if still in DRAFT) |
-| `GET` | `/api/review/tenders/{id}/clarifications.csv` | Export clarification log | Returns `.csv` with exact quoted passages and clauses |
-| `GET` | `/api/review/tenders/{id}/clarifications.xlsx`| Export clarification sheet | Returns formatted `.xlsx` workbook |
-| `POST`| `/api/jobs/ingest` | Queue background ingest | Body: `{"tender_id": "TENDER-2026-402", "mode": "replay"}` |
-| `GET` | `/api/jobs/{job_id}` | Poll ingestion progress | Returns `Job` status, progress %, current stage, and results |
-
----
-
-## 7. Governance, Security & Review Principles
-
-- **Deterministic Evaluation:** Rule outcomes are computed mathematically using Pint; they are never randomized or hallucinated.
-- **Full Traceability:** Every cost adder is tied directly to a PyMuPDF citation, page number, and SHA-256 evidence hash.
-- **Mandatory Justification:** Overriding an automated cost adder requires an audit justification note recorded in `antova_enterprise.db`.
-- **Award Verification Gate:** The official Technical Bid Evaluation workbook (`.xlsx`) cannot be downloaded until all mandatory verification items are cleared and the brief is verified and sealed.
-
----
-
-## 8. Testing & Verification
-
-Execute the backend test suite:
-```bash
-cd antova_backend/backend
-pytest
-```
-*Result:* **175 passed** tests covering Pint rules, rate table precedence, export generation, PyMuPDF cropping, and verification gates.
-
-Execute frontend type-checking:
-```bash
-cd antova_backend/frontend
-npm run typecheck
-```
-*Result:* **0 errors**, strict TypeScript validation passing across all pages, components, and API client types.
-
----
+- The benchmark is synthetic: generated documents, fictional vendors, a known answer key. The parser has not been run on customer tenders.
+- Scanned pages are flagged, not read.
+- The built-in engine and the FastAPI engine are separate implementations. CI pins the sensitivity and financials math to the Python engine with generated fixtures. The rest of the ingest is covered by each engine's own tests, not by a cross-engine comparison.
+- The two repositories carry diverged copies of the FastAPI engine. See [section 1](#1-scope-and-relationship-to-antova-yc).
+- Operating notes: [`live-engine-runbook.md`](antova_backend/docs/live-engine-runbook.md), [`built-in-engine.md`](antova_backend/docs/built-in-engine.md).
 
 ## License
-Proprietary & Confidential. Copyright © 2026 Antova Inc. All rights reserved.
+
+Proprietary and confidential. Copyright © 2026 Antova Inc. All rights reserved.
