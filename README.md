@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="antova_backend/docs/assets/antova-workbench-banner.svg" alt="Antova Workbench: the lowest bid is not the cheapest. Headline price against evaluated cost." width="100%" />
+  <img src="antova_backend/docs/assets/antova-workbench-banner.svg" alt="Antova Workbench: the lowest bid is not always the lowest cost. Headline price against evaluated cost." width="100%" />
 </p>
 
 <h1 align="center">Antova Workbench</h1>
@@ -34,7 +34,7 @@
 
 Antova audits vendor bids against a technical specification: a model finds the quote, code checks and prices it, a named reviewer approves every flag. The product, the audit rules and the evidence design are described in [antova-yc](https://github.com/akhilyad/antova-yc).
 
-This repository is the part a visitor touches:
+This repository is the user-facing part of the system:
 
 - **The workbench** (`antova_backend/frontend`): Next.js dashboard, evidence inspector, override drawer, sensitivity panel, sign-off and printable report.
 - **A built-in TypeScript engine** (`frontend/src/lib/native`) that runs the same ingest inside the workbench, so the hosted demo needs no separate engine host.
@@ -250,14 +250,14 @@ Bars are evaluated cost, the line is the headline bid.
 | Client over a rate limit | `429` with `Retry-After` |
 | Engine job interrupted by a restart | FastAPI marks it `FAILED` and never re-runs a paid job automatically |
 | Provider or internal error during ingest | Job reports a reference only. Detail stays in the server log. Document problems are reported in full |
-| Worker storage not durable | Health reports `storage` so ephemeral disk is not mistaken for durable |
+| Worker storage not durable | Health reports `storage` so ephemeral disk is not mistaken for durable storage |
 
 | Decision | Chosen | Cost |
 | :-- | :-- | :-- |
 | Built-in engine inside the Worker | Hosted demo with no engine host | Two implementations of the engine to keep in parity |
 | Parity pinned by fixtures | CI regenerates sensitivity and financials fixtures from Python and fails on any diff | A Python engine change forces a fixture update |
 | FastAPI engine not hosted | Needs a persistent volume and one instance (in-memory queue) | No hosted engine today |
-| Replay fallback | The site always shows something real | A visitor can mistake it for a live run, so it is marked `replay` |
+| Replay fallback | The site always serves a verified sample | A user can mistake it for a live run, so it is marked `replay` |
 
 ## 10. Repository layout
 
