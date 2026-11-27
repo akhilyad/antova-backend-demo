@@ -98,7 +98,7 @@ export default function OverviewPage() {
       context: tenders.length ? `${signedOff} signed off` : 'None uploaded',
     },
     {
-      label: 'Lowest true job cost',
+      label: 'Lowest evaluated cost',
       value: formatEur(stats.best?.true_evaluated_price),
       context: stats.best ? stats.best.name : 'Not decided',
       onClick: () => router.push(`/audit/${activeTenderId}`),

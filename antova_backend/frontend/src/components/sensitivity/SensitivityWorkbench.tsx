@@ -96,11 +96,11 @@ export function SensitivityWorkbench({
     const ranked = [...models].filter((m) => m.base !== null).sort((a, b) => (a.base ?? 0) - (b.base ?? 0));
     const list: { id: string; label: string; value: OutputVariable }[] = [
       { id: 'award:risk', label: 'Risk-adjusted award cost', value: { target: 'award', kind: 'risk' } },
-      { id: 'award:true', label: 'True evaluated award cost', value: { target: 'award', kind: 'true' } },
+      { id: 'award:true', label: 'Evaluated award cost', value: { target: 'award', kind: 'true' } },
     ];
     for (const m of ranked) {
       list.push({ id: `${m.vendor_id}:risk`, label: `Risk-adjusted bid · ${m.name}`, value: { target: m.vendor_id, kind: 'risk' } });
-      list.push({ id: `${m.vendor_id}:true`, label: `True evaluated cost · ${m.name}`, value: { target: m.vendor_id, kind: 'true' } });
+      list.push({ id: `${m.vendor_id}:true`, label: `Evaluated cost · ${m.name}`, value: { target: m.vendor_id, kind: 'true' } });
     }
     return list;
   }, [models]);

@@ -408,7 +408,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
       context: lowestQuote?.name ?? 'No priced bid',
     },
     {
-      label: 'Lowest true job cost',
+      label: 'Lowest evaluated cost',
       value: formatEur(recommendedVendor?.true_evaluated_price, {
         isLowerBound: recommendedVendor?.price_status === 'UNPRICED_ITEMS',
       }),
@@ -659,7 +659,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     adjustDisabledReason={isVerified ? 'Signed off: reopen it before adjusting' : undefined}
                   />
                   <p className="mt-4 text-[11px] leading-4 text-faint">
-                    True job cost is the quoted price plus the cost to close missing scope, delivery terms and warranty
+                    Evaluated cost is the quoted price plus the cost of closing missing scope, delivery terms and warranty
                     shortfalls, priced from rate table {brief.tender?.rate_table_version || 'in force'}. Open a bid to see its gaps.
                   </p>
                 </>
@@ -758,7 +758,7 @@ function AuditWorkbenchPageContent({ params }: PageProps) {
                     <ul className="mt-3 border-t border-rule text-[13px]">
                       <DownloadRow
                         name="Bid evaluation workbook"
-                        detail="Ranking, true job cost and every adder with its formula. .xlsx"
+                        detail="Ranking, evaluated cost and every added cost with its formula. .xlsx"
                       >
                         <TextAction onClick={handleExportTbeWorkbook} busy={isExportingTbe}>Download</TextAction>
                       </DownloadRow>

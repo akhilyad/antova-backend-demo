@@ -269,7 +269,7 @@ export function CellReviewPanel({
 
               {activeAction === 'override' && (
                 <label className="block space-y-1">
-                  <span className={label}>New adder (€)</span>
+                  <span className={label}>New added cost (€)</span>
                   <input
                     type="number"
                     step="0.01"

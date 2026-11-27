@@ -91,7 +91,7 @@ export function CommercialRiskTable({ parameters = [], vendors = [], financials 
             </tr>
           ))}
           <tr className="border-b border-rule">
-            <th scope="row" className="py-2.5 pr-4 text-left font-normal text-muted">Commercial adders</th>
+            <th scope="row" className="py-2.5 pr-4 text-left font-normal text-muted">Added commercial costs</th>
             {safeVendors.map((v) => {
               const fin = safeFinancials.find((f) => f?.vendor_id === v.id);
               const adder = fin?.total_commercial_adder ?? 0;
@@ -103,7 +103,7 @@ export function CommercialRiskTable({ parameters = [], vendors = [], financials 
             })}
           </tr>
           <tr>
-            <th scope="row" className="py-2.5 pr-4 text-left font-medium text-ink">True job cost</th>
+            <th scope="row" className="py-2.5 pr-4 text-left font-medium text-ink">Evaluated cost</th>
             {safeVendors.map((v) => {
               const fin = safeFinancials.find((f) => f?.vendor_id === v.id);
               return (
