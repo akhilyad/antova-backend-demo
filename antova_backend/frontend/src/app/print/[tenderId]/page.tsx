@@ -84,7 +84,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
         </dl>
 
         <section className="mt-8">
-          <h2 className="text-[13px] font-medium">Ranking by true job cost</h2>
+          <h2 className="text-[13px] font-medium">Ranking by evaluated cost</h2>
           <table className="mt-2 w-full border-collapse">
             <thead>
               <tr className="border-b border-black text-[11px] text-zinc-500">
@@ -93,7 +93,7 @@ export default function PrintableAuditSheet({ params }: PageProps) {
                 <th className="py-1.5 text-right font-normal">Quoted price</th>
                 <th className="py-1.5 text-right font-normal">Technical</th>
                 <th className="py-1.5 text-right font-normal">Commercial</th>
-                <th className="py-1.5 text-right font-medium text-black">True job cost</th>
+                <th className="py-1.5 text-right font-medium text-black">Evaluated cost</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
@@ -119,14 +119,14 @@ export default function PrintableAuditSheet({ params }: PageProps) {
           {reversal && best ? (
             <p>
               {reversal.name} quoted lowest at {formatEur(reversal.headline_price)}. Checked against {brief.tender.mr_doc}, its
-              missing scope and commercial gaps add {formatEur(reversal.total_adders)}, for a true job cost of{' '}
-              {formatEur(reversal.true_evaluated_price, lb(reversal))}. {best.name} has the lowest true job cost at{' '}
-              {formatEur(best.true_evaluated_price, lb(best))} and is the recommended award.
+              missing scope and commercial gaps add {formatEur(reversal.total_adders)}, for an evaluated cost of{' '}
+              {formatEur(reversal.true_evaluated_price, lb(reversal))}. {best.name} has the lowest evaluated cost at{' '}
+              {formatEur(best.true_evaluated_price, lb(best))}.
             </p>
           ) : best ? (
             <p>
-              {best.name} has the lowest true job cost at {formatEur(best.true_evaluated_price, lb(best))}, with{' '}
-              {formatEur(best.total_adders)} of adders priced from rate table {brief.tender.rate_table_version}.
+              {best.name} has the lowest evaluated cost at {formatEur(best.true_evaluated_price, lb(best))}, with{' '}
+              {formatEur(best.total_adders)} of added costs priced from rate table {brief.tender.rate_table_version}.
             </p>
           ) : null}
           {unpriced.length > 0 && (

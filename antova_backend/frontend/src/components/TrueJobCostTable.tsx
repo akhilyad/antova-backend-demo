@@ -45,7 +45,7 @@ export function TrueJobCostTable({ financials = [], vendors = [], parameters = [
 
   return (
     <>
-    <table className="w-full table-fixed border-collapse text-[13px]" aria-label="Bids ranked by true job cost">
+    <table className="w-full table-fixed border-collapse text-[13px]" aria-label="Bids ranked by evaluated cost">
       <colgroup>
         <col className="w-10" />
         <col />
@@ -60,8 +60,8 @@ export function TrueJobCostTable({ financials = [], vendors = [], parameters = [
           <th scope="col" className="py-2 pr-2 text-left font-normal">#</th>
           <th scope="col" className="py-2 pr-4 text-left font-normal">Bidder</th>
           <th scope="col" className={`py-2 px-3 font-normal ${NUM}`}>Quoted price</th>
-          <th scope="col" className={`py-2 px-3 font-normal ${NUM}`}>Adders</th>
-          <th scope="col" className={`py-2 px-3 font-medium text-ink ${NUM}`}>True job cost</th>
+          <th scope="col" className={`py-2 px-3 font-normal ${NUM}`}>Added costs</th>
+          <th scope="col" className={`py-2 px-3 font-medium text-ink ${NUM}`}>Evaluated cost</th>
           <th scope="col" className={`py-2 px-3 font-normal ${NUM}`}>vs lowest quote</th>
           <th scope="col"><span className="sr-only">Expand</span></th>
         </tr>
@@ -219,7 +219,7 @@ function BidGaps({
   const meets = parameters.length - lines.length;
 
   if (lines.length === 0) {
-    return <p className="py-2 text-xs text-muted">Meets all {parameters.length} requirements. No adders.</p>;
+    return <p className="py-2 text-xs text-muted">Meets all {parameters.length} requirements. No added costs.</p>;
   }
 
   return (
