@@ -37,6 +37,11 @@ jobs:
         run: |
           python ../frontend/scripts/gen_sensitivity_parity.py
           git diff --exit-code -- ../frontend/scripts/fixtures/sensitivity-parity.json
+      # The built-in TS engine is checked against these seeded Python results (scripts/test-properties.mjs).
+      - name: Financials parity fixture is current
+        run: |
+          python ../frontend/scripts/gen_financials_parity.py
+          git diff --exit-code -- ../frontend/scripts/fixtures/financials-parity.json
 
   web:
     name: Brief site (Vite)

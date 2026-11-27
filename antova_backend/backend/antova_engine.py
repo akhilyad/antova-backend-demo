@@ -179,7 +179,8 @@ def adder_amount(extraction: ExtractedParameter, s: SensitivitySettings, bound: 
 
 def headline_status(vendor: Vendor) -> str:
     """PRICED when the vendor has a usable headline price, else why it has none."""
-    if vendor.headline_price:
+    # Only a positive figure is a price; a negative or zero headline is a bad extraction, not a bid.
+    if vendor.headline_price is not None and vendor.headline_price > 0:
         return "PRICED"
     return vendor.headline_status if vendor.headline_status not in (None, "PRICED") else "NOT_FOUND"
 
