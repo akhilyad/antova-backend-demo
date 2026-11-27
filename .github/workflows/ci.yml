@@ -85,3 +85,12 @@ jobs:
       - run: npm run test:snapshot
       # Build exactly what ships: the OpenNext Worker bundle (runs next build inside).
       - run: npm run cf:build
+      # Browser tests on that build, in replay mode (no model key): the sample tender's demo path.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: antova_backend/frontend/playwright-report
+          retention-days: 7
