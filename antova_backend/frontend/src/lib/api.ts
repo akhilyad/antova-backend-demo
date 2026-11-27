@@ -596,6 +596,85 @@ export async function deleteOverride(
   }
 }
 
+async function failWith(res: Response, fallback: string): Promise<never> {
+  const err = await res.json().catch(() => ({ detail: res.statusText }));
+  throw new Error(err.detail || fallback);
+}
+
+const tenderPath = (tenderId: string) => `/api/review/tenders/${encodeURIComponent(tenderId)}`;
+
+/** Deletes a tender and every file stored for it. Refused for the saved sample and signed-off briefs. */
+export async function deleteTender(tenderId: string, token: string | undefined = getReviewToken()): Promise<void> {
+  const res = await smartFetch(tenderPath(tenderId), { method: 'DELETE', headers: getHeaders(token, false) });
+  if (!res.ok) await failWith(res, "Couldn't delete the tender. Try again.");
+}
+
+/** Edits the package title and client. Returns the updated brief. */
+export async function updateTenderDetails(
+  tenderId: string,
+  patch: { title?: string; client?: string },
+  token: string | undefined = getReviewToken()
+): Promise<Brief> {
+  const res = await smartFetch(tenderPath(tenderId), { method: 'PATCH', headers: getHeaders(token), body: JSON.stringify(patch) });
+  if (!res.ok) await failWith(res, "Couldn't save the changes. Try again.");
+  return normalizeBrief(await res.json());
+}
+
+/** Uploads a PDF and adds it to the tender's file list as a new bid. Re-run the audit to evaluate it. */
+export async function addTenderBid(
+  tenderId: string,
+  file: File,
+  vendor: { vendorId: string; vendorName: string; country?: string },
+  token: string | undefined = getReviewToken()
+): Promise<void> {
+  await uploadTenderFile(tenderId, file.name, file, token);
+  const res = await smartFetch(`${tenderPath(tenderId)}/manifest/documents`, {
+    method: 'POST',
+    headers: getHeaders(token),
+    body: JSON.stringify({ file: file.name, vendor_id: vendor.vendorId, vendor_name: vendor.vendorName, country: vendor.country || '' }),
+  });
+  if (!res.ok) await failWith(res, "Couldn't add the bid. Try again.");
+}
+
+/** Takes a bid out of the file list and deletes its PDF. */
+export async function removeTenderDocument(tenderId: string, filename: string, token: string | undefined = getReviewToken()): Promise<void> {
+  const res = await smartFetch(`${tenderPath(tenderId)}/manifest/documents/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+    headers: getHeaders(token, false),
+  });
+  if (!res.ok) await failWith(res, "Couldn't remove the file. Try again.");
+}
+
+/** Swaps in a new revision of a document under the same file-list slot (e.g. Rev B for Rev A). */
+export async function replaceTenderDocument(
+  tenderId: string,
+  filename: string,
+  file: File,
+  token: string | undefined = getReviewToken()
+): Promise<void> {
+  await uploadTenderFile(tenderId, filename, file, token);
+}
+
+/** Starts a fresh audit pass on the stored files and polls until it ends. */
+export async function rerunAudit(
+  tenderId: string,
+  onProgress?: (job: Job) => void,
+  token: string | undefined = getReviewToken()
+): Promise<Job> {
+  const { job_id } = await startIngestJob(tenderId, 'auto', token);
+  const started = Date.now();
+  let delay = 800;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, delay));
+    const job = await getJobStatus(job_id, token);
+    onProgress?.(job);
+    if (job.status === 'COMPLETED') return job;
+    if (job.status === 'FAILED') throw new Error((job as any).error || 'The audit failed. Try again.');
+    if (Date.now() - started > 20 * 60 * 1000) throw new Error(`Still running after 20 minutes; job ${job_id} continues on the server.`);
+    delay = Math.min(delay * 1.5, 5000);
+  }
+}
+
 export async function submitReviewDecision(
   tenderId: string,
   paramId: string,
