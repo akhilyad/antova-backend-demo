@@ -72,8 +72,17 @@ def _recovered(rate_pct: Decimal, cap_pct: Decimal, weeks: Decimal) -> Decimal:
     return min(rate_pct * weeks, cap_pct)
 
 
+def _basis_mismatch(required_basis: str | None, offered_basis: str | None) -> bool:
+    """A cap on the delayed portion is a share of a smaller amount than the contract value, so the two
+    percentages cannot be compared without that amount. An unstated basis reads as the contract value."""
+    def portion(b):
+        return b == "delayed_portion"
+    return portion(required_basis) != portion(offered_basis)
+
+
 def ld_recovery_shortfall(required_rate_pct, required_cap_pct, offered_rate_pct, offered_cap_pct,
-                          delay_weeks, contract_value) -> Exposure:
+                          delay_weeks, contract_value, required_cap_basis: str | None = None,
+                          offered_cap_basis: str | None = None) -> Exposure:
     # rates: {%/week}; caps: {%} of contract value; delay_weeks: {week}; contract_value: {EUR}; amount: D2{EUR}
     """What the buyer would recover less, after `delay_weeks` of delay, than the MR's liquidated damages give.
 
@@ -87,6 +96,9 @@ def ld_recovery_shortfall(required_rate_pct, required_cap_pct, offered_rate_pct,
     missing = [name for name, v in zip(names, values) if v is None]
     if missing:
         return _unknown("ld_recovery", "not known: " + ", ".join(missing))
+    if _basis_mismatch(required_cap_basis, offered_cap_basis):
+        return _unknown("ld_recovery", "one LD cap is a share of the delayed portion and the other of the contract "
+                                       "value; the value of the delayed portion is not known")
     req_rate, req_cap, off_rate, off_cap, weeks, value = values
     required = _recovered(req_rate, req_cap, weeks)  # {%} of contract
     offered = _recovered(off_rate, off_cap, weeks)  # {%} of contract (cap qualifier, e.g. delayed_portion, not received)
@@ -97,7 +109,8 @@ def ld_recovery_shortfall(required_rate_pct, required_cap_pct, offered_rate_pct,
     return Exposure("ld_recovery", _euros(shortfall / HUNDRED * value), formula)
 
 
-def liability_shortfall(required_pct, offered_pct, contract_value) -> Exposure:
+def liability_shortfall(required_pct, offered_pct, contract_value, required_basis: str | None = None,
+                        offered_basis: str | None = None) -> Exposure:
     """What the liability limit leaves the buyer carrying: the gap between the limit the MR requires and the
     one offered, as a share of the contract value. A limit at or above the MR's is a true zero."""
     required, offered, value = _dec(required_pct), _dec(offered_pct), _dec(contract_value)
@@ -105,6 +118,9 @@ def liability_shortfall(required_pct, offered_pct, contract_value) -> Exposure:
                                     ("the contract value", value)) if v is None]
     if missing:
         return _unknown("liability", "not known: " + ", ".join(missing))
+    if _basis_mismatch(required_basis, offered_basis):
+        return _unknown("liability", "one liability limit is a share of the delayed portion and the other of the "
+                                     "contract value; the value of the delayed portion is not known")
     # required_pct, offered_pct: {%} of contract; contract_value: {EUR}
     shortfall = max(required - offered, Decimal("0"))  # {%}
     # D2{EUR} = {%} / 100{%} * {EUR}

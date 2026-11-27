@@ -184,19 +184,28 @@ def _exposures(param, resolution, requirement, contract_value, contract_inputs, 
         need = requirement.get(field_name)
         return (None if need is None else need.value, None if got is None else got[0].value)
 
+    def basis(field_name):
+        # A cap's basis (contract | delayed_portion | unspecified), kept so the shares are compared like for like.
+        got = resolution.governing.get(field_name)
+        need = requirement.get(field_name)
+        return (None if need is None else need.qualifier, None if got is None else got[0].qualifier)
+
     if param.id == "PARAM-10":
         req_rate, off_rate = number("ld_rate")
-        req_cap, off_cap = number("ld_cap")  # .value only: the cap's basis qualifier (contract|delayed_portion) is dropped
-        # rates: D9{%/week}; caps: D9{%} of contract value
+        req_cap, off_cap = number("ld_cap")
+        req_basis, off_basis = basis("ld_cap")
+        # rates: D9{%/week}; caps: D9{%} of their basis (contract value unless stated as the delayed portion)
         weeks = estimates.get("ld_delay_weeks")  # {week}
-        e = exposure.ld_recovery_shortfall(req_rate, req_cap, off_rate, off_cap, weeks, contract_value)
+        e = exposure.ld_recovery_shortfall(req_rate, req_cap, off_rate, off_cap, weeks, contract_value,
+                                           required_cap_basis=req_basis, offered_cap_basis=off_basis)
         inputs = inputs_of("ld_rate") + inputs_of("ld_cap") + contract_inputs + (
             [{"name": "delay to assume (weeks)", "value": f"{weeks:g}", "source": "buyer-entered estimate"}]
             if weeks is not None else [])
         return [_from_exposure(e, inputs)]
     if param.id == "PARAM-11":
         req, off = number("liability_cap")
-        e = exposure.liability_shortfall(req, off, contract_value)
+        req_basis, off_basis = basis("liability_cap")
+        e = exposure.liability_shortfall(req, off, contract_value, required_basis=req_basis, offered_basis=off_basis)
         return [_from_exposure(e, inputs_of("liability_cap") + contract_inputs)]
     return []
 

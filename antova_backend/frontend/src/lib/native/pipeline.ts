@@ -453,14 +453,31 @@ export function parseMoney(amount: unknown, currencyHint: unknown, quote: unknow
   }
   const m = text.match(/(\d[\d.,\s ']*)(?:\s*(million|mio\.?|m\b|k\b|thousand))?/i);
   if (!m) return { amount: null, currency };
-  let n = parseNumber(m[1].trim());
+  const digits = m[1].trim();
+  // A price never has three decimals, so "452.000" groups thousands (as the Python engine reads it).
+  let n = /^\d{1,3}(?:\.\d{3})+$/.test(digits.replace(/\s/g, '')) ? parseNumber(digits.replace(/\./g, '')) : parseNumber(digits);
   if (n === null) return { amount: null, currency };
-  const scale = (m[2] || '').toLowerCase();
-  // {CCY} = {CCY/million} * 1e6  |  {CCY} = {CCY/k} * 1e3  (scale word read from `amount` text only, not from `quote`)
+  let scale = (m[2] || '').toLowerCase();
+  if (!scale && quote) {
+    // The model may return "1.2" while the quote says "EUR 1.2 million": take the scale word that
+    // follows the same number in the quote, never one attached to a different figure.
+    const esc = digits.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const q = String(quote).match(new RegExp(String.raw`(?<![\d.,])${esc}\s*(million|mio\.?|m\b|k\b|thousand)`, 'i'));
+    if (q) scale = q[1].toLowerCase();
+  }
+  // {CCY} = {CCY/million} * 1e6  |  {CCY} = {CCY/k} * 1e3
   if (/^(million|mio|m)/.test(scale)) n *= 1_000_000;
   else if (/^(k|thousand)/.test(scale)) n *= 1_000;
   // D2{CCY} float round: Math.round(x*100)/100 (half toward +inf, binary float), not Decimal ROUND_HALF_UP as in evaluate.ts
   return { amount: Math.round(n * 100) / 100, currency };
+}
+
+const PER_UNIT = /\bper\s+(?:bay|panel|unit|cubicle|feeder|set|piece|item)\b|\beach\b|\/\s*(?:bay|panel|unit|cubicle|feeder)\b/i;
+
+/** "per bay", "each", "/ bay"…: the figure is a unit rate, not the total (same pattern as the Python engine). */
+export function perUnitBasis(text: string): string | null {
+  const m = text.match(PER_UNIT);
+  return m ? m[0].toLowerCase() : null;
 }
 
 interface FieldRead {
@@ -649,10 +666,14 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
     const money = hp ? parseMoney(hp.amount, hp.currency, hp.quote) : { amount: null, currency: null };
     const hpHit = hp?.quote ? locateQuote(pages, hp.quote, pageNo(hp.page)) : null;
     let headlineStatus = 'NOT_FOUND';
-    let headline: number | null = null; // D2{EUR} total for full scope (not {EUR/bay}); only set when currency === table.currency
-    // Note: no check here that the figure is a total rather than a per-bay/unit price; the prompt alone asks for the total.
+    let headline: number | null = null; // D2{EUR} total for full scope (never {EUR/bay}); only set when currency === table.currency
+    const perUnit = hp ? perUnitBasis(`${hp.amount ?? ''} ${hp.quote ?? ''}`) : null;
     if (hp && money.amount && hpHit) {
-      if (!money.currency) headlineStatus = 'CURRENCY_UNKNOWN';
+      if (perUnit) {
+        // A unit rate is not the contract total; it is held back, like a price with no FX rate.
+        headlineStatus = 'PER_UNIT';
+        warnings.push(`${doc.file}: the bid price is worded "${perUnit}", so it is a unit rate, not the total. It was not evaluated.`);
+      } else if (!money.currency) headlineStatus = 'CURRENCY_UNKNOWN';
       else if (money.currency !== table.currency) headlineStatus = 'FX_MISSING';
       else {
         headlineStatus = 'PRICED';

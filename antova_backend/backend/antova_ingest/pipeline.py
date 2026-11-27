@@ -557,13 +557,15 @@ def stage_resolved(bodies: dict) -> dict:
                 warnings.append(f"{vendor_id}: headline price not found")
             else:
                 head.update(citation=citation, currency=read.currency, original=str(read.amount))
-                # read.amount: {CCY}, or {CCY/bay} when per_unit is set. DIMENSIONAL NOTE: a per-unit price
-                # is only warned about; it still flows below as the contract total (no * bay_count).
+                # read.amount: {CCY}, or {CCY/bay} when per_unit is set. A unit rate is never the contract
+                # total {EUR}: it is held back (PER_UNIT) rather than multiplied by a bay count we cannot verify.
+                converted = (costs.convert(read.amount, read.currency, table)
+                             if read.currency and not read.per_unit else None)
                 if read.per_unit:
-                    warnings.append(f"{vendor_id}: bid price is worded \"{read.per_unit}\". It may be a unit "
-                                    f"rate, not the total. Check the quoted page.")
-                converted = costs.convert(read.amount, read.currency, table) if read.currency else None
-                if read.currency is None:
+                    head["status"] = "PER_UNIT"
+                    warnings.append(f"{vendor_id}: bid price is worded \"{read.per_unit}\", so it is a unit rate, "
+                                    f"not the total. It was not evaluated. Check the quoted page.")
+                elif read.currency is None:
                     head["status"] = "CURRENCY_UNKNOWN"
                     warnings.append(f"{vendor_id}: bid price {read.amount:,} has no currency. It was not evaluated.")
                 elif converted is None:

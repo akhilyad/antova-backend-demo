@@ -226,7 +226,27 @@ function parseFatDays(text: string): Parsed {
   return { ok: false, reason: 'no witnessed FAT days' };
 }
 
+// "0.5 % per day", "2 %/month", "1 % for each complete week", "0.1 % daily": an LD rate's period.
+const RATE_PERIOD = /^\s*(?:of\s+(?:the\s+)?[^.;,]{0,40}?\s+)?(?:per|\/|each|every|for each)\s*(?:(?:complete|full|started|commenced|whole)\s+)?(week|day|month)\b/i;
+const RATE_WEEKLY = /^\s*(?:of\s+[^.;,]{0,40}?\s+)?(weekly|daily)\b/i;
+// {X/week}: {%/X} * {X/week} -> {%/week}, the same factors as the Python engine's _PER_WEEK_FACTOR.
+const PER_WEEK: Record<string, number> = { week: 1, day: 7, month: 12 / 52 };
+
 function parsePercent(text: string): Parsed {
+  const re = new RegExp(NUM + String.raw`\s*(%|percent|per\s?cent)`, 'gi');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const n = parseNumber(m[1]);
+    if (n === null) continue;
+    const after = text.slice(m.index + m[0].length);
+    const period = after.match(RATE_PERIOD);
+    const weekly = period ? null : after.match(RATE_WEEKLY);
+    if (period || weekly) {
+      const unit = period ? period[1].toLowerCase() : weekly![1].toLowerCase() === 'daily' ? 'day' : 'week';
+      return { ok: true, kind: 'number', base: n * PER_WEEK[unit], unit: '%/week', label: `${fmt(n)} % per ${unit}` };
+    }
+    break; // the first percentage has no period: read it as written below
+  }
   const r = parseNumeric('percent', text);
   if (r.ok) return r;
   if (/\b(excluded|not accepted|not applicable|none|no (ld|liquidated)|nil)\b/i.test(text)) {

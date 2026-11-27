@@ -122,6 +122,7 @@ def clarifications(tender: TenderPackage) -> list[dict]:
                 "NOT_FOUND": "We could not find a total price in your bid.",
                 "CURRENCY_UNKNOWN": "Your total price names no currency.",
                 "FX_MISSING": f"Your total price is in {vendor.currency}, not the tender currency.",
+                "PER_UNIT": "Your price is stated per bay or per unit, not as a total.",
             }.get(status, "Your total price could not be used.")
             add(vendor, None, "PRICE", f"{reason} State the total lump-sum price for the complete scope, "
                                        f"with its currency.", _cite(vendor.headline_citation))

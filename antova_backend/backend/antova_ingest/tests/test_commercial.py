@@ -108,13 +108,17 @@ def test_per_unit_basis_is_detected(text, basis):
     assert read_price(text).per_unit == basis
 
 
-def test_per_bay_headline_is_reported_as_read_with_a_warning(tmp_path):
+def test_per_bay_headline_is_not_used_as_the_contract_total(tmp_path):
+    """A per-bay figure is a unit rate, not the total: used as the headline it ranked the bid first
+    and shrank its LD and liability exposure by the bay count. It is held back, like a price in a
+    currency with no FX rate, and the vendor is asked for the total."""
     result, expected = _ingest(["per_bay_headline"], tmp_path)
     vendor_id = expected["per_unit_headline"]
     vendor = next(v for v in result.tender.vendors if v.id == vendor_id)
-    assert vendor.headline_price == 38000.0  # as read: a person corrects it, the pipeline does not
+    assert vendor.headline_price is None
+    assert vendor.headline_status == "PER_UNIT"
+    assert vendor.headline_original == "38000"
     assert any(w.startswith(f"{vendor_id}: bid price") and "per bay" in w for w in result.warnings)
-    assert any(w.startswith(f"{vendor_id}: bid price") and "median" in w for w in result.warnings)
 
 
 # --- headline plausibility: 50% from the median of the others ----------------------------

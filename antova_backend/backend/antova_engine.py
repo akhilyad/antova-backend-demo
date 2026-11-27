@@ -200,6 +200,7 @@ _EXCLUSION_DETAIL = {
     "NO_HEADLINE": "no headline price was found in the bid",
     "CURRENCY_UNKNOWN": "the headline price names no currency",
     "FX_MISSING": "the headline price is in another currency and the rate table has no dated FX rate",
+    "PER_UNIT": "the headline price is a per-bay or per-unit rate, not the total",
 }
 
 

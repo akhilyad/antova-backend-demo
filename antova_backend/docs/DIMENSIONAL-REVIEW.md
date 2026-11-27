@@ -12,7 +12,23 @@ with comments stripped) confirms the code is identical to the pre-audit commit.
 "Reproduced" means the case was run against the real code. Everything else was traced by hand
 by the validators and confirmed in a second, independent pass.
 
-## Fix first
+## Fixed on this branch
+
+Each fix was written test first, and every test named below failed before its fix.
+
+| ID | Fix | Test |
+|---|---|---|
+| PY-M01 / TS-M01 | A headline worded per bay or per unit becomes status `PER_UNIT`: it isn't evaluated and the vendor is asked for the total. This works the same way as `FX_MISSING`. It replaces the earlier decision to report the figure as read. | `test_per_bay_headline_is_not_used_as_the_contract_total`, `test-units.mjs` |
+| DIM-201 | A price with dot-grouped thousands (`452.000`) reads as thousands, as Python's `_amount` does. | `test-units.mjs` |
+| TS-M02 | A scale word that follows the same number in the quote is applied. A scale word on a different figure is ignored. | `test-units.mjs` |
+| VAL-TS-M01 | An LD rate per day or per month is normalised to %/week, using Python's factors. | `test-units.mjs` |
+| PY-M02 | LD caps and liability limits carry their basis. If one is on the delayed portion and the other on the contract value, the exposure is unknown, with a reason, instead of €0. | `test_exposure.py` (3 tests) |
+| SIM-M03 | With no labour rate applied, the sampled rate scales each line's own rate relative to the table's base rate, so the base value is neutral. | `test-simulation.mjs` (2 tests) |
+| MONEY-M02 | `formatEur` rounds to cents before splitting off the euros. | `test-units.mjs` |
+
+The rest of the findings below are still open.
+
+## Fix first (original ranking)
 
 | ID | Sev | Where | What goes wrong | Example |
 |---|---|---|---|---|

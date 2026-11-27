@@ -160,16 +160,25 @@ export interface DriverValues {
   delay_cost_week: number; // {EUR/week}
 }
 
-/** One bidder's figures at the given driver values: [true evaluated, risk-adjusted], or null. */
-export function vendorCost(m: VendorModel, applied: AppliedRates, v: DriverValues): [number, number] | null {
+/**
+ * One bidder's figures at the given driver values: [true evaluated, risk-adjusted], or null.
+ * @param labourRef {EUR/h} the rate the labour driver is centred on when no labour rate is applied
+ *   (the table's base rate). The sampled rate is then read relative to it, scaling each line's own rate,
+ *   so the driver at its base reproduces the engine exactly even when lines carry different own rates.
+ *   Omitted, a sampled rate replaces every line's rate (hours × rate), as the engine does once applied.
+ */
+export function vendorCost(m: VendorModel, applied: AppliedRates, v: DriverValues, labourRef?: number | null): [number, number] | null {
   if (m.base === null) return null;
-  // {EUR} = {EUR} * ({1} - {1}) + {EUR} * ({1} - {1}) + ({h} * {EUR/h} - {h} * {EUR/h})
-  // Note: with applied.site_labor_rate null, labourCost(applied) = labourOwnCost, so a sampled rate equal to
-  // labourBase still gives a nonzero delta when labour lines carry different own rates.
+  const ownRates = applied.site_labor_rate === null || applied.site_labor_rate === undefined;
+  const sampledLabour =
+    v.labour !== null && v.labour !== undefined && ownRates && labourRef
+      ? m.labourOwnCost * (v.labour / labourRef) // {EUR} = {EUR} * ({EUR/h} / {EUR/h})
+      : labourCost(m, v.labour);
+  // {EUR} = {EUR} * ({1} - {1}) + {EUR} * ({1} - {1}) + ({EUR} - {EUR})
   const engineDelta =
     m.copperBase * (v.copper - applied.copper_multiplier) +
     m.freightBase * (v.freight - applied.freight_multiplier) +
-    (labourCost(m, v.labour) - labourCost(m, applied.site_labor_rate));
+    (sampledLabour - labourCost(m, applied.site_labor_rate));
   const trueCost = m.base + engineDelta; // {EUR} = D2{EUR} + {EUR} (float)
   // {EUR} = {EUR} * ({%}/100 - {1}) + {gap} * {EUR/gap} + {week} * {EUR/week}
   // Note: the delay term is the same for every bidder (no per-vendor lead time), so it never changes the winner.
@@ -185,8 +194,8 @@ export function defaultDrivers(models: readonly VendorModel[], applied: AppliedR
   const any = (k: keyof VendorModel) => models.some((m) => typeof m[k] === 'number' && (m[k] as number) !== 0);
   const unpriced = models.reduce((s, m) => s + m.unpricedGaps, 0); // {gap}
   const priced = models.reduce((s, m) => s + m.pricedAdders, 0); // {EUR}
-  // {EUR/h}; when applied.site_labor_rate is null this is labourBase (first labour line's rate), which is not
-  // neutral against labourOwnCost if lines carry different own rates (see vendorCost note)
+  // {EUR/h}; when applied.site_labor_rate is null this is labourBase (the table's base rate), and vendorCost
+  // reads the sampled rate relative to it, so this base is neutral even with mixed own rates
   const labour = applied.site_labor_rate ?? labourBase;
   const round5 = (n: number) => Math.round(n / 5) * 5;
   return [
@@ -388,12 +397,16 @@ export function simulate(
     return v;
   };
 
+  // With no labour rate applied, the labour driver is centred on the table's base rate and scales each
+  // line's own rate, so its base value is neutral (see vendorCost).
+  const labourRef = applied.site_labor_rate == null ? drivers.find((d) => d.effect === 'labour')?.base ?? null : null;
+
   const evaluate = (v: DriverValues): { value: number; winner: number } => {
     let best = Infinity;
     let winner = -1;
     let target = NaN;
     models.forEach((m, i) => {
-      const c = vendorCost(m, applied, v);
+      const c = vendorCost(m, applied, v, labourRef);
       if (!c) return;
       if (c[k] < best) {
         best = c[k];

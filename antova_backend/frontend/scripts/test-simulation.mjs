@@ -111,3 +111,28 @@ test('bands partition the samples and their shares add up to 1', () => {
   const { points } = density(sorted);
   assert.ok(points.length > 10 && points.every((p) => p.y >= 0));
 });
+
+test('labour at its base is neutral even when lines carry different own rates (SIM-M03)', () => {
+  // 10 h at €80/h + 10 h at €100/h; the table's base rate (first labour line) is €80/h.
+  const m = { vendor_id: 'V', name: 'V', base: 500_000, copperBase: 0, freightBase: 0,
+    labourHours: 20, labourOwnCost: 1800, pricedAdders: 0, unpricedGaps: 0 };
+  const [atBase] = vendorCost(m, applied, { ...neutral, labour: 80 }, 80);
+  assert.equal(atBase, 500_000);
+  // Above the base, each line's own rate scales by the same ratio: 1800 × 88/80 = 1980, so +180.
+  const [higher] = vendorCost(m, applied, { ...neutral, labour: 88 }, 80);
+  assert.ok(Math.abs(higher - 500_180) < 1e-6);
+  // With a labour rate applied, the engine uses hours × rate, so the sample does too.
+  const appliedRate = { ...applied, site_labor_rate: 70 };
+  const [same] = vendorCost(m, appliedRate, { ...neutral, labour: 70 }, 80);
+  assert.equal(same, 500_000);
+});
+
+test('the simulation baseline equals the engine award with mixed labour rates', () => {
+  const mixed = [
+    { vendor_id: 'A', name: 'A', base: 500_000, copperBase: 0, freightBase: 0, labourHours: 20, labourOwnCost: 1800, pricedAdders: 0, unpricedGaps: 0 },
+    { vendor_id: 'B', name: 'B', base: 500_100, copperBase: 0, freightBase: 0, labourHours: 20, labourOwnCost: 2000, pricedAdders: 0, unpricedGaps: 0 },
+  ];
+  const drivers = defaultDrivers(mixed, applied, 80);
+  const res = simulate(mixed, drivers, applied, { target: 'award', kind: 'true' }, 50);
+  assert.equal(res.baseline, 500_000);
+});

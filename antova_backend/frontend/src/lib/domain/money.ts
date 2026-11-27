@@ -43,11 +43,13 @@ export function formatEur(
   if (isNaN(num)) return '€?';
 
   const isNeg = num < 0;
-  const abs = Math.abs(num); // {EUR}; whole part and (abs % 1) cents are rounded separately (no carry)
+  const abs = Math.abs(num); // {EUR}
   const isWhole = Math.round(abs) === abs;
+  // Round to cents first, then split, so 2.999 carries into the euros (€3.00, not €2.00).
+  const cents = isWhole ? 0 : toCents(abs); // D2{EUR} as integer cents
   const formattedAbs = isWhole
     ? groupThousands(Math.round(abs))
-    : `${groupThousands(Math.floor(abs))}.${(abs % 1).toFixed(2).slice(2)}`;
+    : `${groupThousands(Math.trunc(cents / 100))}.${String(cents % 100).padStart(2, '0')}`;
 
   const prefix = isNeg ? `${MINUS}€` : options?.signed && num > 0 ? '+€' : '€';
   const suffix = options?.isLowerBound ? '+' : '';
