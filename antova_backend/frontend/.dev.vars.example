@@ -1,0 +1,20 @@
+# Local secrets for `npm run cf:preview` (Workers runtime on http://localhost:8787).
+# Copy to .dev.vars (git-ignored) and fill in. Production values live only in
+# Cloudflare: `npx wrangler secret put <NAME>`. Never commit real values.
+
+# OpenAI-compatible chat endpoint. For a stand-in model run `node scripts/mock-llm.mjs`
+# and point LLM_BASE_URL at it instead.
+LLM_API_KEY=
+LLM_MODEL_NAME=
+# LLM_BASE_URL is set under "vars" in wrangler.jsonc; uncomment to override locally.
+# LLM_BASE_URL=
+
+# Reviewer token checked on /api writes. Leave empty to run open locally.
+REVIEW_TOKEN=
+
+# Optional: per-call model timeout in milliseconds.
+# LLM_TIMEOUT_MS=
+
+# Optional: send /api to a separate FastAPI engine instead of the built-in one.
+# Leave unset on Cloudflare unless that engine exists.
+# BACKEND_URL=
