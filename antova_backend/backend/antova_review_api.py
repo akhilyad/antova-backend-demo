@@ -34,7 +34,7 @@ from antova_review import (
     PROJECT_PREFIX, PROJECT_VENDOR, evidence_hash, open_items, project_field_hash, project_field_state, review_state,
 )
 
-_CENTS = Decimal("0.01")
+_CENTS = Decimal("0.01")  # D2 quantum for {EUR}
 REVIEW_CACHE = "private, no-store"
 log = logging.getLogger(__name__)
 OVERRIDES_LOCKED = "Reopen the brief before you edit amounts."
@@ -44,7 +44,7 @@ router = APIRouter(prefix="/api/review", tags=["Review"], dependencies=[Depends(
 
 class OverrideBody(BaseModel):
     """A founder's euro adder for one cell: 0 to 10 million, whole cents, with a reason."""
-    adder_eur: Decimal = Field(ge=0, le=10_000_000, allow_inf_nan=False)
+    adder_eur: Decimal = Field(ge=0, le=10_000_000, allow_inf_nan=False)  # D2{EUR} in [0, 1e7]
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
     @field_validator("adder_eur")
@@ -153,6 +153,7 @@ def put_override(tender_id: str, param_id: str, vendor_id: str, body: OverrideBo
                  if p.id == param_id and vendor_id in p.vendors), None)
     if cell is None:
         raise not_found()
+    # body.adder_eur D2{EUR} -> stored as str in AdderOverrideRecord.adder_eur
     # Stamped with the cell as the founder sees it now: a re-ingest keeps the override only while it is unchanged.
     TenderRepository(db).put_override(tender_id, param_id, vendor_id, body.adder_eur, body.note,
                                       evidence_hash(cell), set_by=principal.id)
@@ -258,6 +259,7 @@ def export_tbe(tender_id: str, db: Session = Depends(get_db)):
         for item in f["itemized_breakdown"]:
             cell = cells_by_key[(item["param_id"], f["vendor_id"])]
             source = cell.citation
+            # item["adder_eur"]: {EUR} float (engine float(adder) of the D2{EUR} Decimal)
             cells.append({
                 "vendor_id": f["vendor_id"], "param_id": item["param_id"], "param_name": item["param_name"],
                 "criticality": item["criticality"], "status": item["status"], "adder_eur": item["adder_eur"],

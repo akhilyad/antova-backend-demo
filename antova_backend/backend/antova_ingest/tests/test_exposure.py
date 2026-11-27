@@ -147,3 +147,26 @@ def test_a_vendors_true_price_adds_the_priced_exclusions_and_stays_a_lower_bound
     assert b["total_adders_low"] <= b["total_adders"] <= b["total_adders_high"]
     assert b["true_evaluated_low"] <= b["true_evaluated_price"] <= b["true_evaluated_high"]
     assert b["price_status"] == "UNPRICED_ITEMS"  # delivery, LD, liability and altitude gaps are still unpriced
+
+
+# --- cap basis: a share of the delayed portion is not a share of the contract (PY-M02) -------
+
+def test_an_ld_cap_on_the_delayed_portion_is_not_compared_with_a_contract_cap():
+    e = ld_recovery_shortfall(1, 10, 1, 10, 20, 500_000,
+                              required_cap_basis="contract", offered_cap_basis="delayed_portion")
+    assert e.amount is None
+    assert "delayed portion" in e.reason
+
+
+def test_caps_on_the_same_basis_are_compared_as_before():
+    same = ld_recovery_shortfall(1, 10, 1, 5, 20, 500_000,
+                                 required_cap_basis="contract", offered_cap_basis="contract")
+    assert same.amount == ld_recovery_shortfall(1, 10, 1, 5, 20, 500_000).amount == Decimal("25000.00")
+    # An unstated basis is read as the contract value, as it always was.
+    assert ld_recovery_shortfall(1, 10, 1, 5, 20, 500_000, offered_cap_basis="unspecified").amount == Decimal("25000.00")
+
+
+def test_a_liability_limit_on_the_delayed_portion_is_not_compared_with_a_contract_limit():
+    e = liability_shortfall(100, 100, 500_000, required_basis="contract", offered_basis="delayed_portion")
+    assert e.amount is None
+    assert "delayed portion" in e.reason

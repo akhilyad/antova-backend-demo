@@ -75,6 +75,7 @@ def _env_int(name: str, default: int | None) -> int | None:
 
 
 def _env_price(name: str) -> Decimal:
+    # returns {USD/Mtok}; unset -> 0
     raw = (os.environ.get(name) or "").strip()
     try:
         return Decimal(raw) if raw else Decimal("0")
@@ -125,7 +126,7 @@ class ChatCompletionsLocator(ModelLocator):
         self._max_input_tokens = max_input_tokens
         self.max_output_tokens = max_output_tokens
         self.json_mode = json_mode
-        self.prices = prices
+        self.prices = prices  # ({USD/Mtok} input, {USD/Mtok} output)
         self._sleep = sleep
 
     @classmethod
@@ -161,6 +162,7 @@ class ChatCompletionsLocator(ModelLocator):
         return extract.build_system_prompt(self.store.equipment_class) + schema_instruction()
 
     def _count(self, client: Any, system: str, content: str) -> int:
+        # {token} = ({char} + {char}) / {char/token} + 1 {token}
         return int((len(system) + len(content)) / CHARS_PER_TOKEN) + 1
 
     # --- transport -----------------------------------------------------------------------------

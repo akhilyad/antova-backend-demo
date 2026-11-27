@@ -227,20 +227,18 @@ def _priced_vendors(pack: Pack) -> list[str]:
 
 @operator
 def per_bay_headline(pack: Pack, rng: random.Random) -> None:
-    """One bid's price line is a per-bay figure. It is reported as read, with two warnings:
-    the wording says "per bay", and the figure is far from the other bids."""
+    """One bid's price line is a per-bay figure. A unit rate is not the contract total, so the
+    price is not evaluated (PER_UNIT), the same way a price with no FX rate is held back."""
     candidates = _priced_vendors(pack)
     if len(candidates) < 3:
         raise MutationError("needs three priced bids, so the median of the others means something")
     vendor_id = rng.choice(candidates)
     filename, sentence = _price_sentence(pack, vendor_id)
     pack.replace_text(filename, sentence, "Price per bay for the complete scope: €38,000")
-    vendor = pack.expected["vendors"][vendor_id]
-    vendor["headline_price"] = "38000.00"
-    vendor["true_evaluated_price"] = f"{38000 + float(vendor['total_adders']):.2f}"
+    pack.expected["vendors"][vendor_id].update({
+        "headline_price": None, "true_evaluated_price": None, "badge": "Bid price not found", "price_status": "PER_UNIT"})
     pack.expected["per_unit_headline"] = vendor_id
     pack.expect_warning(f"{vendor_id}: bid price is worded \"per bay\"")
-    pack.expect_warning(f"{vendor_id}: bid price €38,000.00 is far from")
     pack.expected.pop("clawback", None)
 
 

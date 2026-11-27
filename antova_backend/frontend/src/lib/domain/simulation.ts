@@ -53,8 +53,8 @@ export const CATEGORY_LABEL: Record<DriverCategory, string> = {
 };
 
 export interface CostLineLike {
-  qty: string | number;
-  rate: string | number;
+  qty: string | number; // {X}
+  rate: string | number; // {EUR/X}
   driver?: string | null;
 }
 
@@ -79,10 +79,10 @@ export interface FinancialLike {
 }
 
 export interface AppliedRates {
-  copper_multiplier: number;
+  copper_multiplier: number; // {1}
   /** null: each labour line's own rate. */
-  site_labor_rate?: number | null;
-  freight_multiplier: number;
+  site_labor_rate?: number | null; // {EUR/h}
+  freight_multiplier: number; // {1}
 }
 
 /** Per-bidder linear coefficients, read once from the brief. */
@@ -90,13 +90,13 @@ export interface VendorModel {
   vendor_id: string;
   name: string;
   /** The engine's figure at the applied rates; null when the bidder has none (no usable headline). */
-  base: number | null;
-  copperBase: number;
-  freightBase: number;
-  labourHours: number;
-  labourOwnCost: number;
-  pricedAdders: number;
-  unpricedGaps: number;
+  base: number | null; // D2{EUR}
+  copperBase: number; // {EUR} at multiplier 1 (float, no per-cell cent rounding)
+  freightBase: number; // {EUR} at multiplier 1
+  labourHours: number; // {h}
+  labourOwnCost: number; // {EUR} at each line's own {EUR/h}
+  pricedAdders: number; // {EUR} sum of PRICED adders (OVERRIDDEN excluded)
+  unpricedGaps: number; // {gap} count
 }
 
 const num = (v: string | number | null | undefined): number => {
@@ -125,8 +125,9 @@ export function buildVendorModels(
     for (const p of parameters) {
       if (skipped.has(p.id)) continue;
       for (const line of p.vendors?.[f.vendor_id]?.cost_lines || []) {
-        const qty = num(line.qty);
-        const rate = num(line.rate);
+        const qty = num(line.qty); // {X} ({kg}/{load}/{h} by driver)
+        const rate = num(line.rate); // {EUR/X}
+        // {EUR} += {X} * {EUR/X}  |  labour: {h} += {h}, {EUR} += {h} * {EUR/h}
         if (line.driver === 'copper') m.copperBase += qty * rate;
         else if (line.driver === 'freight') m.freightBase += qty * rate;
         else if (line.driver === 'labour') {
@@ -144,28 +145,43 @@ export function buildVendorModels(
   });
 }
 
+/** @param rate {EUR/h} or null; @returns {EUR} */
 function labourCost(m: VendorModel, rate: number | null | undefined): number {
   return rate === null || rate === undefined ? m.labourOwnCost : m.labourHours * rate;
 }
 
 export interface DriverValues {
-  copper: number;
-  freight: number;
-  labour: number | null;
-  addback_realisation: number; // percent
-  unpriced_allowance: number; // EUR per gap
-  delay_weeks: number;
-  delay_cost_week: number; // EUR per week
+  copper: number; // {1}
+  freight: number; // {1}
+  labour: number | null; // {EUR/h}
+  addback_realisation: number; // {%} percent 0-100+
+  unpriced_allowance: number; // {EUR/gap}
+  delay_weeks: number; // {week}
+  delay_cost_week: number; // {EUR/week}
 }
 
-/** One bidder's figures at the given driver values: [true evaluated, risk-adjusted], or null. */
-export function vendorCost(m: VendorModel, applied: AppliedRates, v: DriverValues): [number, number] | null {
+/**
+ * One bidder's figures at the given driver values: [true evaluated, risk-adjusted], or null.
+ * @param labourRef {EUR/h} the rate the labour driver is centred on when no labour rate is applied
+ *   (the table's base rate). The sampled rate is then read relative to it, scaling each line's own rate,
+ *   so the driver at its base reproduces the engine exactly even when lines carry different own rates.
+ *   Omitted, a sampled rate replaces every line's rate (hours × rate), as the engine does once applied.
+ */
+export function vendorCost(m: VendorModel, applied: AppliedRates, v: DriverValues, labourRef?: number | null): [number, number] | null {
   if (m.base === null) return null;
+  const ownRates = applied.site_labor_rate === null || applied.site_labor_rate === undefined;
+  const sampledLabour =
+    v.labour !== null && v.labour !== undefined && ownRates && labourRef
+      ? m.labourOwnCost * (v.labour / labourRef) // {EUR} = {EUR} * ({EUR/h} / {EUR/h})
+      : labourCost(m, v.labour);
+  // {EUR} = {EUR} * ({1} - {1}) + {EUR} * ({1} - {1}) + ({EUR} - {EUR})
   const engineDelta =
     m.copperBase * (v.copper - applied.copper_multiplier) +
     m.freightBase * (v.freight - applied.freight_multiplier) +
-    (labourCost(m, v.labour) - labourCost(m, applied.site_labor_rate));
-  const trueCost = m.base + engineDelta;
+    (sampledLabour - labourCost(m, applied.site_labor_rate));
+  const trueCost = m.base + engineDelta; // {EUR} = D2{EUR} + {EUR} (float)
+  // {EUR} = {EUR} * ({%}/100 - {1}) + {gap} * {EUR/gap} + {week} * {EUR/week}
+  // Note: the delay term is the same for every bidder (no per-vendor lead time), so it never changes the winner.
   const scenario =
     m.pricedAdders * (v.addback_realisation / 100 - 1) +
     m.unpricedGaps * v.unpriced_allowance +
@@ -176,8 +192,10 @@ export function vendorCost(m: VendorModel, applied: AppliedRates, v: DriverValue
 /** The rate table's own drivers plus neutral scenario assumptions, sized from this brief. */
 export function defaultDrivers(models: readonly VendorModel[], applied: AppliedRates, labourBase: number): DriverSpec[] {
   const any = (k: keyof VendorModel) => models.some((m) => typeof m[k] === 'number' && (m[k] as number) !== 0);
-  const unpriced = models.reduce((s, m) => s + m.unpricedGaps, 0);
-  const priced = models.reduce((s, m) => s + m.pricedAdders, 0);
+  const unpriced = models.reduce((s, m) => s + m.unpricedGaps, 0); // {gap}
+  const priced = models.reduce((s, m) => s + m.pricedAdders, 0); // {EUR}
+  // {EUR/h}; when applied.site_labor_rate is null this is labourBase (the table's base rate), and vendorCost
+  // reads the sampled rate relative to it, so this base is neutral even with mixed own rates
   const labour = applied.site_labor_rate ?? labourBase;
   const round5 = (n: number) => Math.round(n / 5) * 5;
   return [
@@ -270,7 +288,7 @@ export function defaultDrivers(models: readonly VendorModel[], applied: AppliedR
       label: 'Allowance per unpriced gap',
       category: 'technical',
       effect: 'unpriced_allowance',
-      unit: '€',
+      unit: '€', // dimension is {EUR/gap}; UI label shows only '€'
       base: 0,
       min: 0,
       max: 0,
@@ -338,7 +356,7 @@ export interface OutputVariable {
 
 export interface SimulationResult {
   n: number;
-  /** The chosen output per sample (EUR). */
+  /** The chosen output per sample {EUR} (float). */
   values: Float64Array;
   /** Driver values per sample, row-major: drivers.length per sample. */
   driverValues: Float64Array;
@@ -379,12 +397,16 @@ export function simulate(
     return v;
   };
 
+  // With no labour rate applied, the labour driver is centred on the table's base rate and scales each
+  // line's own rate, so its base value is neutral (see vendorCost).
+  const labourRef = applied.site_labor_rate == null ? drivers.find((d) => d.effect === 'labour')?.base ?? null : null;
+
   const evaluate = (v: DriverValues): { value: number; winner: number } => {
     let best = Infinity;
     let winner = -1;
     let target = NaN;
     models.forEach((m, i) => {
-      const c = vendorCost(m, applied, v);
+      const c = vendorCost(m, applied, v, labourRef);
       if (!c) return;
       if (c[k] < best) {
         best = c[k];
@@ -408,7 +430,7 @@ export function simulate(
     winners[s] = r.winner;
   }
 
-  const base = evaluate(valuesAt((d) => d.base)).value;
+  const base = evaluate(valuesAt((d) => d.base)).value; // {EUR}; equals engine TEP only if every driver base is neutral
   return {
     n,
     values,

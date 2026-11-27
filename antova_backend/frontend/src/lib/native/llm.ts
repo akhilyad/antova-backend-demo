@@ -77,6 +77,7 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
   } catch (err) {
     const timeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
     const cause = err instanceof Error && err.cause instanceof Error ? ` (${err.cause.message})` : '';
+    // {s} = round({ms} / 1000) for the message
     throw new LlmError(
       timeout ? `The model took longer than ${Math.round(timeoutMs / 1000)} s to answer.` : `The model could not be reached${cause}.`
     );
@@ -100,16 +101,17 @@ async function openAiJson(settings: LlmSettings, system: string, user: string, m
     { max_tokens: maxTokens },
     {},
   ];
-  const started = Date.now();
+  const started = Date.now(); // {ms}
   let lastError = '';
   for (let i = 0; i < variants.length; i++) {
+    // {ms} = {ms} - ({ms} - {ms})
     const remaining = settings.timeoutMs - (Date.now() - started);
     if (remaining < 3_000) break;
     let res = await post(url, headers, { model: settings.model, messages, ...variants[i] }, remaining);
     if (res.status === 429 || res.status >= 500) {
       await res.body?.cancel();
-      await sleep(1500);
-      const left = settings.timeoutMs - (Date.now() - started);
+      await sleep(1500); // {ms}
+      const left = settings.timeoutMs - (Date.now() - started); // {ms}
       if (left < 3_000) throw new LlmError(`The model at ${host(settings)} is busy (${res.status}). Try again.`, res.status);
       res = await post(url, headers, { model: settings.model, messages, ...variants[i] }, left);
     }
@@ -146,7 +148,8 @@ async function anthropicJson(settings: LlmSettings, system: string, user: string
   let res = await post(`${settings.baseUrl}/v1/messages`, headers, body, settings.timeoutMs);
   if (res.status === 429 || res.status === 529 || res.status >= 500) {
     await res.body?.cancel();
-    await sleep(1500);
+    await sleep(1500); // {ms}
+    // {ms} = max({ms}, {ms} - {ms})
     res = await post(`${settings.baseUrl}/v1/messages`, headers, body, Math.max(5_000, settings.timeoutMs - 3_000));
   }
   if (!res.ok) throw new LlmError(`The model at ${host(settings)} answered ${res.status}: ${await providerMessage(res)}`, res.status);
@@ -177,7 +180,7 @@ export interface LlmProbe {
   ok: boolean;
   status: number;
   detail: string;
-  latency_ms: number;
+  latency_ms: number; // {ms}
 }
 
 let cachedProbe: { key: string; at: number; probe: LlmProbe } | null = null;
@@ -189,12 +192,13 @@ let cachedProbe: { key: string; at: number; probe: LlmProbe } | null = null;
  */
 export async function probeLlm(settings: LlmSettings): Promise<LlmProbe> {
   const key = `${settings.provider}|${settings.baseUrl}|${settings.model}|${settings.apiKey.slice(-6)}`;
+  // {ms} cache age = Date.now() - at, compared to TTL {ms} (60_000 ok / 15_000 failed)
   if (cachedProbe && cachedProbe.key === key && Date.now() - cachedProbe.at < (cachedProbe.probe.ok ? 60_000 : 15_000)) {
     return cachedProbe.probe;
   }
-  const started = Date.now();
+  const started = Date.now(); // {ms}
   const finish = (ok: boolean, status: number, detail: string): LlmProbe => {
-    const probe = { ok, status, detail, latency_ms: Date.now() - started };
+    const probe = { ok, status, detail, latency_ms: Date.now() - started }; // latency_ms {ms} = {ms} - {ms}
     cachedProbe = { key, at: Date.now(), probe };
     return probe;
   };
@@ -205,7 +209,7 @@ export async function probeLlm(settings: LlmSettings): Promise<LlmProbe> {
       ? { 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01' }
       : { Authorization: `Bearer ${settings.apiKey}` };
   try {
-    const res = await fetch(listUrl, { headers: listHeaders, signal: AbortSignal.timeout(8_000) });
+    const res = await fetch(listUrl, { headers: listHeaders, signal: AbortSignal.timeout(8_000) }); // timeout {ms}
     if (res.status === 401 || res.status === 403) {
       return finish(false, res.status, `The model provider at ${host(settings)} refused the API key (${res.status}): ${await providerMessage(res)}`);
     }
@@ -225,7 +229,7 @@ export async function probeLlm(settings: LlmSettings): Promise<LlmProbe> {
 
   // No model list, or the model is not in it: one tiny completion settles it.
   try {
-    const quick = { ...settings, timeoutMs: 15_000 };
+    const quick = { ...settings, timeoutMs: 15_000 }; // timeoutMs {ms}
     await chatJson(quick, 'Reply with JSON only.', 'Return {"ok": true}.', 16);
     return finish(true, 200, `Model ${settings.model} at ${host(settings)} answered.`);
   } catch (err) {

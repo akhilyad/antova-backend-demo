@@ -53,7 +53,7 @@ class RequestIdMiddleware:
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
         request_id = incoming_id(headers.get(REQUEST_ID_HEADER.lower()))
         token = request_id_var.set(request_id)
-        started = time.perf_counter()
+        started = time.perf_counter()  # {s}
         status = 500
 
         async def send_with_id(message: Message) -> None:
@@ -75,6 +75,7 @@ class RequestIdMiddleware:
                     "method": scope.get("method"),
                     "path": scope.get("path"),
                     "status": status,
+                    # {ms} = {s} * 1000
                     "ms": round((time.perf_counter() - started) * 1000, 1),
                 }))
             request_id_var.reset(token)

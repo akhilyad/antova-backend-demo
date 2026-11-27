@@ -130,7 +130,7 @@ class JobQueueManager:
                 break
             except Exception:
                 log.exception("ingest worker loop error")
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.5)  # {s}
 
     @staticmethod
     def _persist(result) -> list[dict]:
@@ -145,7 +145,7 @@ class JobQueueManager:
         if job is None:
             return
         tender_id = job["tender_id"]
-        started = time.perf_counter()
+        started = time.perf_counter()  # {s}
         log.info("ingest job %s started: tender=%s mode=%s", job_id, tender_id, job["mode"])
         _repo_call(lambda repo: repo.update_job(job_id, status="PROCESSING"))
 
@@ -161,6 +161,7 @@ class JobQueueManager:
             _repo_call(lambda repo: repo.update_job(
                 job_id, status="COMPLETED", progress_pct=100, stage="Persist", finished=True,
                 result=jsonable_encoder({**result.stats, "overrides_cleared": cleared})))
+            # elapsed {s} = {s} - {s}, logged as %.1fs
             log.info("ingest job %s completed: tender=%s %.1fs, %d override(s) cleared", job_id, tender_id,
                      time.perf_counter() - started, len(cleared))
         except Exception as e:

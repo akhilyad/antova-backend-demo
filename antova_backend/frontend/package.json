@@ -14,7 +14,7 @@
     "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "test:snapshot": "node scripts/test-snapshot.mjs",
     "test:proxy": "node --test scripts/test-proxy.mjs",
-    "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs scripts/test-native.mjs scripts/test-manage.mjs scripts/test-properties.mjs",
+    "test:unit": "node --test scripts/test-proxy.mjs scripts/test-sensitivity.mjs scripts/test-ingest.mjs scripts/test-simulation.mjs scripts/test-native.mjs scripts/test-manage.mjs scripts/test-properties.mjs scripts/test-units.mjs",
     "test:native-e2e": "node scripts/test-native-e2e.mjs",
     "mock:llm": "node scripts/mock-llm.mjs"
   },

@@ -36,7 +36,7 @@ SEED_REVIEWER = "founder"
 # already priced (6,150) plus 18 months x EUR 175 on the months-only basis (3,150).
 FOUNDER_OVERRIDES = {
     ("PARAM-06", "vendor-b"): Override(
-        adder_eur=Decimal("9300.00"),
+        adder_eur=Decimal("9300.00"),  # D2{EUR} = 6150 {EUR} + 18 {month} * 175 {EUR/month}
         note="Priced by the founder: freight 6,150 plus 18 months x EUR 175, pending VoltSwitch's warranty start date"),
 }
 FOUNDER_REVIEW_NOTE = "Warranty start date checked against the bid; the gap is priced by an override"

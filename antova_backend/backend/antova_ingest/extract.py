@@ -36,8 +36,8 @@ WINDOW_BUDGET_SHARE = 0.85
 # is seen whole by the next window.
 WINDOW_OVERLAP_PAGES = 1
 # the locator model list price per million tokens, as of 2026-11-03.
-PRICE_INPUT_PER_MTOK = Decimal("4")
-PRICE_OUTPUT_PER_MTOK = Decimal("20")
+PRICE_INPUT_PER_MTOK = Decimal("4")  # {USD/Mtok}
+PRICE_OUTPUT_PER_MTOK = Decimal("20")  # {USD/Mtok}
 
 Mode = Literal["replay", "auto", "live"]
 BidSection = Literal[
@@ -88,8 +88,8 @@ class LocateResponse(BaseModel):
 @dataclass
 class LocateOutcome:
     response: LocateResponse
-    input_tokens: int
-    output_tokens: int
+    input_tokens: int  # {token}
+    output_tokens: int  # {token}
     from_store: bool
     # The model that answered. It differs from MODEL when the server-side fallback took over.
     model: str | None = None
@@ -167,6 +167,7 @@ def sha256_short(text: str) -> str:
 def api_cost_usd(input_tokens: int, output_tokens: int, price_input: Decimal = PRICE_INPUT_PER_MTOK,
                  price_output: Decimal = PRICE_OUTPUT_PER_MTOK) -> Decimal:
     """USD for the tokens, at the given per-million prices (default: the locator model list price)."""
+    # D4{USD} = ({token} * {USD/Mtok} + {token} * {USD/Mtok}) / 1e6 {token/Mtok}
     cost = (Decimal(input_tokens) * price_input + Decimal(output_tokens) * price_output) / Decimal(1_000_000)
     return cost.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
@@ -368,7 +369,7 @@ class ModelLocator:
         served = next((o.model for o in outcomes if o.model and o.model != MODEL), MODEL)
         return LocateOutcome(
             merge_responses([o.response for o in outcomes]),
-            sum(o.input_tokens for o in outcomes), sum(o.output_tokens for o in outcomes),
+            sum(o.input_tokens for o in outcomes), sum(o.output_tokens for o in outcomes),  # {token}, {token} (overlap pages billed per window)
             from_store=False, model=served,
             windows=[(pages[0].number, pages[-1].number) for pages in windows],
         )
@@ -384,14 +385,16 @@ class ModelLocator:
         Each page's share of the tokens is estimated from its share of the text; a window that
         counts over the limit anyway is split in two. A single page over the limit cannot be sent.
         """
-        overhead = self._count(client, system, build_document_content(doc, []))
-        sizes = [len(escape(p.text)) + 40 for p in doc.pages]
+        overhead = self._count(client, system, build_document_content(doc, []))  # {token}
+        sizes = [len(escape(p.text)) + 40 for p in doc.pages]  # {char} per page
+        # {token/char} = ({token} - {token}) / {char}
         per_char = max(total - overhead, 1) / max(sum(sizes), 1)
+        # {token} = {token} * {1} - {token}
         budget = self.max_input_tokens * WINDOW_BUDGET_SHARE - overhead
         planned: list[list] = []
         start = 0
         while start < len(doc.pages):
-            end, used = start, sizes[start] * per_char
+            end, used = start, sizes[start] * per_char  # used: {token} = {char} * {token/char}
             while end + 1 < len(doc.pages) and used + sizes[end + 1] * per_char <= budget:
                 end += 1
                 used += sizes[end] * per_char

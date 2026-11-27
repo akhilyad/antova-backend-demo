@@ -46,8 +46,8 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-01", "Rated Short-Time Withstand Current (Ik)", "Electrical Ratings (IEC 62271-200)",
         Criticality.MANDATORY,
-        (FieldDef("ik", "current", "ge", "Ik", plausible=("10 kA", "100 kA")),
-         FieldDef("ik_duration", "duration", "ge", "t", plausible=("0.5 s", "5 s"))),
+        (FieldDef("ik", "current", "ge", "Ik", plausible=("10 kA", "100 kA")),  # {A} via Pint
+         FieldDef("ik_duration", "duration", "ge", "t", plausible=("0.5 s", "5 s"))),  # {s}
         "{ik} ({ik_duration})",
         "Rated short-time withstand current Ik of the switchgear and its duration in seconds. "
         "Not the internal arc (IAC) test current or duration.",
@@ -58,6 +58,7 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-02", "Main Busbar Material & Continuous Current", "Primary Conductors & Materials",
         Criticality.MANDATORY,
+        # rated_current: {A}
         (FieldDef("material", "material", "eq", "Material"), FieldDef("rated_current", "current", "ge", "Ir", plausible=("200 A", "6300 A"))),
         "{material}, {rated_current}",
         "Main busbar conductor material (copper or aluminium) and the busbar's rated continuous current.",
@@ -84,7 +85,7 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-05", "Witnessed Factory Acceptance Test (I-FAT)", "Quality Assurance & Testing",
         Criticality.COMMERCIAL,
-        (FieldDef("witnessed_fat_days_included", "fat_days", "ge", "Witnessed FAT days", plausible=("0", "30")),),
+        (FieldDef("witnessed_fat_days_included", "fat_days", "ge", "Witnessed FAT days", plausible=("0", "30")),),  # {day}
         "{witnessed_fat_days_included} witnessed FAT days included",
         "Witnessed factory acceptance test: how many client-witnessed test days are included in the price, "
         "or whether witnessed testing is excluded or charged extra.",
@@ -94,6 +95,7 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-06", "Incoterms 2020 & Site Unloading", "Commercial & Logistics Terms",
         Criticality.COMMERCIAL,
+        # warranty_months: {month}
         (FieldDef("incoterm", "incoterm", "ord", "Incoterm"), FieldDef("warranty_months", "months", "ge", "Warranty months", plausible=("1", "120"))),
         "{incoterm} / {warranty_months} months",
         "Delivery Incoterm and place, and the warranty or defect liability period in months.",
@@ -104,7 +106,7 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-07", "Rated Voltage (Ur)", "Electrical Ratings (IEC 62271-200)",
         Criticality.MANDATORY,
-        (FieldDef("rated_voltage", "voltage", "ge", "Ur", plausible=("1 kV", "52 kV")),),
+        (FieldDef("rated_voltage", "voltage", "ge", "Ur", plausible=("1 kV", "52 kV")),),  # {V} via Pint
         "{rated_voltage}",
         "Rated voltage Ur of the switchgear.",
         sweep_terms=(r"rated voltage", r"\bUr\b"),
@@ -112,7 +114,7 @@ PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-08", "Max Ambient Temperature (No Derating)", "Thermal & Environmental",
         Criticality.MANDATORY,
-        (FieldDef("max_ambient", "temperature", "ge", "Tamb", plausible=("25 °C", "70 °C")),),
+        (FieldDef("max_ambient", "temperature", "ge", "Tamb", plausible=("25 °C", "70 °C")),),  # compared in {K}
         "max ambient {max_ambient}",
         "Maximum ambient air temperature the equipment is rated for without derating.",
         sweep_terms=(r"ambient",),
@@ -127,7 +129,7 @@ PARAMS_BY_ID: dict[str, ParameterDef] = {p.id: p for p in PARAMETERS}
 EXTENDED_PARAMETERS: tuple[ParameterDef, ...] = (
     ParameterDef(
         "PARAM-09", "Delivery Lead Time", "Schedule & Delivery", Criticality.HIGH,
-        (FieldDef("lead_time", "lead_time", "le", "Lead time", plausible=("1 weeks", "150 weeks")),),
+        (FieldDef("lead_time", "lead_time", "le", "Lead time", plausible=("1 weeks", "150 weeks")),),  # D6{week}
         "{lead_time}",
         "Delivery lead time in weeks and what it is counted from (the purchase order, approved drawings or a "
         "date). Not the offer validity, the drawing submission time, the FAT date or the warranty period.",
@@ -138,8 +140,8 @@ EXTENDED_PARAMETERS: tuple[ParameterDef, ...] = (
     ),
     ParameterDef(
         "PARAM-10", "Delay Liquidated Damages", "Commercial Risk (Liquidated Damages)", Criticality.HIGH,
-        (FieldDef("ld_rate", "percent", "ge", "LD rate", plausible=("0 %", "10 %")),
-         FieldDef("ld_cap", "percent", "ge", "LD cap", plausible=("0 %", "100 %"))),
+        (FieldDef("ld_rate", "percent", "ge", "LD rate", plausible=("0 %", "10 %")),  # {%/week}
+         FieldDef("ld_cap", "percent", "ge", "LD cap", plausible=("0 %", "100 %"))),  # {%}
         "{ld_rate}; cap {ld_cap}",
         "Delay liquidated damages: the rate per week or per day of delay as a percentage of the contract price, "
         "and the maximum cap on them. If the text says liquidated damages are excluded or not accepted, quote that.",
@@ -147,7 +149,7 @@ EXTENDED_PARAMETERS: tuple[ParameterDef, ...] = (
     ),
     ParameterDef(
         "PARAM-11", "Limitation of Liability", "Commercial Risk (Liability)", Criticality.HIGH,
-        (FieldDef("liability_cap", "percent", "ge", "Liability cap", plausible=("1 %", "1000 %")),),
+        (FieldDef("liability_cap", "percent", "ge", "Liability cap", plausible=("1 %", "1000 %")),),  # {%}
         "{liability_cap}",
         "The limit on the supplier's total liability as a percentage of the contract price. Not the defect "
         "liability period and not liquidated damages.",
@@ -172,7 +174,7 @@ EXTENDED_PARAMETERS: tuple[ParameterDef, ...] = (
     ),
     ParameterDef(
         "PARAM-14", "Rated Altitude", "Thermal & Environmental", Criticality.MANDATORY,
-        (FieldDef("site_altitude", "altitude", "ge", "Altitude", plausible=("0 m", "4500 m")),),
+        (FieldDef("site_altitude", "altitude", "ge", "Altitude", plausible=("0 m", "4500 m")),),  # {m} (ft via Pint)
         "rated for {site_altitude}",
         "The altitude above sea level the equipment is rated for, or the installation altitude the MR requires, "
         "in metres or feet.",

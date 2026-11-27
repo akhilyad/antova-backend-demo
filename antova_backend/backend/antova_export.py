@@ -71,6 +71,7 @@ def _money_cell(money: list[dict], basis: str) -> Any:
         return ""
     if any(m["amount"] is None for m in entries):
         return "not known"  # never written as 0
+    # {EUR} float = sum of D2{EUR} Decimal amounts (float conversion of money for the xlsx cell)
     return float(sum(Decimal(m["amount"]) for m in entries))
 
 
@@ -123,10 +124,13 @@ def tbe_workbook(
     for row in summary.iter_rows(min_row=2, max_col=1):
         row[0].font = Font(bold=True)
 
+    # true_evaluated_price {EUR} = headline_price {EUR} + total_adders D2{EUR}; ranks by that float
     priced = sorted((f for f in brief["financials"] if f["price_status"] == "PRICED"),
                     key=lambda f: f["true_evaluated_price"])
     rank = {f["vendor_id"]: i for i, f in enumerate(priced, start=1)}
     leveling = wb.create_sheet("Leveling")
+    # Columns 4-8 are {EUR} floats; the header asserts EUR even when headline_price is {EUR/bay}
+    # c["adder_eur"] below is a {EUR} float
     _sheet(leveling, ["Rank", "Vendor", "Vendor ID", "Country", "Headline price (EUR)", "Technical penalties (EUR)",
                       "Commercial adders (EUR)", "Total adders (EUR)", "True evaluated price (EUR)", "Price status"],
            [[rank.get(f["vendor_id"], "not ranked"), f["name"], f["vendor_id"], f["country"], f["headline_price"],
@@ -160,6 +164,7 @@ def tbe_workbook(
 
     overrides = wb.create_sheet("Overrides")
     _sheet(overrides, ["Parameter", "Vendor ID", "Adder (EUR)", "Note", "Set by", "Set at"],
+           # {EUR} float of the stored D2{EUR} string
            [[o["param_id"], o["vendor_id"], float(Decimal(str(o["adder_eur"]))), o["note"], _text(o.get("set_by")),
              _text(o.get("created_at"))] for o in override_rows],
            [11, 11, 14, 70, 14, 28], money_columns=(2,), wrap_columns=(3,))

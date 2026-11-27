@@ -68,7 +68,7 @@ def locate_concurrency() -> int:
 
 
 # A headline that deviates from the median of the other bids by more than this share gets a warning.
-HEADLINE_PLAUSIBILITY_SHARE = 0.5
+HEADLINE_PLAUSIBILITY_SHARE = 0.5  # {1} relative deviation from median
 
 
 class IngestFailed(Exception):
@@ -132,6 +132,7 @@ def _outliers(values: dict[str, float | None], share: float) -> dict[str, float]
 
     def deviation(vendor_id: str) -> float:
         middle = others_median(vendor_id)
+        # {1} = |{EUR} - {EUR}| / {EUR}
         return abs(pool[vendor_id] - middle) / middle
 
     def distance(vendor_id: str) -> float:
@@ -157,7 +158,7 @@ def _outliers(values: dict[str, float | None], share: float) -> dict[str, float]
 
 # An evaluated price (headline plus priced gaps) this far from the median of the others' gets a warning.
 # Tighter than the headline rule: the headlines already agreed, so a spread this wide is the gaps talking.
-EVALUATED_OUTLIER_SHARE = 0.25
+EVALUATED_OUTLIER_SHARE = 0.25  # {1}
 
 
 def _outlying_evaluated(financials: list[dict], headlines: dict[str, float | None]) -> list[str]:
@@ -196,7 +197,7 @@ def _cell(resolution: Resolution, pricing: Pricing) -> engine.ExtractedParameter
         bbox=_bbox_text(primary),
         snippet=primary.quote if primary else "",
         conflict_note=resolution.conflict_note,
-        cost_adder=float(pricing.adder),
+        cost_adder=float(pricing.adder),  # D2{EUR} -> float {EUR}
         adder_formula=pricing.formula,
         cost_lines=pricing.lines,
         pricing_status=pricing.pricing_status,
@@ -531,9 +532,10 @@ def stage_resolved(bodies: dict) -> dict:
     lag = None
     if verified["commissioning_lag"] is not None:
         months, start = parse_commissioning_lag(verified["commissioning_lag"]["quote"])
+        # lag.months: {month}
         lag = {"months": months, "from": start, "citation": verified["commissioning_lag"]}
 
-    bay_count = None
+    bay_count = None  # {bay}
     for data in verified["bay_count"]:
         bay_count = parse_bay_count(data["quote"])
         if bay_count is not None:
@@ -555,11 +557,15 @@ def stage_resolved(bodies: dict) -> dict:
                 warnings.append(f"{vendor_id}: headline price not found")
             else:
                 head.update(citation=citation, currency=read.currency, original=str(read.amount))
+                # read.amount: {CCY}, or {CCY/bay} when per_unit is set. A unit rate is never the contract
+                # total {EUR}: it is held back (PER_UNIT) rather than multiplied by a bay count we cannot verify.
+                converted = (costs.convert(read.amount, read.currency, table)
+                             if read.currency and not read.per_unit else None)
                 if read.per_unit:
-                    warnings.append(f"{vendor_id}: bid price is worded \"{read.per_unit}\". It may be a unit "
-                                    f"rate, not the total. Check the quoted page.")
-                converted = costs.convert(read.amount, read.currency, table) if read.currency else None
-                if read.currency is None:
+                    head["status"] = "PER_UNIT"
+                    warnings.append(f"{vendor_id}: bid price is worded \"{read.per_unit}\", so it is a unit rate, "
+                                    f"not the total. It was not evaluated. Check the quoted page.")
+                elif read.currency is None:
                     head["status"] = "CURRENCY_UNKNOWN"
                     warnings.append(f"{vendor_id}: bid price {read.amount:,} has no currency. It was not evaluated.")
                 elif converted is None:
@@ -567,6 +573,7 @@ def stage_resolved(bodies: dict) -> dict:
                     warnings.append(f"{vendor_id}: bid price is in {read.currency} and rate table "
                                     f"{table.version} has no exchange rate for it. It was not evaluated.")
                 else:
+                    # amount: D2{EUR} = {CCY} * {EUR/CCY}, stored as float
                     head.update(amount=float(converted["amount"]), status="PRICED")
                     if converted["rate"] is not None:
                         head.update(fx_rate=str(converted["rate"]), fx_date=converted["date"])
@@ -575,6 +582,7 @@ def stage_resolved(bodies: dict) -> dict:
             cover = verified["cover"][vendor_id]
             covers[vendor_id] = cover["quote"] if cover else ""
         headlines[vendor_id] = head
+    # h["amount"]: float D2{EUR}, or a per-bay {EUR/bay} figure when read.per_unit was set (not separated here)
     warnings.extend(_implausible_headlines({vid: h["amount"] for vid, h in headlines.items()}))
 
     mr_evidence = evidence.get(mr_entry.file, [])
@@ -656,10 +664,12 @@ def stage_priced(bodies: dict) -> dict:
     by_id = params_by_id_for(manifest.equipment_class)
     warnings: list[str] = []
     table = load_rate_table(manifest.rate_table)
+    # estimate.busbar_cu_kg {kg}, estimate.heavy_haul_loads {load}; non-quantity estimates
+    # (delay_cost_per_week {EUR/week}, ld_delay_weeks {week}) ride along unused here
     quantities = {f"estimate.{k}": Decimal(v) for k, v in manifest.engineering_estimates.items()}
-    bay_count = bodies["resolved"]["bay_count"]
+    bay_count = bodies["resolved"]["bay_count"]  # {bay}
     if bay_count is not None:
-        quantities["tender.bay_count"] = Decimal(bay_count)
+        quantities["tender.bay_count"] = Decimal(bay_count)  # {bay}
     else:
         warnings.append("bay count not found in MR spec; per-bay costs are unpriced")
     requirements = _requirements(bodies)
@@ -689,6 +699,7 @@ def stage_leveled(bodies: dict) -> dict:
 
     input_tokens = sum(o["input_tokens"] for o in located["outcomes"].values())
     output_tokens = sum(o["output_tokens"] for o in located["outcomes"].values())
+    # D4{USD} = sum({token} * {USD/Mtok} / 1e6); COGS, never mixed with bid money
     cost = sum((
         extract.api_cost_usd(o["input_tokens"], o["output_tokens"], *(Decimal(p) for p in o.get("prices", ())))
         for o in located["outcomes"].values()), Decimal("0"))
@@ -696,7 +707,7 @@ def stage_leveled(bodies: dict) -> dict:
     vendors = [
         engine.Vendor(
             id=e.vendor_id, name=e.vendor_name or e.vendor_id, country=e.country or "",
-            headline_price=resolved["headlines"][e.vendor_id]["amount"],
+            headline_price=resolved["headlines"][e.vendor_id]["amount"],  # float D2{EUR} (may be {EUR/bay})
             doc_name=f"{e.file} ({page_counts[e.file]} pages)",
             cover_claim=resolved["covers"].get(e.vendor_id, ""), badge="Bidder",
             headline_citation=resolved["headlines"][e.vendor_id]["citation"],
@@ -765,6 +776,7 @@ def stage_leveled(bodies: dict) -> dict:
 
     # The risk hidden in the cheapest-looking bid: the adders of the lowest headline.
     financials = engine.evaluate_vendor_financials(tender, engine.SensitivitySettings(), [])
+    # exposed: D2{EUR} (float) total adders of the lowest-headline vendor; 0.0 when there is none
     exposed = next((f["total_adders"] for f in financials if f["vendor_id"] == apparent_low), 0.0)
     warnings.extend(_outlying_evaluated(financials, {vid: h["amount"] for vid, h in resolved["headlines"].items()}))
     stats = {

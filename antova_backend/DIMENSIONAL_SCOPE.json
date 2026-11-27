@@ -1,0 +1,356 @@
+{
+ "project_root": "antova_backend",
+ "in_scope_files": [
+  {
+   "path": "backend/antova_ingest/costs.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/values.py",
+   "priority": "CRITICAL",
+   "category": "conversion",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_engine.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/exposure.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/pipeline.ts",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/domain/simulation.ts",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/pipeline.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/domain/sensitivity.ts",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/evaluate.ts",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/ontology.ts",
+   "priority": "CRITICAL",
+   "category": "conversion",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/ontology.py",
+   "priority": "CRITICAL",
+   "category": "conversion",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/values.ts",
+   "priority": "CRITICAL",
+   "category": "conversion",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/schedule.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/findings.py",
+   "priority": "CRITICAL",
+   "category": "core-logic",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_db.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_review_api.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/export_fixtures.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/handler.ts",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/clarify.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/extract.py",
+   "priority": "CRITICAL",
+   "category": "conversion",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/locator_eval.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/domain/money.ts",
+   "priority": "CRITICAL",
+   "category": "math-library",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/types.py",
+   "priority": "CRITICAL",
+   "category": "math-library",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/codec.py",
+   "priority": "CRITICAL",
+   "category": "math-library",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/dev_seed.py",
+   "priority": "CRITICAL",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/artifacts.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_export.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/config.py",
+   "priority": "HIGH",
+   "category": "core-logic",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/chat_locator.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/parse.py",
+   "priority": "HIGH",
+   "category": "core-logic",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_briefs_api.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_api.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_review.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/sweep.py",
+   "priority": "HIGH",
+   "category": "core-logic",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_workers.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ingest/run.py",
+   "priority": "HIGH",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_ratelimit.py",
+   "priority": "MEDIUM",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_observability.py",
+   "priority": "LOW",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/llm.ts",
+   "priority": "LOW",
+   "category": "peripheral",
+   "phase2": "ANNOTATED",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "frontend/src/lib/native/store.ts",
+   "priority": "LOW",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "REVIEWED_NO_PROPAGATION_CHANGES",
+   "phase4": "VALIDATED"
+  },
+  {
+   "path": "backend/antova_models.py",
+   "priority": "LOW",
+   "category": "peripheral",
+   "phase2": "REVIEWED_NO_ANCHOR_CHANGES",
+   "phase3": "PROPAGATED",
+   "phase4": "VALIDATED"
+  }
+ ],
+ "discoverer_focus_files": [
+  "backend/antova_ingest/costs.py",
+  "backend/antova_ingest/values.py",
+  "backend/antova_engine.py",
+  "backend/antova_ingest/exposure.py",
+  "frontend/src/lib/native/pipeline.ts",
+  "frontend/src/lib/domain/simulation.ts",
+  "backend/antova_ingest/pipeline.py",
+  "frontend/src/lib/domain/sensitivity.ts",
+  "frontend/src/lib/native/evaluate.ts",
+  "frontend/src/lib/native/ontology.ts",
+  "backend/antova_ingest/ontology.py",
+  "frontend/src/lib/native/values.ts",
+  "backend/antova_ingest/schedule.py",
+  "backend/antova_ingest/findings.py",
+  "backend/antova_ingest/extract.py",
+  "frontend/src/lib/domain/money.ts",
+  "backend/antova_ingest/types.py",
+  "backend/antova_ingest/codec.py",
+  "backend/antova_ingest/config.py",
+  "backend/antova_ingest/parse.py",
+  "backend/antova_ingest/sweep.py"
+ ]
+}

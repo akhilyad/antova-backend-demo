@@ -243,7 +243,7 @@ def _parse_quantity(kind: str, quote: str, field_name: str) -> FieldValue | None
                 found = in_context
                 break
     _, match = found[0]
-    magnitude = _number(match.group(1))
+    magnitude = _number(match.group(1))  # {kA|A|kV|V|s} as stated (unit below); not converted to SI here
     unit = "s" if kind == "duration" else match.group(2)
     quantity = Q_(magnitude, _PINT_UNITS[unit])
     if not quantity.check(_DIMENSIONS[kind]):
@@ -256,10 +256,10 @@ _WITH_DERATING = re.compile(r"\bwith\b[^;,()]*derat", re.IGNORECASE)
 
 def _temperature_value(m: re.Match) -> FieldValue:
     if m.group(2) is not None:
-        magnitude = _number(m.group(2)) * (-1 if m.group(1) == "-" else 1)
+        magnitude = _number(m.group(2)) * (-1 if m.group(1) == "-" else 1)  # {°C|°F} as stated
         unit = "°" + m.group(3)
     else:
-        magnitude = _number(m.group(4))
+        magnitude = _number(m.group(4))  # {K}
         unit = "K"
     return FieldValue("temperature", Q_(magnitude, _PINT_UNITS[unit]), f"{_fmt(magnitude)} {unit}")
 
@@ -357,7 +357,7 @@ def _parse_fat_days(quote: str) -> FieldValue | None:
         if "witness" in lower and not _has_carve_out(s) and not lower.startswith("no "):
             m = _DAYS.search(s)
             if m:
-                days = int(m.group(1))
+                days = int(m.group(1))  # {day}
                 return FieldValue("fat_days", days, str(days))
     for s in sentences:
         lower = s.lower()
@@ -418,7 +418,7 @@ def _parse_months(quote: str) -> FieldValue | None:
         if _WARRANTY_CONTEXT.search(s) and not _has_carve_out(s):
             m = _MONTHS.search(s)
             if m:
-                months = int(m.group(1))
+                months = int(m.group(1))  # {month}
                 return FieldValue("months", months, str(months), qualifier=_warranty_basis(s))
     return None
 
@@ -432,6 +432,7 @@ _LAG_BETWEEN = re.compile(
 
 
 def parse_commissioning_lag(text: str) -> tuple[int, str] | None:
+    # -> ({month}, start basis)
     """(months, "delivery" | "dispatch") when a sentence states how long after delivery or dispatch
     commissioning takes place. This is the only thing that lets two warranty start points be compared."""
     for sentence in split_sentences(text):
@@ -471,10 +472,13 @@ _LEAD_ANCHORS = (
 
 
 def _weeks(number: float, unit: str) -> float:
+    # D6{week} = {month|day|working-day|week} * {week/X}
     unit = unit.lower()
     if "month" in unit:
+        # {week} = {month} * 52/12 {week/month}
         weeks = number * 52 / 12
     elif "day" in unit:
+        # {week} = {day} / 7; working days: * 7/5 -> net {week/working-day}=1/5
         weeks = number / 7
         if unit.startswith(("working", "business")):
             weeks *= 7 / 5  # five working days are one calendar week
@@ -502,8 +506,8 @@ def _parse_lead_time(quote: str, require_context: bool = True) -> FieldValue | N
             m = _LEAD_TIME.search(clause)
             if not m:
                 continue
-            number = float(m.group(2) or m.group(1))
-            weeks = _weeks(number, m.group(3))
+            number = float(m.group(2) or m.group(1))  # {week|month|day|working-day} as stated (range upper end)
+            weeks = _weeks(number, m.group(3))  # D6{week}
             shown = f"{_fmt(weeks)} weeks"
             if not re.match(r"(?:\w+\s+)?(?:weeks?|wks?)$", m.group(3), re.IGNORECASE):
                 shown += f" ({_fmt(number)} {m.group(3).lower()})"
@@ -526,13 +530,14 @@ NO_LD = re.compile(
     r"\b(?:no|without|excludes?|excluded|waive[sd]?|not\s+(?:accept\w*|applicable|agree\w*))\b[^.;]{0,40}liquidated|"
     r"liquidated[^.;]{0,60}\b(?:excluded|waived|not\s+(?:accepted|applicable|agreed)|do(?:es)?\s+not\s+apply)|"
     r"\bno\s+LDs?\b|\bLDs?\s+(?:excluded|waived|not\s+applicable)", re.IGNORECASE)
-_PER_WEEK_FACTOR = {"week": 1.0, "day": 7.0, "month": 12 / 52}
+_PER_WEEK_FACTOR = {"week": 1.0, "day": 7.0, "month": 12 / 52}  # {X/week}: {%/X} * {X/week} -> {%/week}
 _CAP_BASIS = (("delayed_portion", re.compile(r"delayed|undelivered|late(?:ly)?\s+delivered|affected", re.IGNORECASE)),
               ("contract", re.compile(r"contract|order|total\s+(?:price|value)", re.IGNORECASE)))
 
 
 def _percent_value(m: re.Match, factor: float = 1.0, shown: str = "", qualifier: str | None = None) -> FieldValue:
-    number = float(m.group(1))
+    number = float(m.group(1))  # {%} (cap) or {%/X} as stated (ld_rate, X = week|day|month)
+    # D9{%} or D9{%/week} = {%} * {X/week} (factor 1.0 for caps)
     return FieldValue("percent", round(number * factor, 9), shown or f"{_fmt(number)} %", qualifier=qualifier)
 
 
@@ -573,6 +578,7 @@ _MONEY_CAP_CONTEXT = re.compile(r"max\w*|\bcap(?:ped)?\b|not\s+(?:to\s+)?exceed|
 
 
 def _money_in(sentence: str) -> tuple[Decimal, str] | None:
+    # -> ({CCY} as stated, ISO code); never converted to {EUR} here
     before, after = _PRICE_BEFORE.search(sentence), _PRICE_AFTER.search(sentence)
     if before and (not after or before.start() <= after.start()):
         raw, token, end = before.group(2), before.group(1), before.end()
@@ -618,7 +624,7 @@ def _parse_altitude(quote: str, require_context: bool = True) -> FieldValue | No
         for clause in (c for c in re.split(r"[;()]|,\s+", sentence) if c.strip() and not _WITH_DERATING.search(c)):
             m = _ALTITUDE.search(clause)
             if m:
-                magnitude = _number(m.group(1))
+                magnitude = _number(m.group(1))  # {m|ft} as stated
                 unit = _altitude_unit(m.group(2))
                 return FieldValue("altitude", Q_(magnitude, _PINT_UNITS[unit]), f"{_fmt(magnitude)} {unit}")
     return None
@@ -752,6 +758,7 @@ _ABBREVIATED = re.compile(r"\s?(?:k|m|mio|mn|million|thousand)\b", re.IGNORECASE
 
 
 def parse_price(quote: str) -> Decimal | None:
+    # -> {EUR} (only €/EUR is matched), full precision, not rounded to D2
     m = _PRICE.search(quote)
     if not m or _ABBREVIATED.match(quote, m.end()):
         return None  # "€452k" is not a price we can trust to the euro
@@ -783,7 +790,7 @@ _PER_UNIT = re.compile(r"\bper\s+(?:bay|panel|unit|cubicle|feeder|set|piece|item
 
 @dataclass(frozen=True)
 class PriceRead:
-    amount: Decimal
+    amount: Decimal  # {CCY} as stated (may be {EUR/bay} when per_unit is set)
     currency: str | None  # ISO code; None when the passage names no currency
     per_unit: str | None  # "per bay", "each"...: the figure may be a unit rate, not the total
 
@@ -833,6 +840,7 @@ _BAYS = re.compile(r"(?<![\w.])(\d+)\s*(?:nos?\.?\s*|x\s*)?(?:feeder\s+)?(?:bays
 
 
 def parse_bay_count(quote: str) -> int | None:
+    # -> {bay}
     m = _BAYS.search(quote)
     return int(m.group(1)) if m else None
 
@@ -846,11 +854,11 @@ def check(field: FieldDef, required: FieldValue, offered: FieldValue) -> tuple[b
     req, off = required.value, offered.value
     if isinstance(req, pint.Quantity) and isinstance(off, pint.Quantity):
         try:
-            converted = off.to(req.units).magnitude
+            converted = off.to(req.units).magnitude  # {required's stated unit}
             if field.kind == "temperature":
-                a, b = off.to(ureg.kelvin).magnitude, req.to(ureg.kelvin).magnitude
+                a, b = off.to(ureg.kelvin).magnitude, req.to(ureg.kelvin).magnitude  # {K}, {K}
             else:
-                a, b = converted, req.magnitude
+                a, b = converted, req.magnitude  # {req unit}, {req unit}
         except pint.DimensionalityError:
             return False, offered.display
         canonical = f"{_fmt(round(converted, 9))} {_unit_label(required)}"
@@ -885,6 +893,7 @@ _NUMERIC_KINDS = frozenset({"current", "duration", "voltage", "temperature", "fa
 
 
 def _comparable(value: FieldValue) -> float:
+    # -> {K} for temperature, SI base ({A}, {V}, {s}, {m}) for quantities, else raw magnitude
     raw = value.value
     if isinstance(raw, pint.Quantity):
         return raw.to(ureg.kelvin).magnitude if value.kind == "temperature" else raw.to_base_units().magnitude
@@ -951,7 +960,7 @@ def value_in_span(value: FieldValue, text: str) -> bool:
     if kind == "percent":
         if value.qualifier == "none":
             return True  # "no liquidated damages": read from wording, no number to find
-        shown = float(value.display.split(" ", 1)[0])
+        shown = float(value.display.split(" ", 1)[0])  # {%} or {%/X} as stated (before the per-week factor)
         return any(math.isclose(float(m.group(1)), shown, rel_tol=1e-9) for m in _PERCENT.finditer(text))
     if kind == "money_cap":
         return any((found := _money_in(sentence)) and found[0] == value.value for sentence in split_sentences(text))

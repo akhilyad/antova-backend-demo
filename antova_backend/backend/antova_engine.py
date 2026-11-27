@@ -34,23 +34,23 @@ class Criticality(str, Enum):
 
 class CostLine(BaseModel):
     label: str
-    qty: Decimal
+    qty: Decimal  # {X}, X named by unit ({bay}|{lot}|{kg}|{h}|{day}|{month}|{load})
     unit: str
-    rate: Decimal
+    rate: Decimal  # {EUR/X}
     driver: Literal["fixed", "copper", "labour", "freight"]
     # The rate's range, where the rate table states one. None means the base rate.
-    rate_low: Optional[Decimal] = None
-    rate_high: Optional[Decimal] = None
+    rate_low: Optional[Decimal] = None  # {EUR/X}
+    rate_high: Optional[Decimal] = None  # {EUR/X}
 
 
 class ExtractedParameter(BaseModel):
     extracted_text: str
     status: ComplianceStatus
-    confidence: float
+    confidence: float  # {1}
     bbox: str
     snippet: str
     conflict_note: Optional[str] = None
-    cost_adder: float = 0.0
+    cost_adder: float = 0.0  # {EUR} legacy, float
     adder_formula: str = ""
     cost_lines: List[CostLine] = []
     pricing_status: str = "NONE"
@@ -88,7 +88,7 @@ class Vendor(BaseModel):
     name: str
     country: str
     # In the rate table's currency. None when the price is unknown: never 0.
-    headline_price: Optional[float] = None
+    headline_price: Optional[float] = None  # {EUR} contract total (after FX); float of D2{EUR}
     doc_name: str
     cover_claim: str
     badge: str
@@ -97,9 +97,9 @@ class Vendor(BaseModel):
     headline_status: Optional[str] = None
     # The currency the bid is priced in, and the amount as the bid states it.
     currency: Optional[str] = None
-    headline_original: Optional[str] = None
+    headline_original: Optional[str] = None  # {CCY} as stated in the bid
     # The dated rate used to bring a foreign price into the table's currency.
-    fx_rate: Optional[str] = None
+    fx_rate: Optional[str] = None  # {EUR/CCY}
     fx_date: Optional[str] = None
 
 
@@ -109,8 +109,8 @@ class TenderPackage(BaseModel):
     client: str
     mr_doc: str
     pages_parsed: int
-    latency_sec: int
-    compute_cogs: float
+    latency_sec: int  # {s}
+    compute_cogs: float  # D4{USD} LLM cost, never mixed with bid money
     vendors: List[Vendor]
     parameters: List[EngineeringParameter]
     equipment_class: str = ""
@@ -122,20 +122,20 @@ class TenderPackage(BaseModel):
 
 
 class SensitivitySettings(BaseModel):
-    copper_multiplier: float = 1.0
+    copper_multiplier: float = 1.0  # {1}
     # EUR per site labour hour. None means each labour line's own rate, which is the rate
     # table's base_labour_rate; a number replaces it.
-    site_labor_rate: Optional[float] = None
-    freight_multiplier: float = 1.0
+    site_labor_rate: Optional[float] = None  # {EUR/h}
+    freight_multiplier: float = 1.0  # {1}
 
 
 class Override(BaseModel):
     """A founder's euro adder for one (parameter, vendor) cell; replaces the computed adder and ignores the sliders."""
-    adder_eur: Decimal
+    adder_eur: Decimal  # {EUR}
     note: str
 
 
-_CENTS = Decimal("0.01")
+_CENTS = Decimal("0.01")  # D2 quantum for {EUR}
 
 
 LEVELING_CURRENCY = "EUR"
@@ -147,13 +147,16 @@ def line_amount(line: CostLine, s: SensitivitySettings, bound: str = "base") -> 
     A labour line is hours x an hourly rate: the slider's rate when one is set, else the
     line's own (the rate table's base_labour_rate). No constant is assumed here.
     """
+    # returns {EUR} (unrounded)
     if line.driver == "labour" and s.site_labor_rate is not None:
+        # {EUR} = {h} * {EUR/h}  (assumes labour line unit is "h"; bound low/high ignored here)
         return line.qty * Decimal(str(s.site_labor_rate))
     rate = line.rate
     if bound == "low" and line.rate_low is not None:
         rate = line.rate_low
     elif bound == "high" and line.rate_high is not None:
         rate = line.rate_high
+    # {EUR} = {X} * {EUR/X} * {1}
     if line.driver == "copper":
         return line.qty * rate * Decimal(str(s.copper_multiplier))
     if line.driver == "freight":
@@ -168,6 +171,7 @@ def cents(value: Decimal) -> Decimal:
 
 def adder_decimal(extraction: ExtractedParameter, s: SensitivitySettings, bound: str = "base") -> Decimal:
     """One cell's adder in exact whole cents."""
+    # returns D2{EUR} = D2(sum line_amount {EUR})
     if not extraction.cost_lines:
         return cents(Decimal(str(extraction.cost_adder)))  # legacy data without cost lines
     return cents(sum((line_amount(line, s, bound) for line in extraction.cost_lines), Decimal("0")))
@@ -187,6 +191,7 @@ def headline_status(vendor: Vendor) -> str:
 
 def apparent_low_bidder_id(tender: TenderPackage) -> Optional[str]:
     """The lowest headline price among vendors with a known price: the bid that looks cheapest."""
+    # min over headline_price {EUR}; truthiness keeps negative headlines that headline_status() rejects
     priced = [v for v in tender.vendors if v.headline_price]
     return min(priced, key=lambda v: v.headline_price).id if priced else None
 
@@ -195,6 +200,7 @@ _EXCLUSION_DETAIL = {
     "NO_HEADLINE": "no headline price was found in the bid",
     "CURRENCY_UNKNOWN": "the headline price names no currency",
     "FX_MISSING": "the headline price is in another currency and the rate table has no dated FX rate",
+    "PER_UNIT": "the headline price is a per-bay or per-unit rate, not the total",
 }
 
 
@@ -263,7 +269,7 @@ def evaluate_vendor_financials(
     results = []
     for v in tender.vendors:
         zero = Decimal("0")
-        total_tech_penalty = total_commercial_adder = clawed_back_amount = total_low = total_high = zero
+        total_tech_penalty = total_commercial_adder = clawed_back_amount = total_low = total_high = zero  # D2{EUR}
         itemized_breakdown = []
         has_unpriced = False
         for p in tender.parameters:
@@ -271,6 +277,7 @@ def evaluate_vendor_financials(
             if extraction is None:
                 continue
             override = overrides.get((p.id, v.id))
+            # adder, adder_low, adder_high: D2{EUR}
             adder = cents(override.adder_eur) if override is not None else adder_decimal(extraction, sensitivity)
             # A founder's override is one figure, so it has no range.
             adder_low = adder if override is not None else adder_decimal(extraction, sensitivity, "low")
@@ -302,7 +309,7 @@ def evaluate_vendor_financials(
                 "is_overridden": override is not None,
                 "override_note": override.note if override is not None else None,
             })
-        total_adders = total_tech_penalty + total_commercial_adder
+        total_adders = total_tech_penalty + total_commercial_adder  # D2{EUR} = D2{EUR} + D2{EUR}
         status = headline_status(v)
         if status != "PRICED":
             # No usable headline: there is no true evaluated price, only the adders. Never 0 + adders.
@@ -310,8 +317,9 @@ def evaluate_vendor_financials(
             price_status = "NO_HEADLINE" if status == "NOT_FOUND" else status
         else:
             headline = v.headline_price
-            exact_headline = Decimal(str(headline))
-            true_evaluated = float(cents(exact_headline + total_adders))
+            exact_headline = Decimal(str(headline))  # {EUR} total (must not be {EUR/bay})
+            # D2{EUR} = {EUR} headline + D2{EUR} adders
+            true_evaluated =float(cents(exact_headline + total_adders))
             true_low = float(cents(exact_headline + total_low))
             true_high = float(cents(exact_headline + total_high))
             # UNPRICED_ITEMS: a lower bound, some deviation has no rate yet.
@@ -322,6 +330,7 @@ def evaluate_vendor_financials(
             "country": v.country,
             "badge": v.badge,
             "headline_price": headline,
+            # Labels everything EUR regardless of the rate table's declared currency.
             "currency": LEVELING_CURRENCY,
             "total_tech_penalty": float(cents(total_tech_penalty)),
             "total_commercial_adder": float(cents(total_commercial_adder)),

@@ -68,7 +68,7 @@ export interface Manifest {
   equipment_class: string;
   rate_table: string;
   documents: ManifestDoc[];
-  engineering_estimates: Record<string, number>;
+  engineering_estimates: Record<string, number>; // name -> qty{X} (unit set by the rate line that reads `estimate.<name>`, e.g. {kg}, {h}, {load})
   synthetic: boolean;
 }
 
@@ -438,7 +438,10 @@ function bboxText(c: Citation): string {
   return `Page ${c.page} (${SECTION_LABELS[c.section] ?? c.section}), BBox [${c.bbox.map((n) => n.toFixed(1)).join(', ')}]`;
 }
 
-/** €452,000 / EUR 1.2 million / 452.000,00 € → { amount, currency }. */
+/**
+ * €452,000 / EUR 1.2 million / 452.000,00 € → { amount, currency }.
+ * @returns amount {CCY} whole currency units (D2 float), currency ISO code; {CCY} == {EUR} only when currency === 'EUR'.
+ */
 export function parseMoney(amount: unknown, currencyHint: unknown, quote: unknown): { amount: number | null; currency: string | null } {
   const text = `${amount ?? ''}`;
   const context = `${text} ${quote ?? ''}`;
@@ -450,12 +453,31 @@ export function parseMoney(amount: unknown, currencyHint: unknown, quote: unknow
   }
   const m = text.match(/(\d[\d.,\s ']*)(?:\s*(million|mio\.?|m\b|k\b|thousand))?/i);
   if (!m) return { amount: null, currency };
-  let n = parseNumber(m[1].trim());
+  const digits = m[1].trim();
+  // A price never has three decimals, so "452.000" groups thousands (as the Python engine reads it).
+  let n = /^\d{1,3}(?:\.\d{3})+$/.test(digits.replace(/\s/g, '')) ? parseNumber(digits.replace(/\./g, '')) : parseNumber(digits);
   if (n === null) return { amount: null, currency };
-  const scale = (m[2] || '').toLowerCase();
+  let scale = (m[2] || '').toLowerCase();
+  if (!scale && quote) {
+    // The model may return "1.2" while the quote says "EUR 1.2 million": take the scale word that
+    // follows the same number in the quote, never one attached to a different figure.
+    const esc = digits.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const q = String(quote).match(new RegExp(String.raw`(?<![\d.,])${esc}\s*(million|mio\.?|m\b|k\b|thousand)`, 'i'));
+    if (q) scale = q[1].toLowerCase();
+  }
+  // {CCY} = {CCY/million} * 1e6  |  {CCY} = {CCY/k} * 1e3
   if (/^(million|mio|m)/.test(scale)) n *= 1_000_000;
   else if (/^(k|thousand)/.test(scale)) n *= 1_000;
+  // D2{CCY} float round: Math.round(x*100)/100 (half toward +inf, binary float), not Decimal ROUND_HALF_UP as in evaluate.ts
   return { amount: Math.round(n * 100) / 100, currency };
+}
+
+const PER_UNIT = /\bper\s+(?:bay|panel|unit|cubicle|feeder|set|piece|item)\b|\beach\b|\/\s*(?:bay|panel|unit|cubicle|feeder)\b/i;
+
+/** "per bay", "each", "/ bay"…: the figure is a unit rate, not the total (same pattern as the Python engine). */
+export function perUnitBasis(text: string): string | null {
+  const m = text.match(PER_UNIT);
+  return m ? m[0].toLowerCase() : null;
 }
 
 interface FieldRead {
@@ -487,8 +509,8 @@ function readField(field: FieldDef, raw: BidField, pages: PageText[], filename: 
 }
 
 interface PricingResult {
-  lines: Extraction['cost_lines'];
-  adder: number;
+  lines: Extraction['cost_lines']; // each line: qty{X}, rate{EUR/X}, unit names X
+  adder: number; // D2{EUR} (float)
   formula: string;
   status: 'PRICED' | 'UNPRICED' | 'NONE';
   unpriced: string[];
@@ -508,6 +530,7 @@ function priceClasses(classes: string[], table: RateTable, quantities: Record<st
     const resolved: Extraction['cost_lines'] = [];
     let missingQty = false;
     for (const rl of rateLines) {
+      // qty{X}: a literal, or a named quantity (tender.bay_count {bay}, estimate.* {X}, shortfall.days {day}, shortfall.months {month})
       const qty = /^\d+(\.\d+)?$/.test(rl.qty) ? Number(rl.qty) : quantities[rl.qty];
       if (qty === undefined || qty === null || !Number.isFinite(qty)) {
         missingQty = true;
@@ -526,6 +549,8 @@ function priceClasses(classes: string[], table: RateTable, quantities: Record<st
     if (missingQty) unpriced.push(cls);
     else lines.push(...resolved);
   }
+  // D2{EUR} = round2( sum qty{X} * rate{EUR/X} ) -- float, base rate only; copper/freight multipliers {1} not applied
+  // here (evaluate.ts recomputes from cost_lines with Decimal, so this float adder is used only when cost_lines is empty)
   const adder = Math.round(lines.reduce((sum, l) => sum + Number(l.qty) * Number(l.rate), 0) * 100) / 100;
   const formula = lines
     .map((l) => `${Number(l.qty)} ${l.unit} × €${Number(l.rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
@@ -588,8 +613,8 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
   if (!Object.keys(required).length) throw new StepError('No parameter requirement could be read from the MR spec.');
 
   // Quantities for rate lines: the MR's bay count and the buyer's engineering estimates.
-  const quantitiesBase: Record<string, number> = {};
-  const bay = parseNumber(String(spec.bay_count?.value ?? ''));
+  const quantitiesBase: Record<string, number> = {}; // name -> qty{X}; 'tender.bay_count' is {bay}
+  const bay = parseNumber(String(spec.bay_count?.value ?? '')); // {bay} (float; Math.round below rounds 12.5 -> 13 {bay})
   if (bay && bay > 0 && bay < 500) {
     const bayHit = spec.bay_count?.quote ? locateQuote(specPages, spec.bay_count.quote, pageNo(spec.bay_count.page)) : null;
     if (bayHit) quantitiesBase['tender.bay_count'] = Math.round(bay);
@@ -641,9 +666,14 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
     const money = hp ? parseMoney(hp.amount, hp.currency, hp.quote) : { amount: null, currency: null };
     const hpHit = hp?.quote ? locateQuote(pages, hp.quote, pageNo(hp.page)) : null;
     let headlineStatus = 'NOT_FOUND';
-    let headline: number | null = null;
+    let headline: number | null = null; // D2{EUR} total for full scope (never {EUR/bay}); only set when currency === table.currency
+    const perUnit = hp ? perUnitBasis(`${hp.amount ?? ''} ${hp.quote ?? ''}`) : null;
     if (hp && money.amount && hpHit) {
-      if (!money.currency) headlineStatus = 'CURRENCY_UNKNOWN';
+      if (perUnit) {
+        // A unit rate is not the contract total; it is held back, like a price with no FX rate.
+        headlineStatus = 'PER_UNIT';
+        warnings.push(`${doc.file}: the bid price is worded "${perUnit}", so it is a unit rate, not the total. It was not evaluated.`);
+      } else if (!money.currency) headlineStatus = 'CURRENCY_UNKNOWN';
       else if (money.currency !== table.currency) headlineStatus = 'FX_MISSING';
       else {
         headlineStatus = 'PRICED';
@@ -750,8 +780,8 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
       const quantities = { ...quantitiesBase };
       for (const { rd, res } of checksRaw) {
         if (res.shortfall === null) continue;
-        if (rd.field.kind === 'fat_days') quantities['shortfall.days'] = res.shortfall;
-        if (rd.field.kind === 'months') quantities['shortfall.months'] = res.shortfall;
+        if (rd.field.kind === 'fat_days') quantities['shortfall.days'] = res.shortfall; // {day}
+        if (rd.field.kind === 'months') quantities['shortfall.months'] = res.shortfall; // {month}
       }
       let pricing: PricingResult = { lines: [], adder: 0, formula: '', status: 'NONE', unpriced: [], exposure: [] };
       if (status === 'DEVIATION_DOWNGRADE' || status === 'CONFLICT_DOWNGRADE') {
@@ -774,6 +804,7 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
       }
       const conf = Number(answer.confidence);
       let confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : null;
+      // D2{1} = {1} * 0.85 (fuzzy-match penalty)
       if (confidence !== null && citations.some((ct) => ct.match === 'fuzzy')) confidence = Math.round(confidence * 85) / 100;
       if (confidence !== null && confidence < 0.6 && status !== 'MANUAL_INSPECTION_REQUIRED') {
         flags.push({ code: 'LOW_CONFIDENCE', message: `The model was unsure (${Math.round(confidence * 100)}%). Check the quote.` });
@@ -843,12 +874,14 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
   const docPages = await Promise.all(manifest.documents.map((d) => loadPages(store, job.tender_id, d.file).then((p) => p.length)));
   const pagesParsed = docPages.reduce((a, b) => a + b, 0);
   tender.pages_parsed = pagesParsed;
+  // D2{s} = {ms} / 1000
   const durationS = Math.round((Date.now() - job.started_ms) / 10) / 100;
   tender.latency_sec = Math.round(durationS);
   const fingerprint = createHash('sha256')
     .update(JSON.stringify({ files: manifest.documents.map((d) => files[d.file]?.sha256 ?? d.file), model: llm.model, table: table.version, cls: manifest.equipment_class }))
     .digest('hex');
-  const exposed = fin.reduce((n, f) => n + (f.total_adders || 0), 0);
+  // {EUR} = sum over vendors of total_adders{EUR} (default sensitivity, overrides not applied)
+  const exposed = fin.reduce((n, f) => n + (f.total_adders || 0), 0); // {EUR} float sum of D2{EUR}
 
   const stageLog: StageLogEntry[] = [
     ...job.stage_log,
@@ -866,7 +899,7 @@ async function assemble(store: Store, job: NativeJob, llm: LlmSettings): Promise
     candidates_rejected: candidatesRejected,
     rules_evaluated: rulesEvaluated,
     deviations_found: deviations,
-    exposed_risk_eur: Math.round(exposed * 100) / 100,
+    exposed_risk_eur: Math.round(exposed * 100) / 100, // D2{EUR} float round
     flags_raised: flagsRaised,
     locales: {},
     no_text_pages: noTextPages,

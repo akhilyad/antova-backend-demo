@@ -4,6 +4,7 @@ const MINUS = '−';
 
 /**
  * Converts euros (number or string) to integer cents using Decimal ROUND_HALF_UP.
+ * value: {EUR}; returns D2{EUR}
  */
 export function toCents(value: number | string): number {
   let euros: Decimal;
@@ -12,6 +13,7 @@ export function toCents(value: number | string): number {
   } catch {
     throw new RangeError(`Not a finite amount: ${String(value)}`);
   }
+  // D2{EUR} = round2({EUR}) * 100
   const cents = euros.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).times(100).toNumber();
   if (!Number.isSafeInteger(cents)) {
     throw new RangeError(`Amount out of range: ${String(value)}`);
@@ -27,6 +29,7 @@ function groupThousands(n: number): string {
  * Formats integer cents or euro values cleanly.
  * If value is an integer number of euros (e.g. 452000), formats as "€452,000".
  * If isLowerBound is true, appends "+" -> "€479,650+".
+ * value: {EUR} (whole euros, NOT D2 cents: no /100 is applied)
  */
 export function formatEur(
   value: number | string | null | undefined,
@@ -40,11 +43,13 @@ export function formatEur(
   if (isNaN(num)) return '€?';
 
   const isNeg = num < 0;
-  const abs = Math.abs(num);
+  const abs = Math.abs(num); // {EUR}
   const isWhole = Math.round(abs) === abs;
+  // Round to cents first, then split, so 2.999 carries into the euros (€3.00, not €2.00).
+  const cents = isWhole ? 0 : toCents(abs); // D2{EUR} as integer cents
   const formattedAbs = isWhole
     ? groupThousands(Math.round(abs))
-    : `${groupThousands(Math.floor(abs))}.${(abs % 1).toFixed(2).slice(2)}`;
+    : `${groupThousands(Math.trunc(cents / 100))}.${String(cents % 100).padStart(2, '0')}`;
 
   const prefix = isNeg ? `${MINUS}€` : options?.signed && num > 0 ? '+€' : '€';
   const suffix = options?.isLowerBound ? '+' : '';

@@ -35,7 +35,7 @@ def _tenders_root(folder: Path, tender_id: str):
             os.environ["ANTOVA_TENDERS_DIR"] = previous
 
 
-def _eur(value: float) -> str:
+def _eur(value: float) -> str:  # value {EUR} -> display string
     return f"EUR {value:,.2f}"
 
 

@@ -26,7 +26,7 @@ from antova_engine import (
 if TYPE_CHECKING:  # type only: importing antova_db at runtime would build its database engine
     from antova_db import TenderMeta
 
-_CENTS = Decimal("0.01")
+_CENTS = Decimal("0.01")  # D2 quantum for {EUR}
 
 MESSAGES = {
     "unpriced": "Gap has no price yet. Enter an amount or accept it.",
@@ -84,6 +84,7 @@ def evidence_hash(cell) -> str:
     Stored with every review. If a re-ingest changes any of it, the stored hash no longer
     matches and the review is stale.
     """
+    # cost_adder: {EUR} float (DB Float round-trip), hashed via json float repr; cost_lines carry qty{X} * rate{EUR/X}
     seen = {
         "status": cell.status.value if hasattr(cell.status, "value") else cell.status,
         "extracted_text": cell.extracted_text,
@@ -145,6 +146,7 @@ def open_items(tender: TenderPackage, overrides: Mapping[tuple[str, str], Overri
             items.append(OpenItem(kind="project_field", vendor_id=PROJECT_VENDOR, param_id=PROJECT_PREFIX + name,
                                   message=_REVIEW_MESSAGES[state].replace("Review flag", "Buyer-entered value")))
     for v in tender.vendors:
+        # headline_price {EUR} (may be {EUR/bay}); None and the DB's 0.0 sentinel both count as missing
         if not v.headline_price:
             items.append(_item("missing_price", v.id))
         for p in tender.parameters:
@@ -167,6 +169,7 @@ def open_items(tender: TenderPackage, overrides: Mapping[tuple[str, str], Overri
 
 
 def _override_entries(overrides: Mapping[tuple[str, str], Override]) -> list[dict[str, str]]:
+    # adder_eur: D2{EUR} Decimal -> str, quantized to cents
     return [
         {"param_id": param_id, "vendor_id": vendor_id,
          "adder_eur": str(o.adder_eur.quantize(_CENTS)), "note": o.note}

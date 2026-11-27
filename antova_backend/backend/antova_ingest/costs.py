@@ -24,7 +24,7 @@ from antova_ingest.ontology import DEFAULT_EQUIPMENT_CLASS, FieldDef, ParameterD
 from antova_ingest.parse import RATE_TABLE_PATTERN, RATES_DIR
 from antova_ingest.types import FieldValue, Resolution
 
-CENTS = Decimal("0.01")
+CENTS = Decimal("0.01")  # D2 quantum for {EUR} money
 DRIVERS = ("fixed", "copper", "labour", "freight")
 # A quantity is a number, or a name the pipeline fills in: the MR's bay count, a manifest
 # estimate, or a shortfall computed from the check itself.
@@ -63,13 +63,13 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class RateLine:
     label: str
-    qty: Decimal | str
-    unit: str
-    rate: Decimal
+    qty: Decimal | str  # {X} where X = unit: {bay}|{lot}|{kg}|{h}|{day}|{month}|{load}; or a name resolved at run time
+    unit: str  # names X ("bays", "lot", "kg", "h", "days", "months", "loads")
+    rate: Decimal  # {EUR/X} in table.currency; line cost = qty{X} * rate{EUR/X} -> {EUR}
     driver: Literal["fixed", "copper", "labour", "freight"]
     # The rate's range. A table that states none has low = rate = high.
-    low: Decimal | None = None
-    high: Decimal | None = None
+    low: Decimal | None = None  # {EUR/X}
+    high: Decimal | None = None  # {EUR/X}
 
     def __post_init__(self):
         object.__setattr__(self, "low", self.rate if self.low is None else self.low)
@@ -80,16 +80,16 @@ class RateLine:
 class RateTable:
     version: str
     effective_date: str
-    currency: str
+    currency: str  # names the money unit every {EUR} annotation here stands for; only "EUR" is shipped
     deviation_rates: dict[str, list[RateLine]]
     # Evaluation choices that belong to the rate table's version, e.g. {"warranty_basis": "strict"}.
     policies: dict[str, str] = field(default_factory=dict)
     # EUR per site labour hour. Every labour line carries this rate; the slider overrides it.
-    base_labour_rate: Decimal = Decimal("0")
+    base_labour_rate: Decimal = Decimal("0")  # {EUR/h}
     # Classes the table knowingly has no rate for. A failing check in one is reported UNPRICED.
     unpriced_classes: frozenset[str] = frozenset()
     # Other currencies into the table's own: {"USD": {"rate": Decimal, "date": "2026-11-03"}}.
-    fx_rates: dict[str, dict] = field(default_factory=dict)
+    fx_rates: dict[str, dict] = field(default_factory=dict)  # rate: {EUR/CCY} (table currency per foreign unit)
     # The parameter set this table prices. Tables written before the field existed price the first class.
     equipment_class: str = DEFAULT_EQUIPMENT_CLASS
     # Unpriced classes whose gap is money at risk (an exposure, antova_ingest.exposure), not a price. The review
@@ -100,7 +100,7 @@ class RateTable:
 @dataclass
 class Pricing:
     lines: list[CostLine]
-    adder: Decimal
+    adder: Decimal  # D2{EUR} sum of line costs
     formula: str
     pricing_status: Literal["PRICED", "UNPRICED", "NONE"]
     unpriced_classes: list[str]
@@ -202,6 +202,9 @@ def convert(amount: Decimal, currency: str, table: RateTable) -> dict | None:
     entry = table.fx_rates.get(currency)
     if entry is None:
         return None
+    # D2{EUR} = {CCY} * {EUR/CCY}  (multiply: rate must be stated as table currency per foreign unit)
+    # DIMENSIONAL NOTE: parse_rate_table only checks rate > 0; a market-style quote {CCY/EUR} (EURUSD 1.08) is accepted
+    # and inverts the conversion. No shipped rate table has fx_rates, so this path has no data behind it.
     converted = (amount * entry["rate"]).quantize(CENTS, rounding=ROUND_HALF_UP)
     return {"amount": converted, "rate": entry["rate"], "date": entry["date"]}
 
@@ -255,7 +258,7 @@ def _formula(lines: list[CostLine]) -> str:
 def price(param: ParameterDef, requirement: dict[str, FieldValue], resolution: Resolution,
           table: RateTable, quantities: dict[str, Decimal]) -> Pricing:
     if resolution.status in (ComplianceStatus.COMPLIANT, ComplianceStatus.MANUAL_INSPECTION_REQUIRED):
-        return Pricing([], Decimal("0.00"), "", "NONE", [], table.version)
+        return Pricing([], Decimal("0.00"), "", "NONE", [], table.version)  # adder D2{EUR} true zero
 
     governing = {name: value for name, (value, _) in resolution.governing.items()}
     known = dict(quantities)
@@ -265,6 +268,7 @@ def price(param: ParameterDef, requirement: dict[str, FieldValue], resolution: R
         if key and f.name in requirement and f.name in governing:
             equivalent = checks[f.name].offered_equivalent if f.name in checks else None
             offered = equivalent if equivalent is not None else governing[f.name].value
+            # shortfall.days {day} (fat_days) | shortfall.months {month} = required - offered
             known[key] = Decimal(max(requirement[f.name].value - offered, 0))
 
     failing = {c.field for c in resolution.checks if not c.passed}
@@ -278,6 +282,8 @@ def price(param: ParameterDef, requirement: dict[str, FieldValue], resolution: R
             continue
         resolved = []
         for rl in rate_lines:
+            # qty: {X} stated by the table, or a run-time name: tender.bay_count {bay}, estimate.* {kg}|{load},
+            # shortfall.days {day}, shortfall.months {month}. rl.unit is never checked against the name's unit.
             qty = rl.qty if isinstance(rl.qty, Decimal) else known.get(rl.qty)
             if qty is None:
                 break
@@ -292,5 +298,6 @@ def price(param: ParameterDef, requirement: dict[str, FieldValue], resolution: R
             continue
         unpriced.append(cls)  # a quantity this class needs is unknown
 
+    # D2{EUR} = sum(qty{X} * rate{EUR/X})
     adder = sum((line.qty * line.rate for line in lines), Decimal("0")).quantize(CENTS, rounding=ROUND_HALF_UP)
     return Pricing(lines, adder, _formula(lines), "UNPRICED" if unpriced else "PRICED", unpriced, table.version)

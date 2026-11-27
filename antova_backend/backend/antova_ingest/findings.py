@@ -34,7 +34,7 @@ SEVERITY_OF = {
     engine.Criticality.MEDIUM: "minor",
     engine.Criticality.COMMERCIAL: "minor",
 }
-CENTS = Decimal("0.01")
+CENTS = Decimal("0.01")  # D2 quantum for {EUR}
 _OPERATOR_WORDS = {"ge": "at least", "le": "at most", "eq": "exactly", "ord": "at least", "all": "including"}
 
 
@@ -43,7 +43,7 @@ class Money:
     basis: Literal["adder", "exposure"]
     kind: str
     # Euros as a string with two decimals, or None when it cannot be computed.
-    amount: str | None
+    amount: str | None  # D2{EUR} as text
     formula: str = ""
     reason: str = ""
     # The rate-table lines an adder is made of: [{"label", "qty", "unit", "rate", "driver"}].
@@ -84,6 +84,7 @@ def _line(line: engine.CostLine) -> dict:
 def _adder(cell: engine.ExtractedParameter) -> Money | None:
     if cell.pricing_status != "PRICED" or not cell.cost_lines:
         return None
+    # D2{EUR} = sum(qty{X} * rate{EUR/X})
     total = sum((line.qty * line.rate for line in cell.cost_lines), Decimal("0")).quantize(CENTS, rounding=ROUND_HALF_UP)
     return Money("adder", "rate_table", f"{total:.2f}", cell.adder_formula, lines=tuple(_line(l) for l in cell.cost_lines))
 
@@ -118,6 +119,8 @@ def build_findings(
     estimates = estimates or {}
     found: list[tuple[int, int, int, Finding]] = []
     for v_index, vendor in enumerate(tender.vendors):
+        # contract value: {EUR} total headline. UNCERTAIN: assumes headline_price is a contract total in EUR,
+        # not {EUR/bay} (per_unit) and not unconverted {CCY}; LD and liability exposures scale with it.
         value = Decimal(str(vendor.headline_price)) if vendor.headline_price else None
         contract = [{"name": "contract value", "value": f"{value:.2f}" if value else "not found",
                      "source": _where(vendor.headline_citation, "bid headline price")}]
@@ -181,18 +184,28 @@ def _exposures(param, resolution, requirement, contract_value, contract_inputs, 
         need = requirement.get(field_name)
         return (None if need is None else need.value, None if got is None else got[0].value)
 
+    def basis(field_name):
+        # A cap's basis (contract | delayed_portion | unspecified), kept so the shares are compared like for like.
+        got = resolution.governing.get(field_name)
+        need = requirement.get(field_name)
+        return (None if need is None else need.qualifier, None if got is None else got[0].qualifier)
+
     if param.id == "PARAM-10":
         req_rate, off_rate = number("ld_rate")
         req_cap, off_cap = number("ld_cap")
-        weeks = estimates.get("ld_delay_weeks")
-        e = exposure.ld_recovery_shortfall(req_rate, req_cap, off_rate, off_cap, weeks, contract_value)
+        req_basis, off_basis = basis("ld_cap")
+        # rates: D9{%/week}; caps: D9{%} of their basis (contract value unless stated as the delayed portion)
+        weeks = estimates.get("ld_delay_weeks")  # {week}
+        e = exposure.ld_recovery_shortfall(req_rate, req_cap, off_rate, off_cap, weeks, contract_value,
+                                           required_cap_basis=req_basis, offered_cap_basis=off_basis)
         inputs = inputs_of("ld_rate") + inputs_of("ld_cap") + contract_inputs + (
             [{"name": "delay to assume (weeks)", "value": f"{weeks:g}", "source": "buyer-entered estimate"}]
             if weeks is not None else [])
         return [_from_exposure(e, inputs)]
     if param.id == "PARAM-11":
         req, off = number("liability_cap")
-        e = exposure.liability_shortfall(req, off, contract_value)
+        req_basis, off_basis = basis("liability_cap")
+        e = exposure.liability_shortfall(req, off, contract_value, required_basis=req_basis, offered_basis=off_basis)
         return [_from_exposure(e, inputs_of("liability_cap") + contract_inputs)]
     return []
 
@@ -203,6 +216,7 @@ def _schedule_finding(vendor_id, param, resolution, incoterm_resolution, project
         return None
     incoterm = incoterm_resolution.governing.get("incoterm") if incoterm_resolution else None
     basis = schedule.arrival_basis_for_incoterm(incoterm[0].value if incoterm else None)
+    # float_days {day}; no drawing_approval_weeks {week} or transit_days {day} passed, so those paths are manual
     result = schedule.schedule_float(project, lead[0], arrival_basis=basis)
     citations = _citations(lead[1].to_dict(), param.requirement_citation)
     if result.outcome == "float_ok":
@@ -210,8 +224,9 @@ def _schedule_finding(vendor_id, param, resolution, incoterm_resolution, project
     if result.outcome == "manual":
         return Finding(vendor_id, param.id, "schedule_unassessed", "minor",
                        f"Delivery date not checked: {result.reason}", citations, ())
+    # {week} = -{day} / 7{day/week}
     weeks_late = Decimal(-result.float_days) / 7
-    cost = estimates.get("delay_cost_per_week")
+    cost = estimates.get("delay_cost_per_week")  # {EUR/week}
     e = exposure.delay_cost(weeks_late, cost)
     inputs = [{"name": "weeks late", "value": f"{weeks_late:.1f}", "source": "schedule float: " + "; ".join(result.steps)}]
     if cost is not None:

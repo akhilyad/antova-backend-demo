@@ -29,7 +29,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-WINDOW_SECONDS = 60.0
+WINDOW_SECONDS = 60.0  # {s}
 
 
 @dataclass(frozen=True)
@@ -76,12 +76,13 @@ class SlidingWindow:
 
     def hit(self, key: tuple[str, str], limit: int) -> float | None:
         """Count one request. None when allowed, else the seconds until the next one would be."""
-        now = self._clock()
+        now = self._clock()  # {s} monotonic
         with self._lock:
             hits = self._hits.setdefault(key, deque())
             while hits and now - hits[0] >= WINDOW_SECONDS:
                 hits.popleft()
             if len(hits) >= limit:
+                # {s} = max({s}, {s} - ({s} - {s}))
                 return max(1.0, WINDOW_SECONDS - (now - hits[0]))
             hits.append(now)
             if len(self._hits) > 50_000:  # forget idle clients rather than grow without bound
@@ -108,10 +109,11 @@ class RateLimitMiddleware:
         if bucket is None:
             await self.app(scope, receive, send)
             return
-        retry_after = self.window.hit((client_key(Request(scope)), bucket.name), _limit(bucket))
+        retry_after = self.window.hit((client_key(Request(scope)), bucket.name), _limit(bucket))  # {s} | None
         if retry_after is None:
             await self.app(scope, receive, send)
             return
+        # Retry-After {s} integer = int({s} + 0.999), an approximate ceiling
         response = JSONResponse(
             {"detail": "Too many requests. Wait a moment and try again.", "code": "rate_limited"},
             status_code=429,
